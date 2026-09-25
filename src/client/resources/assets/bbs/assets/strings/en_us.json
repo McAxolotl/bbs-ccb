@@ -1,4 +1,8 @@
 {
+	"bbs.ui.film.track_search.placeholder": "Track name or body part…",
+	"bbs.ui.film.track_search.title": "Find track",
+	"bbs.ui.film.track_search.hidden": "hidden",
+	"bbs.ui.film.track_search.empty": "No matching tracks",
 	"bbs.ui.film.replays.tab_number": "Switch to track category %s",
 	"bbs.ui.film.backups.title": "Backups",
 	"bbs.ui.film.backups.empty": "No backups found for this film.",

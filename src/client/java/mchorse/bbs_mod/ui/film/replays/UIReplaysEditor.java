@@ -21,6 +21,9 @@ import mchorse.bbs_mod.film.replays.tracks.TrackCatalog;
 import mchorse.bbs_mod.film.replays.tracks.TrackDescriptor;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
 import mchorse.bbs_mod.film.replays.tracks.TrackStyle;
+import mchorse.bbs_mod.film.replays.tracks.TrackSearchEntry;
+import mchorse.bbs_mod.ui.Keys;
+import mchorse.bbs_mod.ui.film.replays.overlays.UITrackSearchOverlayPanel;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -154,6 +157,8 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
     private final Map<String, FoldState<String>> expandedTracksByReplay = new HashMap<>();
     private final Map<String, String> selectedPartsByReplay = new HashMap<>();
     private String selectedPart = "";
+    private final Map<String, List<String>> recentTrackSearches = new HashMap<>();
+    private TrackSearchEntry revealedSearchTrack;
 
     public static Icon getIcon(String key)
     {
@@ -373,6 +378,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
     private void setCategory(TrackCategory c)
     {
+        this.revealedSearchTrack = null;
         this.setActionsMode(false);
         this.allMode = false;
         this.category = c;
@@ -398,6 +404,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
     /** Show every category's tracks at once, bypassing the category filter. */
     private void setAllTracks()
     {
+        this.revealedSearchTrack = null;
         this.setActionsMode(false);
         this.allMode = true;
         this.updateChannelsList();
@@ -418,6 +425,8 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
     public void setFilm(Film film)
     {
+        this.recentTrackSearches.clear();
+        this.revealedSearchTrack = null;
         this.useActionViewportForNewKeyframes = false;
         this.expandedTracksByReplay.clear();
         this.selectedPartsByReplay.clear();
@@ -477,6 +486,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
         }
 
         this.selectedPart = path;
+        this.revealedSearchTrack = null;
         this.pendingPick = null;
         this.selectedPartsByReplay.put(this.replay.getId(), path);
         this.updateChannelsList();
@@ -503,6 +513,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
         try
         {
             this.pendingPick = null;
+            if (this.replay != replay) this.revealedSearchTrack = null;
             this.replay = replay;
             this.selectedPart = replay == null ? "" : this.selectedPartsByReplay.getOrDefault(replay.getId(), "");
 
@@ -595,8 +606,6 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             this.keys.add(getSheetFilterKey(sheet));
         }
 
-        Set<String> disabled = BBSSettings.disabledSheets.get();
-
         /* The body-part tree already chose the owner; tabs narrow down its properties. */
         sheets.removeIf((v) -> !this.allMode && categoryOf(v) != this.category);
 
@@ -605,26 +614,10 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
         sheets.removeIf((v) ->
         {
-            String filterKey = getSheetFilterKey(v);
+            if (this.revealedSearchTrack != null && this.revealedSearchTrack.key().equals(v.id)
+                && this.revealedSearchTrack.owned() == (getSheetForm(v) != null)) return false;
 
-            for (String s : disabled)
-            {
-                if (filterKey.equals(s) || v.id.equals(s) || v.id.endsWith("/" + s))
-                {
-                    return true;
-                }
-            }
-
-            Form owner = getSheetForm(v);
-
-            if (owner != null)
-            {
-                Set<String> ownerDisabled = owner.disabledTracks.get();
-
-                return ownerDisabled.contains(Form.DISABLED_ALL) || ownerDisabled.contains(filterKey);
-            }
-
-            return false;
+            return isTrackHidden(v.id, getSheetFilterKey(v), getSheetForm(v));
         });
 
         /*
@@ -656,6 +649,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             this.keyframeEditor.view.duration(() -> this.film.camera.calculateDuration());
             this.keyframeEditor.view.context(menu ->
             {
+                menu.action(Icons.SEARCH, Keys.FILM_TRACK_SEARCH.label, this::openTrackSearch);
                 int mouseY = this.getContext().mouseY;
                 UIKeyframeSheet sheet = this.keyframeEditor.view.getGraph().getSheet(mouseY);
 
@@ -769,6 +763,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
                         panel.onClose(e ->
                         {
+                            this.revealedSearchTrack = null;
                             BBSSettings.disabledSheets.set(disabledSet);
                             this.updateChannelsList();
                         });
@@ -801,6 +796,114 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             this.copyTimeViewport(this.actionTimeline.clips, this.keyframeEditor.view);
             this.useActionViewportForNewKeyframes = false;
         }
+    }
+
+    private static boolean isTrackHidden(String id, String filterKey, Form owner)
+    {
+        for (String disabled : BBSSettings.disabledSheets.get())
+        {
+            if (filterKey.equals(disabled) || id.equals(disabled) || id.endsWith("/" + disabled)) return true;
+        }
+        return owner != null && (owner.disabledTracks.get().contains(Form.DISABLED_ALL)
+            || owner.disabledTracks.get().contains(filterKey));
+    }
+
+    public void openTrackSearch()
+    {
+        if (this.replay == null) return;
+
+        Replay source = this.replay;
+        String replayId = source.getId();
+        List<TrackSearchEntry> entries = new ArrayList<>();
+        /* No FormProperties: opening the navigator must not create channels. */
+        List<TrackDescriptor> catalog = TrackCatalog.of(source.form.get());
+        Map<String, String> names = new HashMap<>();
+        for (var part : this.replaysList.bodyParts.getList()) names.put(part.getPath(), part.toString());
+
+        for (TrackDescriptor track : catalog)
+        {
+            String path = track.id().formPath();
+            String location = names.getOrDefault("", "");
+            String prefix = "";
+            if (!path.isEmpty())
+            {
+                for (String segment : path.split("/"))
+                {
+                    prefix = prefix.isEmpty() ? segment : prefix + "/" + segment;
+                    location += " → " + names.getOrDefault(prefix, segment);
+                }
+            }
+            location += " · " + categoryOf(track.id(), true).label.get();
+            entries.add(new TrackSearchEntry(track.key(), path, true,
+                BBSSettings.trackStyles.name(track.filterKey(), track.title().get()), track.title().get(), location,
+                BBSSettings.trackStyles.color(track.filterKey(), track.color()), track.icon(),
+                isTrackHidden(track.key(), track.filterKey(), track.owner())));
+        }
+        for (String key : ReplayKeyframes.CURATED_CHANNELS)
+        {
+            entries.add(new TrackSearchEntry(key, "", false, BBSSettings.trackStyles.name(key, key), key,
+                TrackCategory.REPLAY.label.get() + " · " + L10n.lang("bbs.ui.film.replay.sections." + replaySection(key)).get(),
+                BBSSettings.trackStyles.color(key, getColor(key)), getIcon(key), isTrackHidden(key, key, null)));
+        }
+
+        List<String> recent = this.recentTrackSearches.computeIfAbsent(replayId, id -> new ArrayList<>());
+        UITrackSearchOverlayPanel panel = new UITrackSearchOverlayPanel(entries, this.selectedPart, recent,
+            (entry, createKeyframe) ->
+            {
+                if (this.replay != source) return;
+                if (this.revealTrack(entry, createKeyframe))
+                {
+                    recent.remove(entry.identity());
+                    recent.add(0, entry.identity());
+                    if (recent.size() > 20) recent.remove(recent.size() - 1);
+                }
+            });
+        UIOverlay overlay = UIOverlay.addOverlay(this.getContext(), panel, 420, 338);
+        panel.relative(overlay).xy(0.5F, 0.5F).anchor(0.5F);
+        panel.getFlex().w.max = Math.max(1, overlay.area.w - 12);
+        panel.getFlex().h.max = Math.max(1, overlay.area.h - 12);
+        overlay.resize();
+    }
+
+    private boolean revealTrack(TrackSearchEntry entry, boolean createKeyframe)
+    {
+        this.setActionsMode(false);
+        this.pendingPick = null;
+        this.revealedSearchTrack = entry;
+        if (entry.owned()) this.selectedPart = entry.path();
+        this.allMode = false;
+        this.category = entry.owned() ? categoryOf(TrackId.parse(entry.key()), true) : TrackCategory.REPLAY;
+        this.updateChannelsList();
+        if (this.keyframeEditor == null) return false;
+
+        for (UIKeyframeSheet sheet : this.keyframeEditor.view.getDopeSheet().getSheets())
+        {
+            if (sheet.id.equals(entry.key()) && entry.owned() == (getSheetForm(sheet) != null))
+            {
+                this.keyframeEditor.view.getDopeSheet().revealSheet(sheet);
+                if (createKeyframe)
+                {
+                    var graph = this.keyframeEditor.view.getDopeSheet();
+                    float tick = this.keyframeEditor.view.getPlayheadTick(this.getContext());
+                    float sourceTick = sheet.channel.getSourceTick(tick);
+                    /* Existing keys (including a loop's source key) are selected without rewriting them. */
+                    for (int i = 0; i < sheet.channel.getKeyframes().size(); i++)
+                    {
+                        var keyframe = sheet.channel.get(i);
+                        if (keyframe.getTick() == sourceTick)
+                        {
+                            graph.clearSelection();
+                            sheet.selection.add(i);
+                            graph.pickKeyframe(keyframe);
+                            return true;
+                        }
+                    }
+                    graph.addKeyframeManually(sheet, tick, null);
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     private void collectCuratedSheets(List<UIKeyframeSheet> sheets)
