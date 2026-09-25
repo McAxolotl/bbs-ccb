@@ -260,6 +260,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.keys().register(Keys.LOOPING_SET_MAX, () -> this.cameraEditor.clips.setLoopMax()).active(active).category(looping);
         Supplier<Boolean> hasFilm = () -> active.get() && this.data != null;
 
+        this.keys().register(Keys.FILM_TRACK_SEARCH, this.replayEditor::openTrackSearch)
+            .active(() -> hasFilm.get() && this.replayEditor.isVisible() && this.replayEditor.getReplay() != null).category(editor);
+
         this.keys().register(Keys.MARKER_ADD, this::addMarkerAtCursor).active(hasFilm).category(editor);
         this.keys().register(Keys.MARKER_NEXT, () -> this.setCursor(this.data.markers.findNextTick(this.getCursor()))).active(hasFilm).category(editor);
         this.keys().register(Keys.MARKER_PREV, () -> this.setCursor(this.data.markers.findPreviousTick(this.getCursor()))).active(hasFilm).category(editor);

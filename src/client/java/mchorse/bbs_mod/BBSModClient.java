@@ -574,7 +574,8 @@ public class BBSModClient implements ClientModInitializer
 
         BBSMod.events.post(new RegisterKeybindsEvent());
 
-        BBSMod.setupConfig(Icons.KEY_CAP, "keybinds", new File(BBSMod.getSettingsFolder(), "keybinds.json"), KeybindSettings::register);
+        KeybindSettings.migrateTrackSearchShortcuts(BBSMod.setupConfig(Icons.KEY_CAP, "keybinds",
+            new File(BBSMod.getSettingsFolder(), "keybinds.json"), KeybindSettings::register));
 
         BBSMod.events.post(new RegisterClientSettingsEvent());
 

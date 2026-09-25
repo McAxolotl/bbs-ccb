@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui;
 
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import org.lwjgl.glfw.GLFW;
 
@@ -10,6 +11,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public class Keys
 {
+    public static final KeyCombo FILM_TRACK_SEARCH = new KeyCombo("track_search", L10n.lang("bbs.ui.film.track_search.title"), GLFW.GLFW_KEY_F, GLFW.GLFW_KEY_LEFT_CONTROL).categoryKey("film_controller");
     /* General */
     public static final KeyCombo DESELECT = new KeyCombo("deselect", UIKeys.CAMERA_EDITOR_KEYS_CLIPS_DESELECT, GLFW.GLFW_KEY_D, GLFW.GLFW_KEY_LEFT_CONTROL);
     public static final KeyCombo KEYBINDS = new KeyCombo("keybinds", UIKeys.KEYS_LIST, GLFW.GLFW_KEY_F9);
@@ -129,7 +131,7 @@ public class Keys
     public static final KeyCombo KEYFRAMES_SELECT_NEXT = new KeyCombo("select_next", UIKeys.KEYFRAMES_KEYS_SELECT_NEXT, GLFW.GLFW_KEY_RIGHT_BRACKET).repeatable().categoryKey("keyframes");
     public static final KeyCombo KEYFRAMES_SPREAD = new KeyCombo("spread", UIKeys.KEYFRAMES_CONTEXT_SPREAD, GLFW.GLFW_KEY_B, GLFW.GLFW_KEY_LEFT_ALT).categoryKey("keyframes");
     public static final KeyCombo KEYFRAMES_ADJUST_VALUES = new KeyCombo("adjust_values", UIKeys.KEYFRAMES_CONTEXT_ADJUST_VALUES, GLFW.GLFW_KEY_N, GLFW.GLFW_KEY_LEFT_SHIFT).categoryKey("keyframes");
-    public static final KeyCombo KEYFRAMES_FLIP = new KeyCombo("flip", UIKeys.KEYFRAMES_CONTEXT_FLIP, GLFW.GLFW_KEY_F, GLFW.GLFW_KEY_LEFT_CONTROL).categoryKey("keyframes");
+    public static final KeyCombo KEYFRAMES_FLIP = new KeyCombo("flip", UIKeys.KEYFRAMES_CONTEXT_FLIP, GLFW.GLFW_KEY_F, GLFW.GLFW_KEY_LEFT_ALT).categoryKey("keyframes");
 
     /* World menu */
     public static final KeyCombo CYCLE_PANELS = new KeyCombo("cycle_panels", UIKeys.WORLD_KEYS_CYCLE_PANELS, GLFW.GLFW_KEY_TAB).categoryKey("world");

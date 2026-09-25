@@ -71,6 +71,25 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     /** Which row each sheet is, counted down the visible list — what the striped background alternates on. */
     private Map<UIKeyframeSheet, Integer> sheetRowCache = new HashMap<>();
     private UIKeyframeSheet lastSheet;
+    private UIKeyframeSheet revealedSheet;
+    private long revealUntil;
+
+    /** Navigate without selecting a keyframe or changing the horizontal time viewport. */
+    public void revealSheet(UIKeyframeSheet sheet)
+    {
+        if (!this.sheets.contains(sheet)) return;
+        if (sheet.section != null) this.folds.set(sheet.section.id(), true);
+        for (UIKeyframeSheet parent = sheet.parent; parent != null; parent = parent.parent)
+        {
+            this.folds.set(parent.id, true);
+        }
+        this.updateScrollSize();
+        this.lastSheet = sheet;
+        this.revealedSheet = sheet;
+        this.revealUntil = System.currentTimeMillis() + 1400;
+        int y = this.sheetYCache.getOrDefault(sheet, 0) + TOP_MARGIN;
+        this.dopeSheet.setScroll(y - (this.dopeSheet.area.h - this.getTrackHeight(sheet)) / 2);
+    }
     private final Map<UIKeyframeSheet.Section, Integer> sectionYCache = new LinkedHashMap<>();
 
     /**
@@ -1151,6 +1170,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         int lx = area.x;
 
         RowStyle.row(context.batcher, lx, y, w, height, sheet.color, false, hover, false);
+
+        if (sheet == this.revealedSheet && System.currentTimeMillis() < this.revealUntil)
+        {
+            float alpha = (this.revealUntil - System.currentTimeMillis()) / 1400F * 0.35F;
+            context.batcher.box(lx, y, area.ex(), y + height, Colors.setA(sheet.color, alpha));
+        }
 
         /* A row that has children keeps its own icon and gets a fold arrow next to it. */
         Icon icon = sheet.getIcon();

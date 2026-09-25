@@ -1,6 +1,8 @@
 package mchorse.bbs_mod.ui.utils.keys;
 
 import mchorse.bbs_mod.settings.SettingsBuilder;
+import mchorse.bbs_mod.settings.Settings;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.value.ValueKeyCombo;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
@@ -12,10 +14,29 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.lwjgl.glfw.GLFW;
 
 public class KeybindSettings
 {
     private static final List<KeyCombo> dynamicCombos = new ArrayList<>();
+    private static ValueBoolean trackSearchShortcutsMigrated;
+
+    /** Update former defaults once; later user assignments, including the old combos, stay intact. */
+    public static void migrateTrackSearchShortcuts(Settings settings)
+    {
+        if (trackSearchShortcutsMigrated.get()) return;
+
+        if (Keys.KEYFRAMES_FLIP.keys.equals(List.of(GLFW.GLFW_KEY_F, GLFW.GLFW_KEY_LEFT_CONTROL)))
+        {
+            Keys.KEYFRAMES_FLIP.keys.set(1, GLFW.GLFW_KEY_LEFT_ALT);
+        }
+        if (Keys.FILM_TRACK_SEARCH.keys.equals(List.of(GLFW.GLFW_KEY_P, GLFW.GLFW_KEY_LEFT_CONTROL)))
+        {
+            Keys.FILM_TRACK_SEARCH.keys.set(0, GLFW.GLFW_KEY_F);
+        }
+        trackSearchShortcutsMigrated.set(true);
+        settings.save();
+    }
 
     /** Register individual combos before the settings file is built. */
     public static void register(KeyCombo combo)
@@ -88,6 +109,12 @@ public class KeybindSettings
             List<KeyCombo> comboList = combos.get(key);
 
             builder.category(key, CATEGORY_ICONS.getOrDefault(key, Icons.KEY_CAP));
+
+            if (key.equals("film_controller"))
+            {
+                trackSearchShortcutsMigrated = builder.getBoolean("track_search_shortcuts_migrated", false);
+                trackSearchShortcutsMigrated.invisible();
+            }
 
             for (KeyCombo combo : comboList)
             {

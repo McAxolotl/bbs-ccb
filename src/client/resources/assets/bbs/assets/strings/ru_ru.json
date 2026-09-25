@@ -1,4 +1,8 @@
 {
+	"bbs.ui.film.track_search.placeholder": "Название дорожки или части тела…",
+	"bbs.ui.film.track_search.title": "Найти дорожку",
+	"bbs.ui.film.track_search.hidden": "скрыта",
+	"bbs.ui.film.track_search.empty": "Дорожки не найдены",
 	"bbs.ui.film.replays.tab_number": "Переключить на категорию треков %s",
 	"bbs.ui.film.backups.title": "Бекапы",
 	"bbs.ui.film.backups.empty": "Для этого фильма пока нет бекапов.",
