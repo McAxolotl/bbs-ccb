@@ -82,16 +82,13 @@ public class Batcher2D
      * flushes the pending quads first. The buffer is our own, not the shared Tessellator one,
      * so code that builds on the Tessellator directly can never collide with an open batch.
      *
-     * The buffer is static and shared by every batcher: a BufferBuilder holds native memory the
-     * GC never frees, and batchers are created per frame (HUD, recording overlay), so one buffer
-     * per instance leaked 1.5 MB every frame until an OutOfMemoryError. Batching only happens on
-     * the render thread, so a single buffer is enough; batchOwner is the batcher whose quads are
-     * currently in it, and another batcher flushes those first before taking the buffer over. */
+     * The buffer is shared by all batchers: the HUD creates a new batcher every frame, and a
+     * BufferBuilder's native memory is never freed, so a buffer per batcher leaked 1.5 MB each
+     * time until the game crashed with OutOfMemoryError. Only one batcher holds it at a time -
+     * starting a batch flushes the previous holder first, so the draw order stays the same. */
     private static BufferBuilder batchBuilder;
     private static Batcher2D batchOwner;
-
     private boolean batching;
-    private boolean batchStarted;
 
     public Batcher2D(DrawContext context)
     {
@@ -119,12 +116,11 @@ public class Batcher2D
 
     private void flushBatch()
     {
-        if (!this.batchStarted)
+        if (batchOwner != this)
         {
             return;
         }
 
-        this.batchStarted = false;
         batchOwner = null;
 
         RenderSystem.enableBlend();
@@ -230,7 +226,7 @@ public class Batcher2D
          * contexts share one batch safely. */
         if (this.batching)
         {
-            if (!this.batchStarted)
+            if (batchOwner != this)
             {
                 if (batchOwner != null)
                 {
@@ -243,7 +239,6 @@ public class Batcher2D
                 }
 
                 batchBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-                this.batchStarted = true;
                 batchOwner = this;
             }
 
