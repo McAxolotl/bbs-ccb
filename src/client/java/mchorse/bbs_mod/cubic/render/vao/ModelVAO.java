@@ -9,6 +9,7 @@ public class ModelVAO implements IModelVAO
 {
     private int vao;
     private int vao2;
+    private int[] buffers;
     private int count;
 
     public ModelVAO(ModelVAOData data)
@@ -24,6 +25,9 @@ public class ModelVAO implements IModelVAO
     {
         GL30.glDeleteVertexArrays(this.vao);
         GL30.glDeleteVertexArrays(this.vao2);
+        /* Deleting a VAO doesn't delete the buffers it points at - without this every
+         * model reload left its whole geometry in video memory */
+        GL30.glDeleteBuffers(this.buffers);
     }
 
     public void upload(ModelVAOData data)
@@ -38,6 +42,8 @@ public class ModelVAO implements IModelVAO
         int tangentsBuffer = GL30.glGenBuffers();
         int texCoordBuffer = GL30.glGenBuffers();
         int midTexCoordBuffer = GL30.glGenBuffers();
+
+        this.buffers = new int[] {vertexBuffer, normalBuffer, tangentsBuffer, texCoordBuffer, midTexCoordBuffer};
 
         GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, vertexBuffer);
         GL30.glBufferData(GL30.GL_ARRAY_BUFFER, data.vertices(), GL30.GL_STATIC_DRAW);

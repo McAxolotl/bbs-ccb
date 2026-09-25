@@ -80,10 +80,15 @@ public class Batcher2D
      * endBatch() - instead of a begin/setShader/draw/flush per rectangle. Order stays exact
      * because only homogeneous solid quads batch: every other primitive (textures, text, clip)
      * flushes the pending quads first. The buffer is our own, not the shared Tessellator one,
-     * so code that builds on the Tessellator directly can never collide with an open batch. */
-    private BufferBuilder batchBuilder;
+     * so code that builds on the Tessellator directly can never collide with an open batch.
+     *
+     * The buffer is shared by all batchers: the HUD creates a new batcher every frame, and a
+     * BufferBuilder's native memory is never freed, so a buffer per batcher leaked 1.5 MB each
+     * time until the game crashed with OutOfMemoryError. Only one batcher holds it at a time -
+     * starting a batch flushes the previous holder first, so the draw order stays the same. */
+    private static BufferBuilder batchBuilder;
+    private static Batcher2D batchOwner;
     private boolean batching;
-    private boolean batchStarted;
 
     public Batcher2D(DrawContext context)
     {
@@ -111,17 +116,17 @@ public class Batcher2D
 
     private void flushBatch()
     {
-        if (!this.batchStarted)
+        if (batchOwner != this)
         {
             return;
         }
 
-        this.batchStarted = false;
+        batchOwner = null;
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BBSProfiler.count(BBSProfiler.Section.UI_DRAW_CALLS);
-        BufferRenderer.drawWithGlobalProgram(this.batchBuilder.end());
+        BufferRenderer.drawWithGlobalProgram(batchBuilder.end());
 
         this.context.draw();
     }
@@ -221,18 +226,23 @@ public class Batcher2D
          * contexts share one batch safely. */
         if (this.batching)
         {
-            if (!this.batchStarted)
+            if (batchOwner != this)
             {
-                if (this.batchBuilder == null)
+                if (batchOwner != null)
                 {
-                    this.batchBuilder = new BufferBuilder(262144);
+                    batchOwner.flushBatch();
                 }
 
-                this.batchBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-                this.batchStarted = true;
+                if (batchBuilder == null)
+                {
+                    batchBuilder = new BufferBuilder(262144);
+                }
+
+                batchBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+                batchOwner = this;
             }
 
-            this.fillRect(this.batchBuilder, matrix4f, x, y, w, h, color1, color2, color3, color4);
+            this.fillRect(batchBuilder, matrix4f, x, y, w, h, color1, color2, color3, color4);
 
             return;
         }
