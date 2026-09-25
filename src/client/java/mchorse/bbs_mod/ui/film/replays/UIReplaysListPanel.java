@@ -99,7 +99,7 @@ public class UIReplaysListPanel extends UIElement
     @Override
     public void resize()
     {
-        boolean visible = this.bodyPartsReplay != null;
+        boolean visible = this.bodyPartsReplay != null && this.bodyParts.getList().size() > 1;
         int rowsHeight = this.bodyParts.getList().size() * this.bodyParts.scroll.scrollItemSize;
         int maxHeight = Math.min(160, this.getFlex().getH() / 2);
 

@@ -227,7 +227,6 @@ public class UIAnimationStateEditor extends UIElement
         }
 
         this.state = state;
-        this.bodyPartsSection.setVisible(state != null);
 
         if (this.root != this.editor.form)
         {
@@ -476,6 +475,7 @@ public class UIAnimationStateEditor extends UIElement
     {
         int maxHeight = Math.min(160, this.getFlex().getH() / 2);
 
+        this.bodyPartsSection.setVisible(this.state != null && this.bodyParts.getList().size() > 1);
         this.bodyParts.h(Math.max(1, Math.min(this.bodyParts.getList().size() * this.bodyParts.scroll.scrollItemSize,
             maxHeight)));
         this.editArea.hTo(this.bodyPartsSection.isVisible() ? this.bodyPartsSection.area : this.sidebar.area,
