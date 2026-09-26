@@ -10,8 +10,11 @@ import java.util.Stack;
 
 public class MultiLinkThread implements Runnable
 {
-    private static MultiLinkThread instance;
+    private static volatile MultiLinkThread instance;
     private static Thread thread;
+    private static volatile long generation;
+
+    private final long requestedGeneration = generation;
 
     public Stack<MultiLink> links = new Stack<>();
 
@@ -66,8 +69,9 @@ public class MultiLinkThread implements Runnable
         }
     }
 
-    public static void clear()
+    public static synchronized void clear()
     {
+        generation += 1;
         instance = null;
     }
 
@@ -84,7 +88,7 @@ public class MultiLinkThread implements Runnable
     @Override
     public void run()
     {
-        while (!this.links.isEmpty() && instance != null)
+        while (!this.links.isEmpty() && instance == this)
         {
             MultiLink location = this.links.peek();
 
@@ -96,6 +100,13 @@ public class MultiLinkThread implements Runnable
 
                 MinecraftClient.getInstance().execute(() ->
                 {
+                    if (this.requestedGeneration != generation)
+                    {
+                        pixels.delete();
+
+                        return;
+                    }
+
                     Texture newTexture = BBSModClient.getTextures().createTexture(location);
 
                     newTexture.bind();
@@ -113,7 +124,13 @@ public class MultiLinkThread implements Runnable
             }
         }
 
-        instance = null;
-        thread = null;
+        synchronized (MultiLinkThread.class)
+        {
+            if (instance == this)
+            {
+                instance = null;
+                thread = null;
+            }
+        }
     }
 }

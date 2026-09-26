@@ -12,6 +12,8 @@ import mchorse.bbs_mod.utils.interps.Interpolations;
 
 public class UIKeys
 {
+    public static final IKey WORLD_ASSETS_ERROR = L10n.lang("bbs.ui.world_assets.error");
+
     public static final IKey ACTIONS_ATTACK_DAMAGE = L10n.lang("bbs.ui.actions.attack.damage");
     public static final IKey ACTIONS_BLOCK_DIRECTION = L10n.lang("bbs.ui.actions.block.direction");
     public static final IKey ACTIONS_BLOCK_DIRECTION_DOWN = L10n.lang("bbs.ui.actions.block.direction.down");

@@ -512,14 +512,6 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
 
     private String findDownloadedSoundInAddMode(String displayName)
     {
-        File gameDir = BBSMod.getGameFolder();
-        File audioDir = new File(gameDir, "config/bbs/assets/audio");
-
-        if (!audioDir.exists() || !audioDir.isDirectory())
-        {
-            return null;
-        }
-
         String originalName = displayName;
 
         if (originalName.startsWith("Music: ") || originalName.startsWith("Sound: "))
@@ -527,7 +519,7 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
             originalName = originalName.substring(7);
         }
 
-        File exactMatch = new File(audioDir, originalName + ".ogg");
+        File exactMatch = BBSMod.getProvider().getFile(Link.assets("audio/" + originalName + ".ogg"));
 
         if (exactMatch.exists())
         {
@@ -536,7 +528,7 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
 
         for (int suffix = 1; suffix < 100; suffix++)
         {
-            File file = new File(audioDir, originalName + "_" + suffix + ".ogg");
+            File file = BBSMod.getProvider().getFile(Link.assets("audio/" + originalName + "_" + suffix + ".ogg"));
 
             if (file.exists())
             {
@@ -587,8 +579,8 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         String oldFileName = oldName.replace("assets:audio/", "").replace(".ogg", "");
         String newFileName = newName.replace("assets:audio/", "").replace(".ogg", "");
 
-        File oldFile = new File(BBSMod.getAssetsFolder(), "audio/" + oldFileName + ".ogg");
-        File newFile = new File(BBSMod.getAssetsFolder(), "audio/" + newFileName + ".ogg");
+        File oldFile = BBSMod.getProvider().getFile(Link.assets("audio/" + oldFileName + ".ogg"));
+        File newFile = new File(oldFile.getParentFile(), new File(newFileName).getName() + ".ogg");
 
         if (newFile.exists())
         {
@@ -622,7 +614,7 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         }
 
         String fileName = soundName.replace("assets:audio/", "").replace(".ogg", "");
-        File audioFile = new File(BBSMod.getAssetsFolder(), "audio/" + fileName + ".ogg");
+        File audioFile = BBSMod.getProvider().getFile(Link.assets("audio/" + fileName + ".ogg"));
 
         if (audioFile.exists() && audioFile.delete())
         {

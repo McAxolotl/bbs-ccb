@@ -2,6 +2,8 @@ package mchorse.bbs_mod.ui.framework.elements.input.list;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.audio.AudioCacheManager;
 import mchorse.bbs_mod.audio.SoundLikeManager;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -10,7 +12,6 @@ import mchorse.bbs_mod.ui.framework.elements.utils.RowStyle;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.IOUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -507,14 +508,6 @@ public class UIVanillaSoundList extends UIStringList
         {
             String originalName = this.removePrefix(displayName);
 
-            File gameDir = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().toFile();
-            File audioDir = new File(gameDir, "config/bbs/assets/audio");
-
-            if (!audioDir.exists() || !audioDir.isDirectory())
-            {
-                return null;
-            }
-            
             String flatFileName = originalName;
 
             if (!flatFileName.endsWith(".ogg"))
@@ -522,7 +515,7 @@ public class UIVanillaSoundList extends UIStringList
                 flatFileName += ".ogg";
             }
 
-            File exactMatch = new File(audioDir, flatFileName);
+            File exactMatch = BBSMod.getProvider().getFile(Link.assets("audio/" + flatFileName));
             
             if (exactMatch.exists())
             {
@@ -640,8 +633,7 @@ public class UIVanillaSoundList extends UIStringList
     {
         try
         {
-            File gameDir = FabricLoader.getInstance().getGameDir().toFile();
-            File audioDir = new File(gameDir, "config/bbs/assets/audio");
+            File audioDir = BBSMod.getAudioFolder();
             
             if (!audioDir.exists())
             {

@@ -165,7 +165,7 @@ public class ModelManager implements IWatchDogListener
         return null;
     }
 
-    public ModelInstance loadModel(String id)
+    public synchronized ModelInstance loadModel(String id)
     {
         ModelInstance model = null;
         Link modelLink = Link.assets(MODELS_PREFIX + id);
@@ -371,8 +371,11 @@ public class ModelManager implements IWatchDogListener
         return data == null ? new MapType(false) : data;
     }
 
-    public void reload()
+    public synchronized void reload()
     {
+        this.loader.clear();
+        ModelSetupQueue.clear();
+
         for (ModelInstance model : this.models.values())
         {
             if (model != null)
@@ -447,7 +450,11 @@ public class ModelManager implements IWatchDogListener
          * which is what made a rejoin the only way to see it change. */
         this.forget(modelPath);
 
-        for (String key : new ArrayList<>(this.models.keySet()))
+        /* Include failed and pending requests when a whole folder was added/replaced. */
+        Set<String> affected = new HashSet<>(this.models.keySet());
+        affected.addAll(this.requested);
+
+        for (String key : affected)
         {
             if (key.startsWith(modelPath + "/"))
             {
@@ -483,7 +490,7 @@ public class ModelManager implements IWatchDogListener
     }
 
     /** Drop a model from the cache so the next request loads it from disk again. */
-    private void forget(String key)
+    private synchronized void forget(String key)
     {
         if (key.isEmpty())
         {

@@ -1,9 +1,7 @@
 package mchorse.bbs_mod.ui.forms.categories;
 
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.data.DataStringifier;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormCategories;
@@ -182,7 +180,7 @@ public class UIFormCategory extends UIItemGrid<Form>
         {
             menu.action(Icons.FOLDER, UIKeys.FORMS_CATEGORIES_CONTEXT_OPEN_MODEL_FOLDER, () ->
             {
-                UIUtils.openFolder(BBSMod.getAssetsPath(ModelManager.MODELS_PREFIX + modelForm.model.get() + "/"));
+                UIUtils.openModelFolder(modelForm.model.get());
             });
 
             this.openModelEditorAction(menu, modelForm);

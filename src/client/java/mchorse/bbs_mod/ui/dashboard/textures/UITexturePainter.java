@@ -597,7 +597,7 @@ public class UITexturePainter extends UIElement
         }
 
         Link link = editor.getTexture();
-        File mcmeta = link != null && Link.isAssets(link) ? TextureAnimation.file(BBSMod.getAssetsPath(link.path)) : null;
+        File mcmeta = link != null && Link.isAssets(link) ? TextureAnimation.file(BBSMod.getProvider().getFile(link)) : null;
 
         if (mcmeta != null && mcmeta.isFile())
         {
@@ -908,9 +908,10 @@ public class UITexturePainter extends UIElement
      */
     private Document loadProject(Link link)
     {
-        File datFile = Document.datFile(BBSMod.getAssetsPath(link.path));
+        File source = BBSMod.getProvider().getFile(link);
+        File datFile = source == null ? null : Document.datFile(source);
 
-        if (datFile.isFile())
+        if (datFile != null && datFile.isFile())
         {
             Document document = Document.read(link, datFile);
 

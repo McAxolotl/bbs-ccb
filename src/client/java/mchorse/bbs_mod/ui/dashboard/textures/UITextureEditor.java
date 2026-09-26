@@ -790,7 +790,7 @@ public class UITextureEditor extends UIPixelsEditor
             return null;
         }
 
-        File file = BBSMod.getAssetsPath(link.path);
+        File file = BBSMod.getProvider().getFile(link);
 
         if (link.path.contains("/"))
         {

@@ -26,6 +26,12 @@ public class ModelSetupQueue
         QUEUE.add(task);
     }
 
+    /** Discard bakes belonging to models which are about to be unloaded. */
+    public static void clear()
+    {
+        QUEUE.clear();
+    }
+
     /** Called once per frame from the render begin hook, on the render thread. */
     public static void drain()
     {

@@ -14,7 +14,10 @@ import java.util.concurrent.LinkedBlockingDeque;
 public class ModelLoader
 {
     private final ModelManager manager;
-    private final LinkedBlockingDeque<String> queue = new LinkedBlockingDeque<>();
+    private final LinkedBlockingDeque<Request> queue = new LinkedBlockingDeque<>();
+    private volatile long generation;
+
+    private record Request(String key, long generation) {}
 
     private Thread thread;
 
@@ -32,14 +35,20 @@ public class ModelLoader
             this.thread.start();
         }
 
-        this.queue.offerFirst(key);
+        this.queue.offerFirst(new Request(key, this.generation));
+    }
+
+    public synchronized void clear()
+    {
+        this.generation += 1;
+        this.queue.clear();
     }
 
     private void work()
     {
         while (true)
         {
-            String model;
+            Request model;
 
             try
             {
@@ -52,7 +61,13 @@ public class ModelLoader
 
             try
             {
-                this.manager.loadModel(model);
+                synchronized (this.manager)
+                {
+                    if (model.generation() == this.generation)
+                    {
+                        this.manager.loadModel(model.key());
+                    }
+                }
             }
             catch (Exception e)
             {
