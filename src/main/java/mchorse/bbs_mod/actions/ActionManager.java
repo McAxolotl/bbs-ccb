@@ -295,29 +295,40 @@ public class ActionManager
         }
     }
 
-    public void changedBlock(BlockPos pos, BlockState state, BlockEntity blockEntity)
+    /**
+     * Record a block change in the snapshot of the world it happened in. Each world keeps its
+     * own snapshot, and a change made in one of them must never be restored in another at the
+     * same coordinates - recording across a portal used to do exactly that.
+     */
+    public void changedBlock(ServerWorld world, BlockPos pos, BlockState state, BlockEntity blockEntity)
     {
-        for (DamageControl control : this.dc.values())
+        DamageControl control = this.dc.get(world);
+
+        if (control != null)
         {
             control.addBlock(pos, state, blockEntity);
         }
     }
 
     /**
-     * Take a region out of every snapshot. Block changes go into all of them (see
-     * {@link #changedBlock}), so a region only stays gone if it leaves all of them too.
+     * Take a region out of the given world's snapshot. The structure cut empties blocks on
+     * purpose, and only the snapshot of the world it was made in would put them back.
      */
-    public void forgetBlocks(BlockPos min, BlockPos max)
+    public void forgetBlocks(ServerWorld world, BlockPos min, BlockPos max)
     {
-        for (DamageControl control : this.dc.values())
+        DamageControl control = this.dc.get(world);
+
+        if (control != null)
         {
             control.forget(min, max);
         }
     }
 
-    public void spawnedEntity(Entity entity)
+    public void spawnedEntity(ServerWorld world, Entity entity)
     {
-        for (DamageControl control : this.dc.values())
+        DamageControl control = this.dc.get(world);
+
+        if (control != null)
         {
             control.addEntity(entity);
         }

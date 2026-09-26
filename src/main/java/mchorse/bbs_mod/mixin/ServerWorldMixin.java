@@ -40,6 +40,8 @@ public class ServerWorldMixin
     @Inject(method = "spawnEntity", at = @At("HEAD"))
     public void onSpawnEntity(Entity entity, CallbackInfoReturnable<Boolean> info)
     {
-        BBSMod.getActions().spawnedEntity(entity);
+        ServerWorld serverWorld = (ServerWorld) (Object) this;
+
+        BBSMod.getActions().spawnedEntity(serverWorld, entity);
     }
 }

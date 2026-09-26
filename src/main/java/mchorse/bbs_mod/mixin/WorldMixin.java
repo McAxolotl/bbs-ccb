@@ -29,7 +29,7 @@ public class WorldMixin
                 return;
             }
 
-            actions.changedBlock(pos, world.getBlockState(pos), world.getBlockEntity(pos));
+            actions.changedBlock(world, pos, world.getBlockState(pos), world.getBlockEntity(pos));
         }
     }
 }
