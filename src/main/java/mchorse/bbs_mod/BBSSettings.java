@@ -346,10 +346,10 @@ public class BBSSettings {
 		return row % 2 == 0 ? deepSurface() : baseSurface();
 	}
 
-	/** The darkest tonal surface shades the area outside the film at 75% transparency. */
+	/** The darkest tonal surface shades the area outside the film at 25% transparency. */
 	public static int timelineOutsideOverlay()
 	{
-		return Colors.setA(sunkenSurface(), 0.25F);
+		return Colors.setA(sunkenSurface(), 0.75F);
 	}
 
 	/**
