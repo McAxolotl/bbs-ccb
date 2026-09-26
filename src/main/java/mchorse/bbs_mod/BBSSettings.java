@@ -88,6 +88,7 @@ public class BBSSettings {
 	public static ValueBoolean poseMirrorEdit;
 	public static ValueBoolean poseAlternateInvert;
 	public static ValueBoolean poseShowDisabledBones;
+	public static ValueBoolean simpleKeyboardTransform;
 	public static ValueOrder translateHotkeyOrder;
 	public static ValueOrder scaleHotkeyOrder;
 	public static ValueOrder rotateHotkeyOrder;
@@ -762,6 +763,7 @@ public class BBSSettings {
 		poseAlternateInvert = builder.getBoolean("pose_alternate_invert", false);
 		poseAlternateInvert.invisible();
 		poseShowDisabledBones = builder.getBoolean("pose_show_disabled_bones", false);
+		simpleKeyboardTransform = builder.getBoolean("simple_keyboard_transform", false);
 		translateHotkeyOrder = new ValueOrder("translate_hotkey_order", "screen", "x", "y", "z");
 		builder.register(translateHotkeyOrder);
 		scaleHotkeyOrder = new ValueOrder("scale_hotkey_order", "all", "x", "y", "z");

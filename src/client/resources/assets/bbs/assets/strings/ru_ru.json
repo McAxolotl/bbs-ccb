@@ -157,6 +157,8 @@
 	"bbs.config.transformation.gizmo_hover_tolerance-comment": "На сколько пикселей рядом с ручкой гизмо (линией, кольцом, плейном) курсор всё ещё её захватывает — побеждает ближайшая ручка в этом радиусе. 0 требует точного попадания",
 	"bbs.config.transformation.gizmo_opacity": "Непрозрачность гизмо",
 	"bbs.config.transformation.gizmo_opacity-comment": "Насколько непрозрачно рисуется гизмо — снизь, чтобы видеть модель сквозь ручки. 1 — полностью непрозрачно",
+	"bbs.config.transformation.simple_keyboard_transform": "Простая трансформация с клавиатуры",
+	"bbs.config.transformation.simple_keyboard_transform-comment": "При запуске трансформации горячей клавишей движение мыши влево-вправо напрямую изменяет значение выбранной оси. Не зависит от ориентации гизмо. Пространственные режимы пропускаются; захват гизмо мышью работает как обычно",
 	"bbs.config.transformation.rotate_hotkey_order": "Очередь режимов вращения",
 	"bbs.config.transformation.rotate_hotkey_order-comment": "Порядок, в котором повторные нажатия клавиши вращения перебирают режимы: кольцо взгляда, 3D-сфера и кольца осей. Перетаскивай плашки, чтобы изменить порядок; правый клик — сбросить",
 	"bbs.config.transformation.scale_hotkey_order": "Очередь режимов размера",

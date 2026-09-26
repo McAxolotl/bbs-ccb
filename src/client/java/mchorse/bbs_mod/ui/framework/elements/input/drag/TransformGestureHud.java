@@ -171,10 +171,10 @@ public class TransformGestureHud
         return Colors.A100 | Colors.BLUE;
     }
 
-    /** Space chip; scale ignores the space toggle, so it gets none. */
+    /** Direct channel edits and scale ignore the space toggle, so they get no chip. */
     private static String spaceLabel(TransformGesture gesture)
     {
-        if (gesture.getOp() == TransformOp.SCALE)
+        if (gesture.getOp() == TransformOp.SCALE || gesture.isSimpleKeyboardTransform())
         {
             return null;
         }

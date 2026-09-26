@@ -159,6 +159,8 @@
 	"bbs.config.transformation.gizmo_hover_tolerance-comment": "How many pixels away from a gizmo handle (line, ring, plane) the cursor still grabs it — the nearest handle within this radius wins. 0 requires an exact hit",
 	"bbs.config.transformation.gizmo_opacity": "Gizmo opacity",
 	"bbs.config.transformation.gizmo_opacity-comment": "How opaque the gizmo draws — lower it to see the model through the handles. 1 is fully opaque",
+	"bbs.config.transformation.simple_keyboard_transform": "Simple keyboard transformation",
+	"bbs.config.transformation.simple_keyboard_transform-comment": "When a transformation starts with a hotkey, moving the mouse left or right directly changes the selected axis value, regardless of gizmo orientation. Spatial modes are skipped; dragging gizmo handles with the mouse works as usual",
 	"bbs.config.transformation.rotate_hotkey_order": "Rotation key cycle",
 	"bbs.config.transformation.rotate_hotkey_order-comment": "The order in which repeated presses of the rotation key walk the modes: the view ring, the 3D sphere and the axis rings. Drag the chips to rearrange, right click to reset",
 	"bbs.config.transformation.scale_hotkey_order": "Scale key cycle",

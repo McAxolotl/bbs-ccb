@@ -32,6 +32,16 @@ public final class DragStrategyFactory
 
     public static DragStrategy create(DragContext ctx, TransformOp op, Axis axis, Axis axis2, Variant variant)
     {
+        return create(ctx, op, axis, axis2, variant, false);
+    }
+
+    public static DragStrategy create(DragContext ctx, TransformOp op, Axis axis, Axis axis2, Variant variant, boolean directChannels)
+    {
+        if (directChannels)
+        {
+            return new AdditiveDrag(ctx, op, axis, axis2, variant == Variant.UNIFORM_SCALE, true);
+        }
+
         boolean rayAllowed = ctx.drag() != null;
 
         switch (variant)
