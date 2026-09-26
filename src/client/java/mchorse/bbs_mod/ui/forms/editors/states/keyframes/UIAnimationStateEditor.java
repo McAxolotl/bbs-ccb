@@ -341,9 +341,6 @@ public class UIAnimationStateEditor extends UIElement
                     this.setState(this.state);
                 });
 
-                menu.action(Icons.KEY, UIKeys.FILM_AUTO_KEYFRAME, BBSSettings.autoKeyframe.get(),
-                    () -> BBSSettings.autoKeyframe.set(!BBSSettings.autoKeyframe.get()));
-
                 IPosedForm posedForm = sheet == null ? null : sheet.getPosedForm();
                 if (posedForm != null && sheet.selection.hasAny() && posedForm.hasBoneTracks())
                 {

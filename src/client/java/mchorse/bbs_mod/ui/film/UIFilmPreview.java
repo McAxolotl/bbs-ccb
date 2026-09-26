@@ -79,6 +79,7 @@ public class UIFilmPreview extends UIElement
     public UIIcon flight;
     public UIIcon control;
     public UIIcon perspective;
+    public UIIcon autoKeyframe;
     public UIIcon recordReplay;
     public UIIcon recordVideo;
 
@@ -185,13 +186,14 @@ public class UIFilmPreview extends UIElement
                 menu.action(Icons.FRUSTUM, UIKeys.FILM_CONTROLLER_KEYS_TOGGLE_ORTHO, controller.orbit.isOrtho(), controller.orbit::toggleOrtho);
             }
         });
+        this.autoKeyframe = new UIIcon(Icons.KEY, (b) -> this.toggleAutoKeyframe());
+        this.autoKeyframe.highlight(() -> BBSSettings.autoKeyframe.get(), Direction.BOTTOM);
+        this.autoKeyframe.tooltip(UIKeys.FILM_AUTO_KEYFRAME);
         this.recordReplay = new UIIcon(Icons.SPHERE, (b) -> this.panel.getController().pickRecording());
         this.recordReplay.highlight(() -> this.panel.getController().isRecording(), Direction.BOTTOM);
         this.recordReplay.tooltip(UIKeys.FILM_REPLAY_RECORD);
         this.recordReplay.context((menu) ->
         {
-            menu.action(Icons.KEY, UIKeys.FILM_AUTO_KEYFRAME, BBSSettings.autoKeyframe.get(), this::toggleAutoKeyframe);
-
             menu.action(Icons.DOWNLOAD, UIKeys.FILM_CONTROLLER_KEYS_TOGGLE_INSTANT_KEYFRAMES, this.panel.getController().isInstantKeyframes(), () ->
             {
                 this.panel.getController().toggleInstantKeyframes();
@@ -260,7 +262,7 @@ public class UIFilmPreview extends UIElement
             });
         });
 
-        this.icons.add(this.onionSkin, this.motionPath, this.teleport, this.flight, this.plause, this.control, this.perspective, this.recordReplay, this.recordVideo);
+        this.icons.add(this.onionSkin, this.motionPath, this.teleport, this.flight, this.plause, this.control, this.perspective, this.autoKeyframe, this.recordReplay, this.recordVideo);
         this.add(this.icons);
 
         for (Function<UIFilmPreview, UIElement> factory : OVERLAYS)
@@ -283,7 +285,6 @@ public class UIFilmPreview extends UIElement
     private void toggleAutoKeyframe()
     {
         BBSSettings.autoKeyframe.set(!BBSSettings.autoKeyframe.get());
-        UIUtils.playClick();
     }
 
     public void openOnionSkin()
