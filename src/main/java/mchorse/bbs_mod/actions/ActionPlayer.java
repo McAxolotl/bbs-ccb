@@ -235,6 +235,36 @@ public class ActionPlayer
         this.broadcastActors();
     }
 
+    /** Restore the cast for an editor restart without replacing healthy actors or the player. */
+    public void resetActorsForRestart()
+    {
+        this.tick = 0;
+
+        for (LivingEntity entity : this.actors.values())
+        {
+            if (!(entity instanceof ActorEntity actor))
+            {
+                continue;
+            }
+
+            if (actor.isDead() && !actor.isRemoved())
+            {
+                actor.discard();
+            }
+
+            if (!actor.isRemoved())
+            {
+                actor.setHealth(actor.getMaxHealth());
+                actor.hurtTime = 0;
+                actor.deathTime = 0;
+                actor.timeUntilRegen = 0;
+            }
+        }
+
+        /* Missing/killed shells are recreated; healthy ones keep their network IDs. */
+        this.updateReplayEntities();
+    }
+
     private ActorEntity spawnActor(Replay replay)
     {
         ActorEntity actor = new ActorEntity(BBSMod.ACTOR_ENTITY, this.world);
