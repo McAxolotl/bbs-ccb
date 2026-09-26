@@ -9,6 +9,10 @@
     "block.bbs.chroma_black": "黑色色度方块",
     "block.bbs.chroma_white": "白色色度方块",
     "item.bbs.gun": "BBS 枪",
+    "item.bbs.structure_wand": "结构魔杖",
+    "item.bbs.structure_wand.tooltip.corners": "左 / 右键点击 — 角点 A 和 B",
+    "item.bbs.structure_wand.tooltip.faces": "朝向一面滚动滚轮 — 按住 Alt 滚动 — 移动选框",
+    "item.bbs.structure_wand.tooltip.save": "Alt + 右键点击 — 保存，Alt + 左键点击 — 清除",
     "itemGroup.bbs.main": "BBS mod",
 
     "key.bbs.item_editor": "物品编辑器",
@@ -21,6 +25,7 @@
     "key.bbs.record_replay": "录制当前回放",
     "key.bbs.record_video": "录制视频",
     "key.bbs.teleport": "传送至当前回放",
+    "key.bbs.play_film_and_record": "播放影片并录制",
     "key.bbs.zoom": "瞄准 (BBS 枪)",
     "category.bbs.main": "BBS mod",
 

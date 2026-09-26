@@ -126,6 +126,7 @@ public class TransformGesture implements DragContext
     /** Drag snapshot the active gesture works against (kept for the gizmo's pie preview). */
     private GizmoDrag drag;
     private boolean hotkeyMode;
+    private boolean simpleKeyboardTransform;
 
     /* The axis-key walk (see AxisSpaceCycle): which axis it is on, whether in its plane
      * form (Shift), and how many presses deep. A different axis, or any fresh edit
@@ -166,7 +167,7 @@ public class TransformGesture implements DragContext
 
     public void enableMode(TransformOp op)
     {
-        GizmoDrag drag = this.host.freshHotkeyDrag();
+        GizmoDrag drag = BBSSettings.simpleKeyboardTransform.get() ? null : this.host.freshHotkeyDrag();
         boolean ray = drag != null;
 
         /* G/S/R walk their handles in the *_hotkey_order the user configured, wrapping
@@ -352,7 +353,8 @@ public class TransformGesture implements DragContext
         this.axis = axis;
         this.axis2 = axis2;
         this.hotkeyMode = hotkeyMode;
-        this.drag = drag;
+        this.simpleKeyboardTransform = hotkeyMode && BBSSettings.simpleKeyboardTransform.get();
+        this.drag = this.simpleKeyboardTransform ? null : drag;
 
         /* Every fresh operation starts back in the picker's frame with the walk at zero
          * — G/S/R, a handle pick and the walk's own release all come through here. */
@@ -368,7 +370,7 @@ public class TransformGesture implements DragContext
         this.cache.copy(this.host.getTransform());
         Gizmo.INSTANCE.trackGesture(this);
 
-        this.strategy = DragStrategyFactory.create(this, op, axis, axis2, variant);
+        this.strategy = DragStrategyFactory.create(this, op, axis, axis2, variant, this.simpleKeyboardTransform);
         this.strategy.begin(context.mouseX, context.mouseY);
 
         if (!this.overlay.hasParent())
@@ -391,7 +393,9 @@ public class TransformGesture implements DragContext
         boolean plane = Window.isShiftPressed();
         boolean same = this.editing && axis == this.axisWalkAxis && plane == this.axisWalkPlane;
         int step = same ? this.axisWalkStep + 1 : 0;
-        List<TransformSpace> spaces = AxisSpaceCycle.spaces(this.getOp(), this.host.pickedSpace());
+        List<TransformSpace> spaces = this.simpleKeyboardTransform
+            ? List.of(this.host.pickedSpace())
+            : AxisSpaceCycle.spaces(this.getOp(), this.host.pickedSpace());
 
         if (step >= spaces.size())
         {
@@ -455,7 +459,7 @@ public class TransformGesture implements DragContext
 
         if (context != null && op != null)
         {
-            this.strategy = DragStrategyFactory.create(this, op, this.axis, this.axis2, DragStrategyFactory.Variant.AXIS);
+            this.strategy = DragStrategyFactory.create(this, op, this.axis, this.axis2, DragStrategyFactory.Variant.AXIS, this.simpleKeyboardTransform);
             this.strategy.begin(context.mouseX, context.mouseY);
         }
 
@@ -541,6 +545,7 @@ public class TransformGesture implements DragContext
         this.editing = false;
         this.axis2 = null;
         this.hotkeyMode = false;
+        this.simpleKeyboardTransform = false;
         this.editSpace = null;
         this.axisWalkAxis = null;
         this.axisWalkStep = 0;
@@ -987,6 +992,11 @@ public class TransformGesture implements DragContext
     public GizmoDrag drag()
     {
         return this.drag;
+    }
+
+    public boolean isSimpleKeyboardTransform()
+    {
+        return this.simpleKeyboardTransform;
     }
 
     @Override

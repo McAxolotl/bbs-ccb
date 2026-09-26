@@ -1914,18 +1914,6 @@ public class UIDockLayout extends UIElement
             }
 
             super.render(context);
-
-            /* After the children so the inset shadow shows even over panels that paint opaquely. */
-            if (this.isFramed() && BBSSettings.interfaceShadows.get())
-            {
-                int fade = Colors.setA(Colors.A100, 0F);
-                Area a = this.area;
-
-                context.batcher.gradientVBox(a.x, a.y, a.ex(), a.y + 4, Colors.A25, fade);
-                context.batcher.gradientVBox(a.x, a.ey() - 4, a.ex(), a.ey(), fade, Colors.A25);
-                context.batcher.gradientHBox(a.x, a.y, a.x + 4, a.ey(), Colors.A25, fade);
-                context.batcher.gradientHBox(a.ex() - 4, a.y, a.ex(), a.ey(), fade, Colors.A25);
-            }
         }
     }
 

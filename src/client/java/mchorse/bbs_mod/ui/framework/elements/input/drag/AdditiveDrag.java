@@ -16,6 +16,7 @@ public class AdditiveDrag extends DragStrategy
 {
     /** Uniform (three-axis) scale: one lever drives every axis. */
     private final boolean scaleAll;
+    private final boolean directChannels;
 
     private int lastX;
 
@@ -30,9 +31,15 @@ public class AdditiveDrag extends DragStrategy
 
     public AdditiveDrag(DragContext ctx, TransformOp op, Axis axis, Axis axis2, boolean scaleAll)
     {
+        this(ctx, op, axis, axis2, scaleAll, false);
+    }
+
+    public AdditiveDrag(DragContext ctx, TransformOp op, Axis axis, Axis axis2, boolean scaleAll, boolean directChannels)
+    {
         super(ctx, op, axis, axis2);
 
         this.scaleAll = scaleAll;
+        this.directChannels = directChannels;
     }
 
     @Override
@@ -105,7 +112,7 @@ public class AdditiveDrag extends DragStrategy
          * the drawn frame is the truth even for additive layers like pose
          * overlays). Fallbacks without a drag snapshot: the analytic local
          * vector for LOCAL, the raw channel lever otherwise. */
-        if (this.op == TransformOp.TRANSLATE)
+        if (this.op == TransformOp.TRANSLATE && !this.directChannels)
         {
             Vector3f offset = this.spaceTranslateOffset(factor * dx, this.axis, this.axis2);
 
@@ -186,6 +193,23 @@ public class AdditiveDrag extends DragStrategy
         }
 
         return transform.translate;
+    }
+
+    @Override
+    protected Vector3f numericTranslateOffset(double value)
+    {
+        if (!this.directChannels)
+        {
+            return super.numericTranslateOffset(value);
+        }
+
+        Vector3f offset = new Vector3f();
+
+        if (this.axis == Axis.X || this.axis2 == Axis.X) offset.x = (float) value;
+        if (this.axis == Axis.Y || this.axis2 == Axis.Y) offset.y = (float) value;
+        if (this.axis == Axis.Z || this.axis2 == Axis.Z) offset.z = (float) value;
+
+        return offset;
     }
 
     @Override

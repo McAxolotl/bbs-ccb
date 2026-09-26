@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film.replays;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.film.replays.tracks.TimelineBodyPartSelection;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -41,17 +42,11 @@ public class UIReplaysListPanel extends UIElement
     private Replay bodyPartsReplay;
     private final UISection bodyPartsSection = new UISection(L10n.lang("bbs.ui.film.replays.body_parts"));
 
-    public UIReplaysListPanel(UIFilmPanel panel, Consumer<List<Replay>> callback, Consumer<Form> formConsumer, Consumer<String> partConsumer)
+    public UIReplaysListPanel(UIFilmPanel panel, Consumer<List<Replay>> callback, Consumer<Form> formConsumer, Consumer<List<UIForms.FormEntry>> partConsumer)
     {
         this.filmPanel = panel;
         this.replays = new UIReplayList(callback, formConsumer, panel);
-        this.bodyParts = new UIForms(list ->
-        {
-            if (!list.isEmpty())
-            {
-                partConsumer.accept(list.get(0).getPath());
-            }
-        });
+        this.bodyParts = new UIForms(partConsumer).timelineSelection();
 
         this.addReplay = new UIIcon(Icons.ADD, (b) -> this.replays.addReplay());
         this.addReplay.tooltip(UIKeys.SCENE_REPLAYS_CONTEXT_ADD);
@@ -78,7 +73,7 @@ public class UIReplaysListPanel extends UIElement
         this.add(this.content);
     }
 
-    public String setBodyPartsReplay(Replay replay, String path)
+    public void setBodyPartsReplay(Replay replay, TimelineBodyPartSelection selection)
     {
         double scroll = this.bodyPartsReplay == replay ? this.bodyParts.scroll.getScroll() : 0;
         this.bodyPartsReplay = replay;
@@ -87,19 +82,19 @@ public class UIReplaysListPanel extends UIElement
         {
             this.bodyParts.clear();
 
-            return "";
+            return;
         }
 
         this.bodyParts.setForm(replay.form.get());
         this.bodyParts.scroll.setScroll(scroll);
 
-        return this.bodyParts.setCurrentPath(path);
+        selection.restore(this.bodyParts);
     }
 
     @Override
     public void resize()
     {
-        boolean visible = this.bodyPartsReplay != null;
+        boolean visible = !TimelineBodyPartSelection.allParts() && this.bodyPartsReplay != null && this.bodyParts.getList().size() > 1;
         int rowsHeight = this.bodyParts.getList().size() * this.bodyParts.scroll.scrollItemSize;
         int maxHeight = Math.min(160, this.getFlex().getH() / 2);
 

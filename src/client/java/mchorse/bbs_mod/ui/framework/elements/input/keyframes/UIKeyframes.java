@@ -727,12 +727,17 @@ public class UIKeyframes extends UITimelineCanvas
 
     public void submitKeyframes()
     {
+        this.submitKeyframes(false);
+    }
+
+    private void submitKeyframes(boolean overwrite)
+    {
         /* Cache selection indices */
         Map<UIKeyframeSheet, Pair<List<Integer>, List<Integer>>> selection = new HashMap<>();
 
         for (UIKeyframeSheet sheet : this.currentGraph.getSheets())
         {
-            List<Integer> last = sheet.sort();
+            List<Integer> last = sheet.sort(overwrite);
 
             selection.put(sheet, new Pair<>(last, new ArrayList<>(sheet.selection.getIndices())));
         }
@@ -1360,7 +1365,7 @@ public class UIKeyframes extends UITimelineCanvas
 
         if (this.dragging > 0)
         {
-            this.submitKeyframes();
+            this.submitKeyframes(true);
             this.currentGraph.pickSelected();
         }
 

@@ -480,6 +480,7 @@ public class ServerNetwork
                      * restart got from dying has to be done in place: blocks the film placed go
                      * away, and the walk below puts back exactly what belongs up to the cursor. */
                     actions.restoreDamage(actionPlayer.getWorld());
+                    actionPlayer.resetActorsForRestart();
                 }
 
                 if (actionPlayer != null)

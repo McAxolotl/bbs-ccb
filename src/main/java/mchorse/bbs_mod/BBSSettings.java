@@ -88,6 +88,7 @@ public class BBSSettings {
 	public static ValueBoolean poseMirrorEdit;
 	public static ValueBoolean poseAlternateInvert;
 	public static ValueBoolean poseShowDisabledBones;
+	public static ValueBoolean simpleKeyboardTransform;
 	public static ValueOrder translateHotkeyOrder;
 	public static ValueOrder scaleHotkeyOrder;
 	public static ValueOrder rotateHotkeyOrder;
@@ -183,6 +184,7 @@ public class BBSSettings {
 	public static ValueBoolean editorRewind;
 	public static ValueBoolean editorStopPlaybackOnScrub;
 	public static ValueBoolean editorSnapToTicks;
+	public static ValueBoolean timelineAllBodyParts;
 	public static ValueBoolean editorRestartOnSeek;
 	public static ValueBoolean editorHorizontalClipEditor;
 	public static ValueBoolean editorMinutesBackup;
@@ -191,6 +193,7 @@ public class BBSSettings {
 	public static ValueKeyframeStyle keyframeDefaultStyle;
 	public static ValueString keyframeDefaultInterpolation;
 	public static ValueBoolean keyframePreview;
+	public static ValueBoolean showMotionShiftHandles;
 	public static ValueInt editorPreviewSizeMode;
 	public static ValueInt editorPreviewCustomWidth;
 	public static ValueInt editorPreviewCustomHeight;
@@ -228,6 +231,7 @@ public class BBSSettings {
 
 	public static ValueBoolean audioWaveformVisibleInPreview;
 	public static ValueBoolean audioWaveformVisibleInKeyframes;
+	public static ValueBoolean audioWaveformDetailed;
 	public static ValueInt audioWaveformDensity;
 	public static ValueFloat audioWaveformWidth;
 	public static ValueInt audioWaveformHeight;
@@ -337,6 +341,18 @@ public class BBSSettings {
 		buildSurfaces();
 
 		return SURFACES[level];
+	}
+
+	/** Alternating rows shared by keyframe and clip timelines. */
+	public static int timelineRowSurface(int row)
+	{
+		return row % 2 == 0 ? deepSurface() : baseSurface();
+	}
+
+	/** The darkest tonal surface shades the area outside the film at 25% transparency. */
+	public static int timelineOutsideOverlay()
+	{
+		return Colors.setA(sunkenSurface(), 0.75F);
 	}
 
 	/**
@@ -749,6 +765,7 @@ public class BBSSettings {
 		poseAlternateInvert = builder.getBoolean("pose_alternate_invert", false);
 		poseAlternateInvert.invisible();
 		poseShowDisabledBones = builder.getBoolean("pose_show_disabled_bones", false);
+		simpleKeyboardTransform = builder.getBoolean("simple_keyboard_transform", false);
 		translateHotkeyOrder = new ValueOrder("translate_hotkey_order", "screen", "x", "y", "z");
 		builder.register(translateHotkeyOrder);
 		scaleHotkeyOrder = new ValueOrder("scale_hotkey_order", "all", "x", "y", "z");
@@ -827,12 +844,14 @@ public class BBSSettings {
 		keyframeDefaultInterpolation = builder.getString("keyframe_default_interpolation", Interpolations.LINEAR.getKey());
 		builder.register(keyframeDefaultStyle = new ValueKeyframeStyle("keyframe_default_style"));
 		keyframePreview = builder.getBoolean("keyframe_preview", true);
+		showMotionShiftHandles = builder.getBoolean("show_motion_shift_handles", true);
 		editorTrackWidth = builder.getInt("track_width", 2, 1, 10).slider();
 		editorSnapToMarkers = builder.getBoolean("snap_to_markers", false);
 		editorSnapToFilmMarkers = builder.getBoolean("snap_to_film_markers", true);
 		editorRewind = builder.getBoolean("rewind", true);
 		editorStopPlaybackOnScrub = builder.getBoolean("stop_playback_on_scrub", false);
 		editorSnapToTicks = builder.getBoolean("snap_to_ticks", true);
+		timelineAllBodyParts = builder.getBoolean("all_body_parts", false);
 		editorRestartOnSeek = builder.getBoolean("restart_on_seek", false);
 		editorHorizontalClipEditor = builder.getBoolean("horizontal_clip_editor", false);
 
@@ -881,6 +900,7 @@ public class BBSSettings {
 		builder.category("audio", Icons.SOUND);
 		audioWaveformVisibleInPreview = builder.getBoolean("waveform_visible_preview", true);
 		audioWaveformVisibleInKeyframes = builder.getBoolean("waveform_visible_keyframes", true);
+		audioWaveformDetailed = builder.getBoolean("waveform_detailed", true);
 		audioWaveformDensity = builder.getInt("waveform_density", 20, 10, 100).slider();
 		audioWaveformWidth = builder.getFloat("waveform_width", 0.8F, 0F, 1F).slider();
 		audioWaveformHeight = builder.getInt("waveform_height", 24, 10, 40).slider();

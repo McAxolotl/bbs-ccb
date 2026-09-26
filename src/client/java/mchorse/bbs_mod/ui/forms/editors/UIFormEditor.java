@@ -116,6 +116,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
     public UIIcon openStates;
     public UIIcon plause;
     public UIIcon shiftDuration;
+    public UIIcon autoKeyframe;
 
     /* Forms sidebar */
     public UIElement forms;
@@ -363,6 +364,11 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
         this.shiftDuration.tooltip(UIKeys.CAMERA_TIMELINE_CONTEXT_SHIFT_DURATION, Direction.LEFT);
         this.shiftDuration.keys().register(Keys.CLIP_SHIFT, () -> this.shiftDuration.clickItself());
 
+        this.autoKeyframe = new UIIcon(Icons.KEY, (b) -> BBSSettings.autoKeyframe.set(!BBSSettings.autoKeyframe.get()));
+        this.autoKeyframe.relative(this.shiftDuration).y(1F);
+        this.autoKeyframe.highlight(() -> BBSSettings.autoKeyframe.get(), Direction.RIGHT);
+        this.autoKeyframe.tooltip(UIKeys.FILM_AUTO_KEYFRAME, Direction.LEFT);
+
         this.renderer = new UIPickableFormRenderer(this);
         this.renderer.full(this);
 
@@ -402,7 +408,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
 
         this.forms.add(background, listSection, this.bodyPartEditor, draggable);
         this.formEditor.add(this.forms);
-        this.statesEditor.add(backgroundStates, this.openStates, this.plause, this.shiftDuration, this.statesKeyframes);
+        this.statesEditor.add(backgroundStates, this.openStates, this.plause, this.shiftDuration, this.autoKeyframe, this.statesKeyframes);
         this.add(this.renderer, this.formEditor, this.statesEditor, this.icons);
         this.add(new UIUndoKeys(this::undo, this::redo).full(this));
 

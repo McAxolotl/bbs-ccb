@@ -17,10 +17,30 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
 
 /** Keyboard-first navigator for the current replay. */
 public class UITrackSearchOverlayPanel extends UIOverlayPanel
 {
+    public static void open(UIContext context, List<TrackSearchEntry> entries, String currentPath,
+        List<String> recent, BiPredicate<TrackSearchEntry, Boolean> navigate)
+    {
+        UITrackSearchOverlayPanel panel = new UITrackSearchOverlayPanel(entries, currentPath, recent, (entry, create) ->
+        {
+            if (navigate.test(entry, create))
+            {
+                recent.remove(entry.identity());
+                recent.add(0, entry.identity());
+                if (recent.size() > 20) recent.remove(recent.size() - 1);
+            }
+        });
+        var overlay = mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay.addOverlay(context, panel, 420, 338);
+        panel.relative(overlay).xy(0.5F, 0.5F).anchor(0.5F);
+        panel.getFlex().w.max = Math.max(1, overlay.area.w - 12);
+        panel.getFlex().h.max = Math.max(1, overlay.area.h - 12);
+        overlay.resize();
+    }
+
     private final UITextbox search;
     private final UIList<TrackSearchEntry> results;
     private final List<TrackSearchEntry> entries;
@@ -80,7 +100,7 @@ public class UITrackSearchOverlayPanel extends UIOverlayPanel
                     context.batcher.icon(entry.icon(), RowStyle.iconColor(lit), x + ROW_PADDING + ICON_SLOT / 2F,
                         y + this.rowHeight() / 2F, 0.5F, 0.5F);
                 }
-                String label = entry.title() + (entry.hidden() ? " · " + L10n.lang("bbs.ui.film.track_search.hidden").get() : "");
+                String label = entry.title();
                 int pathBudget = Math.max(0, width - Math.min(font.getWidth(label), width / 2) - 12);
                 String path = font.limitToWidth(entry.location(), pathBudget);
                 int pathWidth = font.getWidth(path);
