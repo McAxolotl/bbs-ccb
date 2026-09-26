@@ -160,7 +160,7 @@ public class StructureSaver
 
         if (actions != null)
         {
-            actions.forgetBlocks(new BlockPos(minX, minY, minZ), new BlockPos(maxX, maxY, maxZ));
+            actions.forgetBlocks(world, new BlockPos(minX, minY, minZ), new BlockPos(maxX, maxY, maxZ));
         }
 
         return cleared;
