@@ -17,6 +17,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIClickable;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.RowStyle;
 import mchorse.bbs_mod.ui.utils.Area;
@@ -409,6 +410,16 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
                 UIIcon presets = new UIIcon(Icons.FILM, (b) -> b.getContext().replaceContextMenu(panel::addVideoPresets));
 
                 presets.tooltip(UIKeys.GENERAL_PRESETS);
+                presets.wh(16, 16);
+                presets.relative(this).x(1F, -4).y(0.5F, -1).anchor(1F, 0.5F);
+                this.add(presets);
+            }
+            else if (panel.settings.getId().equals("keybinds"))
+            {
+                UIIcon presets = new UIIcon(Icons.KEY_CAP, (b) -> UIOverlay.addOverlay(
+                    b.getContext(), new UIKeybindPresetsOverlayPanel(panel.settings, panel::refresh), 320, 240));
+
+                presets.tooltip(L10n.lang("bbs.ui.config.keybind-presets.title"));
                 presets.wh(16, 16);
                 presets.relative(this).x(1F, -4).y(0.5F, -1).anchor(1F, 0.5F);
                 this.add(presets);
