@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ik.ModelIKRuntime;
 import mchorse.bbs_mod.cubic.physics.ModelPhysicsRuntime;
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -150,8 +151,8 @@ public class TransformGesture implements DragContext
      * lag is the accumulated offset between the two. */
     private final FineCursor fineCursor = new FineCursor();
 
-    /** Full-screen overlay raised while the session runs: LMB accepts, RMB rejects,
-     *  the wheel goes to the live gesture (depth, roll, drag sensitivity). */
+    /** Full-screen overlay raised while the session runs: mouse and modal keyboard
+     *  input reach the gesture before the editors underneath it. */
     private final UIElement overlay = new AcceptRejectOverlay();
 
     public TransformGesture(Host host)
@@ -1106,6 +1107,24 @@ public class TransformGesture implements DragContext
 
     private class AcceptRejectOverlay extends UIElement
     {
+        public AcceptRejectOverlay()
+        {
+            this.keys().register(Keys.TRANSFORMATIONS_X, () -> TransformGesture.this.setAxis(Axis.X))
+                .active(() -> TransformGesture.this.editing);
+            this.keys().register(Keys.TRANSFORMATIONS_Y, () -> TransformGesture.this.setAxis(Axis.Y))
+                .active(() -> TransformGesture.this.editing);
+            this.keys().register(Keys.TRANSFORMATIONS_Z, () -> TransformGesture.this.setAxis(Axis.Z))
+                .active(() -> TransformGesture.this.editing);
+        }
+
+        @Override
+        protected boolean subKeyPressed(UIContext context)
+        {
+            /* Numeric input (including the sphere's numeric axis selector), accept and
+             * cancel must precede both our axis bindings and the timeline's shortcuts. */
+            return TransformGesture.this.keyPressed(context) || super.subKeyPressed(context);
+        }
+
         @Override
         protected boolean subMouseClicked(UIContext context)
         {
