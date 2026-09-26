@@ -212,6 +212,8 @@
 	"bbs.config.workspace.clip_auto_name-comment": "When on: empty clip title shows type or resource name (e.g. audio filename). When off: only your custom title is shown.",
 	"bbs.config.audio.title": "Audio",
 	"bbs.config.audio.tooltip": "Options for in-game audio sync feature",
+	"bbs.config.audio.waveform_detailed": "Detailed audio waveform",
+	"bbs.config.audio.waveform_detailed-comment": "When off, show the simple waveform at the density set below instead of adding detail as the timeline zooms in",
 	"bbs.config.audio.waveform_density": "Waveform density",
 	"bbs.config.audio.waveform_density-comment": "How many pixels of audio waveform should be shown per second",
 	"bbs.config.audio.waveform_filename": "Show audio bar's filename",

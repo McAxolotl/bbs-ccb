@@ -231,6 +231,7 @@ public class BBSSettings {
 
 	public static ValueBoolean audioWaveformVisibleInPreview;
 	public static ValueBoolean audioWaveformVisibleInKeyframes;
+	public static ValueBoolean audioWaveformDetailed;
 	public static ValueInt audioWaveformDensity;
 	public static ValueFloat audioWaveformWidth;
 	public static ValueInt audioWaveformHeight;
@@ -899,6 +900,7 @@ public class BBSSettings {
 		builder.category("audio", Icons.SOUND);
 		audioWaveformVisibleInPreview = builder.getBoolean("waveform_visible_preview", true);
 		audioWaveformVisibleInKeyframes = builder.getBoolean("waveform_visible_keyframes", true);
+		audioWaveformDetailed = builder.getBoolean("waveform_detailed", true);
 		audioWaveformDensity = builder.getInt("waveform_density", 20, 10, 100).slider();
 		audioWaveformWidth = builder.getFloat("waveform_width", 0.8F, 0F, 1F).slider();
 		audioWaveformHeight = builder.getInt("waveform_height", 24, 10, 40).slider();
