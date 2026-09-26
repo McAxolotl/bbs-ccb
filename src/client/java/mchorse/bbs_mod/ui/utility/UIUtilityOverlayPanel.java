@@ -255,6 +255,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
     {
         super.renderBackground(context);
         int x = this.content.area.x + (int) (this.content.area.w * 0.4F);
+        context.batcher.box(this.content.area.x, this.content.area.y, x, this.content.area.ey(), BBSSettings.chromeSurface());
         context.batcher.box(x, this.content.area.y + 10, x + 1, this.content.area.ey() - 10, BBSSettings.dividerColor());
     }
 
