@@ -193,6 +193,7 @@ public class BBSSettings {
 	public static ValueKeyframeStyle keyframeDefaultStyle;
 	public static ValueString keyframeDefaultInterpolation;
 	public static ValueBoolean keyframePreview;
+	public static ValueBoolean showMotionShiftHandles;
 	public static ValueInt editorPreviewSizeMode;
 	public static ValueInt editorPreviewCustomWidth;
 	public static ValueInt editorPreviewCustomHeight;
@@ -842,6 +843,7 @@ public class BBSSettings {
 		keyframeDefaultInterpolation = builder.getString("keyframe_default_interpolation", Interpolations.LINEAR.getKey());
 		builder.register(keyframeDefaultStyle = new ValueKeyframeStyle("keyframe_default_style"));
 		keyframePreview = builder.getBoolean("keyframe_preview", true);
+		showMotionShiftHandles = builder.getBoolean("show_motion_shift_handles", true);
 		editorTrackWidth = builder.getInt("track_width", 2, 1, 10).slider();
 		editorSnapToMarkers = builder.getBoolean("snap_to_markers", false);
 		editorSnapToFilmMarkers = builder.getBoolean("snap_to_film_markers", true);

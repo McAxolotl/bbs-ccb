@@ -192,6 +192,8 @@
 	"bbs.config.timeline.keyframe_default_style.edit": "Изменить...",
 	"bbs.config.timeline.keyframe_preview": "Превью кейфреймов",
 	"bbs.config.timeline.keyframe_preview-comment": "Когда включено, при наведении курсора на кейфрейм показывается окошко с его содержимым — цветом, текстурой, позой формы или значением",
+	"bbs.config.timeline.show_motion_shift_handles": "Показывать ползунки смещения движения",
+	"bbs.config.timeline.show_motion_shift_handles-comment": "Показывает ползунки между кейфреймами для изменения смещения движения. Скрытие не меняет значения и анимацию.",
 	"bbs.config.appearance.trackpad_increments": "Показ трекпадов",
 	"bbs.config.appearance.trackpad_increments-comment": "Включает постоянную видимость кнопок < и > на поле трекпада (которые увеличивают/уменьшают значение трекпада)",
 	"bbs.config.appearance.trackpad_scrolling": "Прокрутка трекпадов",

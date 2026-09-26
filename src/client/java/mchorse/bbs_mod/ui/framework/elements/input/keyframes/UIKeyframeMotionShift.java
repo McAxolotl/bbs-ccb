@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.graphics.line.LineBuilder;
 import mchorse.bbs_mod.graphics.line.SolidColorLineRenderer;
@@ -61,7 +62,7 @@ public class UIKeyframeMotionShift
 
     private Hit hit(UIContext context)
     {
-        if (this.view.isInteracting()
+        if (!BBSSettings.showMotionShiftHandles.get() || this.view.isInteracting()
             || !this.view.graphArea.isInside(context) || context.mouseY < this.view.area.y + IUIKeyframeGraph.TOP_MARGIN
             || Window.isCtrlPressed() || Window.isAltPressed() || Window.isShiftPressed()) return null;
 
@@ -187,6 +188,8 @@ public class UIKeyframeMotionShift
 
     public void render(UIContext context)
     {
+        if (!BBSSettings.showMotionShiftHandles.get()) return;
+
         Hit hovered = this.isDragging() ? this.dragging : this.hit(context);
         int top = this.view.area.y + IUIKeyframeGraph.TOP_MARGIN;
         context.batcher.clip(new Area(this.view.graphArea.x, top, this.view.graphArea.w, this.view.area.ey() - top), context);

@@ -194,6 +194,8 @@
 	"bbs.config.timeline.keyframe_default_style.edit": "Edit...",
 	"bbs.config.timeline.keyframe_preview": "Keyframe hover preview",
 	"bbs.config.timeline.keyframe_preview-comment": "When enabled, resting the mouse on a keyframe shows a small window with what it holds — the colour, the texture, the posed form, or the value",
+	"bbs.config.timeline.show_motion_shift_handles": "Show motion shift handles",
+	"bbs.config.timeline.show_motion_shift_handles-comment": "Show the draggable motion shift handles between keyframes. Hiding them does not change keyframe values or motion.",
 	"bbs.config.appearance.trackpad_increments": "Trackpad increments",
 	"bbs.config.appearance.trackpad_increments-comment": "Enable < and > buttons on the trackpad field (which increment the trackpad value)",
 	"bbs.config.appearance.trackpad_scrolling": "Trackpad scrolling",
