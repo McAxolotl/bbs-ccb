@@ -1812,6 +1812,11 @@ public class UIKeys
     public static final IKey UTILITY_RELOAD_TEXTURES = L10n.lang("studio.ui.utility.reload_textures");
     public static final IKey UTILITY_RESIZE_WINDOW = L10n.lang("studio.ui.utility.resize");
     public static final IKey UTILITY_TITLE = L10n.lang("studio.ui.utility.title");
+    public static final IKey CONFIG_PREVIEW_ICONS = L10n.lang("bbs.config.viewport.preview_icons");
+    public static final IKey FILM_OPEN_SCREENSHOTS = L10n.lang("bbs.ui.film.open_screenshots");
+    public static final IKey FILM_TOGGLE_SHADERS = L10n.lang("bbs.ui.film.toggle_shaders");
+    public static final IKey FILM_SELECT_SHADER = L10n.lang("bbs.ui.film.select_shader");
+
     public static final IKey CONFIG_GIZMO_ELEMENTS = L10n.lang("bbs.config.transformation.gizmo_elements");
     public static final IKey CONFIG_KEYFRAME_STYLE_EDIT = L10n.lang("bbs.config.timeline.keyframe_default_style.edit");
     public static final IKey CONFIG_EDITOR_PREVIEW_MODE_EXPORT = L10n.lang("bbs.config.viewport.preview_size_mode.export");

@@ -29,6 +29,16 @@ public final class IrisShaderPacks
             ? Iris.getIrisConfig().getShaderPackName().orElse("") : "";
     }
 
+    /** Returns false when no pack has been selected yet. Disabling preserves the last pack. */
+    public static boolean toggle() throws IOException
+    {
+        String pack = Iris.getIrisConfig().getShaderPackName().orElse("");
+        if (!current().isEmpty()) select("");
+        else if (!pack.isEmpty()) select(pack);
+        else return false;
+        return true;
+    }
+
     public static void select(String pack) throws IOException
     {
         String previous = Iris.getIrisConfig().getShaderPackName().orElse(null);

@@ -44,6 +44,9 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
+import mchorse.bbs_mod.utils.iris.IrisShaderPacks;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
@@ -82,6 +85,9 @@ public class UIFilmPreview extends UIElement
     public UIIcon autoKeyframe;
     public UIIcon recordReplay;
     public UIIcon recordVideo;
+    public UIIcon shaders;
+
+    private final Map<UIIcon, ValueBoolean> iconSettings = new LinkedHashMap<>();
 
     /** Whether the icon bar is currently shown - see {@link #updateIconsVisibility(UIContext)} */
     private boolean iconsVisible = true;
@@ -201,6 +207,11 @@ public class UIFilmPreview extends UIElement
 
             menu.action(Icons.MOVE_TO, UIKeys.FILM_REPLAY_TELEPORT_TO_PLAYER, () -> this.panel.getController().keyframes.insertPlayerFrame());
         });
+        boolean iris = FabricLoader.getInstance().isModLoaded("iris");
+        this.shaders = new UIIcon(Icons.SUN, (b) -> this.toggleShaders());
+        this.shaders.highlight(BBSRendering::isIrisShadersEnabled, Direction.BOTTOM);
+        this.shaders.tooltip(iris ? UIKeys.FILM_TOGGLE_SHADERS : UIKeys.UTILITY_IRIS_REQUIRED);
+        this.shaders.setEnabled(iris);
         this.recordVideo = new UIIcon(Icons.VIDEO_CAMERA, (b) ->
         {
             if (!this.canExport())
@@ -245,6 +256,7 @@ public class UIFilmPreview extends UIElement
                 });
             });
 
+            menu.action(Icons.FOLDER, UIKeys.FILM_OPEN_SCREENSHOTS, () -> UIUtils.openFolder(BBSModClient.getScreenshotRecorder().getScreenshots()));
             menu.action(Icons.FILM, UIKeys.CAMERA_TOOLTIPS_OPEN_VIDEOS, () -> this.panel.recorder.openMovies());
             menu.action(Icons.GEAR, UIKeys.CAMERA_TOOLTIPS_OPEN_VIDEO_SETTINGS, () ->
             {
@@ -262,7 +274,22 @@ public class UIFilmPreview extends UIElement
             });
         });
 
-        this.icons.add(this.onionSkin, this.motionPath, this.teleport, this.flight, this.plause, this.control, this.perspective, this.autoKeyframe, this.recordReplay, this.recordVideo);
+        this.iconSettings.put(this.onionSkin, BBSSettings.previewIconOnionSkin);
+        this.iconSettings.put(this.motionPath, BBSSettings.previewIconMotionPath);
+        this.iconSettings.put(this.teleport, BBSSettings.previewIconTeleport);
+        this.iconSettings.put(this.flight, BBSSettings.previewIconFlight);
+        this.iconSettings.put(this.plause, BBSSettings.previewIconPlayback);
+        this.iconSettings.put(this.control, BBSSettings.previewIconControl);
+        this.iconSettings.put(this.perspective, BBSSettings.previewIconPerspective);
+        this.iconSettings.put(this.autoKeyframe, BBSSettings.previewIconAutoKeyframe);
+        this.iconSettings.put(this.shaders, BBSSettings.previewIconShaders);
+        this.iconSettings.put(this.recordReplay, BBSSettings.previewIconRecordReplay);
+        this.iconSettings.put(this.recordVideo, BBSSettings.previewIconExport);
+        for (Map.Entry<UIIcon, ValueBoolean> entry : this.iconSettings.entrySet())
+        {
+            entry.getKey().setVisible(entry.getValue().get());
+            this.icons.add(entry.getKey());
+        }
         this.add(this.icons);
 
         for (Function<UIFilmPreview, UIElement> factory : OVERLAYS)
@@ -275,6 +302,24 @@ public class UIFilmPreview extends UIElement
     public static void registerOverlay(Function<UIFilmPreview, UIElement> factory)
     {
         OVERLAYS.add(factory);
+    }
+
+    private void toggleShaders()
+    {
+        if (!FabricLoader.getInstance().isModLoaded("iris")) return;
+
+        try
+        {
+            if (!IrisShaderPacks.toggle())
+            {
+                UIOverlay.addOverlay(this.getContext(), new UIMessageOverlayPanel(UIKeys.FILM_TOGGLE_SHADERS, UIKeys.FILM_SELECT_SHADER));
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            UIOverlay.addOverlay(this.getContext(), new UIMessageOverlayPanel(UIKeys.GENERAL_ERROR, UIKeys.UTILITY_SHADER_ERROR));
+        }
     }
 
     /**
@@ -432,6 +477,18 @@ public class UIFilmPreview extends UIElement
      */
     private void updateIconsVisibility(UIContext context)
     {
+        boolean changed = false;
+        for (Map.Entry<UIIcon, ValueBoolean> entry : this.iconSettings.entrySet())
+        {
+            boolean visible = entry.getValue().get();
+            if (entry.getKey().isVisible() != visible)
+            {
+                entry.getKey().setVisible(visible);
+                changed = true;
+            }
+        }
+        if (changed) this.icons.resize();
+
         if (!BBSSettings.editorPreviewIconsAutoHide.get())
         {
             this.iconsVisible = true;
@@ -441,6 +498,7 @@ public class UIFilmPreview extends UIElement
             this.iconsVisible = this.area.isInside(context.mouseX, context.mouseY);
         }
 
+        this.iconsVisible &= this.icons.getChildren().stream().anyMatch(element -> element.isVisible());
         this.icons.setVisible(this.iconsVisible);
     }
 
@@ -461,8 +519,9 @@ public class UIFilmPreview extends UIElement
             context.batcher.texturedBox(texture.id, Colors.WHITE, area.x, area.y, area.w, area.h, 0, texture.height, texture.width, 0, texture.width, texture.height);
         }
 
+        this.updateIconsVisibility(context);
         this.hud.begin(area);
-        this.hud.reserve(PreviewHud.Anchor.BOTTOM_CENTER, area.ey() - this.icons.area.y);
+        if (this.iconsVisible) this.hud.reserve(PreviewHud.Anchor.BOTTOM_CENTER, area.ey() - this.icons.area.y);
 
         /* The navigation widget claims the bottom left corner before anything else does, so
          * that whatever the editor stacks there later (the stick guide) ends up above it
@@ -548,8 +607,6 @@ public class UIFilmPreview extends UIElement
                 AudioRenderer.renderAll(context.batcher, this.clips, tick, x, area.y + 10, w, h, context.menu.width, context.menu.height);
             }
         }
-
-        this.updateIconsVisibility(context);
 
         if (this.iconsVisible)
         {
