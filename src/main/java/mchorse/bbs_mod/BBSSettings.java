@@ -183,6 +183,7 @@ public class BBSSettings {
 	public static ValueBoolean editorRewind;
 	public static ValueBoolean editorStopPlaybackOnScrub;
 	public static ValueBoolean editorSnapToTicks;
+	public static ValueBoolean timelineAllBodyParts;
 	public static ValueBoolean editorRestartOnSeek;
 	public static ValueBoolean editorHorizontalClipEditor;
 	public static ValueBoolean editorMinutesBackup;
@@ -337,6 +338,18 @@ public class BBSSettings {
 		buildSurfaces();
 
 		return SURFACES[level];
+	}
+
+	/** Alternating rows shared by keyframe and clip timelines. */
+	public static int timelineRowSurface(int row)
+	{
+		return row % 2 == 0 ? deepSurface() : baseSurface();
+	}
+
+	/** The darkest tonal surface shades the area outside the film at 75% transparency. */
+	public static int timelineOutsideOverlay()
+	{
+		return Colors.setA(sunkenSurface(), 0.25F);
 	}
 
 	/**
@@ -833,6 +846,7 @@ public class BBSSettings {
 		editorRewind = builder.getBoolean("rewind", true);
 		editorStopPlaybackOnScrub = builder.getBoolean("stop_playback_on_scrub", false);
 		editorSnapToTicks = builder.getBoolean("snap_to_ticks", true);
+		timelineAllBodyParts = builder.getBoolean("all_body_parts", false);
 		editorRestartOnSeek = builder.getBoolean("restart_on_seek", false);
 		editorHorizontalClipEditor = builder.getBoolean("horizontal_clip_editor", false);
 

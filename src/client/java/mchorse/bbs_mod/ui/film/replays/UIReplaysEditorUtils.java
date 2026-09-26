@@ -20,6 +20,9 @@ import mchorse.bbs_mod.cubic.ik.ModelIKRuntime;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.tracks.TrackDescriptor;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
+import mchorse.bbs_mod.film.replays.tracks.TrackCatalog;
+import mchorse.bbs_mod.film.replays.tracks.TrackSearchEntry;
+import mchorse.bbs_mod.ui.forms.editors.UIForms;
 import mchorse.bbs_mod.film.replays.tracks.TrackKind;
 import mchorse.bbs_mod.film.FilmTarget;
 import mchorse.bbs_mod.film.replays.Replay;
@@ -74,6 +77,80 @@ import java.util.function.Supplier;
 public class UIReplaysEditorUtils
 {
     private static final int BONE_TRACK_HUE_COUNT = 12;
+
+    public static boolean isTrackHidden(String id, String filterKey, Form owner)
+    {
+        for (String disabled : BBSSettings.disabledSheets.get())
+        {
+            if (filterKey.equals(disabled) || id.equals(disabled) || id.endsWith("/" + disabled)) return true;
+        }
+        return owner != null && (owner.disabledTracks.get().contains(Form.DISABLED_ALL)
+            || owner.disabledTracks.get().contains(filterKey));
+    }
+
+    /** Shared read-only search catalog for film and state editors. */
+    public static List<TrackSearchEntry> formSearchEntries(Form root, UIForms parts, boolean animationState)
+    {
+        List<TrackSearchEntry> entries = new ArrayList<>();
+        /* No FormProperties: opening the navigator must not create channels. */
+        List<TrackDescriptor> catalog = TrackCatalog.of(root);
+        Map<String, String> names = new HashMap<>();
+        for (var part : parts.getList()) names.put(part.getPath(), part.toString());
+
+        for (TrackDescriptor track : catalog)
+        {
+            if (animationState && (track.kind().isSolver() || track.key().equals("anchor"))) continue;
+            String path = track.id().formPath();
+            String location = names.getOrDefault("", "");
+            String prefix = "";
+            if (!path.isEmpty())
+            {
+                for (String segment : path.split("/"))
+                {
+                    prefix = prefix.isEmpty() ? segment : prefix + "/" + segment;
+                    location += " → " + names.getOrDefault(prefix, segment);
+                }
+            }
+            location += " · " + UIReplaysEditor.categoryOf(track.id(), true).label.get();
+            entries.add(new TrackSearchEntry(track.key(), path, true,
+                BBSSettings.trackStyles.name(track.filterKey(), track.title().get()), track.title().get(), location,
+                BBSSettings.trackStyles.color(track.filterKey(), track.color()), track.icon(),
+                UIReplaysEditorUtils.isTrackHidden(track.key(), track.filterKey(), track.owner())));
+        }
+        return entries;
+    }
+
+    public static boolean revealSearchTrack(UIKeyframeEditor editor, TrackSearchEntry entry, boolean createKeyframe, UIContext context)
+    {
+        for (UIKeyframeSheet sheet : editor.view.getDopeSheet().getSheets())
+        {
+            if (sheet.id.equals(entry.key()) && entry.owned() == (UIReplaysEditor.getSheetForm(sheet) != null))
+            {
+                editor.view.getDopeSheet().revealSheet(sheet);
+                if (createKeyframe)
+                {
+                    var graph = editor.view.getDopeSheet();
+                    float tick = editor.view.getPlayheadTick(context);
+                    float sourceTick = sheet.channel.getSourceTick(tick);
+                    /* Existing keys (including a loop's source key) are selected without rewriting them. */
+                    for (int i = 0; i < sheet.channel.getKeyframes().size(); i++)
+                    {
+                        var keyframe = sheet.channel.get(i);
+                        if (keyframe.getTick() == sourceTick)
+                        {
+                            graph.clearSelection();
+                            sheet.selection.add(i);
+                            graph.pickKeyframe(keyframe);
+                            return true;
+                        }
+                    }
+                    graph.addKeyframeManually(sheet, tick, null);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
 
     /** Overlay counts are global; both timeline editors use the same creation action. */
     public static void addOverlayTrackAction(ContextMenuManager menu, UIKeyframeSheet sheet, Consumer<TrackId> refresh)

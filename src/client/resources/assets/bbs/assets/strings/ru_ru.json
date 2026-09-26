@@ -1,4 +1,9 @@
 {
+	"bbs.config.timeline.all_body_parts": "Все боди-парты на таймлайне",
+	"bbs.config.timeline.all_body_parts-comment": "Скрывает список боди-партов и показывает дорожки всех частей формы вместе. После выключения возвращается прежний выбор частей. Работает в фильме и состояниях.",
+	"bbs.ui.timeline.select_branch": "Выбрать ветку",
+	"bbs.ui.timeline.selected_parts": "Выбрано частей: %s",
+	"bbs.ui.timeline.all_parts": "Все боди-парты",
 	"bbs.ui.film.track_search.placeholder": "Название дорожки или части тела…",
 	"bbs.ui.film.track_search.title": "Найти дорожку",
 	"bbs.ui.film.track_search.hidden": "скрыта",

@@ -18,11 +18,13 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.IKBake;
 import mchorse.bbs_mod.film.replays.tracks.TrackCatalog;
+import mchorse.bbs_mod.film.replays.tracks.TimelineBodyPartSelection;
 import mchorse.bbs_mod.film.replays.tracks.TrackDescriptor;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
 import mchorse.bbs_mod.film.replays.tracks.TrackStyle;
 import mchorse.bbs_mod.film.replays.tracks.TrackSearchEntry;
 import mchorse.bbs_mod.ui.Keys;
+import mchorse.bbs_mod.ui.forms.editors.UIForms;
 import mchorse.bbs_mod.ui.film.replays.overlays.UITrackSearchOverlayPanel;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
@@ -155,8 +157,9 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
      * state is handed to each new sheet, which folds in it directly rather than keeping a copy.
      */
     private final Map<String, FoldState<String>> expandedTracksByReplay = new HashMap<>();
-    private final Map<String, String> selectedPartsByReplay = new HashMap<>();
-    private String selectedPart = "";
+    private final Map<String, TimelineBodyPartSelection> selectedPartsByReplay = new HashMap<>();
+    private TimelineBodyPartSelection partSelection = new TimelineBodyPartSelection();
+    private boolean allBodyPartsSetting;
     private final Map<String, List<String>> recentTrackSearches = new HashMap<>();
     private TrackSearchEntry revealedSearchTrack;
 
@@ -311,7 +314,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
     {
         this.filmPanel = filmPanel;
         this.replayProperties = new UIReplayPropertiesPanel(filmPanel);
-        this.replaysList = new UIReplaysListPanel(filmPanel, (l) -> this.setReplay(l.isEmpty() ? null : l.get(0), false, OrbitReaction.SWITCH), this.replayProperties.getFormConsumer(), this::selectBodyPart);
+        this.replaysList = new UIReplaysListPanel(filmPanel, (l) -> this.setReplay(l.isEmpty() ? null : l.get(0), false, OrbitReaction.SWITCH), this.replayProperties.getFormConsumer(), this::selectBodyParts);
         this.replayProperties.attachReplayList(this.replaysList.replays);
 
         this.iconBar = new UITimelineCategoryBar(CATEGORY_BAR_WIDTH * 2);
@@ -430,7 +433,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
         this.useActionViewportForNewKeyframes = false;
         this.expandedTracksByReplay.clear();
         this.selectedPartsByReplay.clear();
-        this.replaysList.setBodyPartsReplay(null, "");
+        this.replaysList.setBodyPartsReplay(null, this.partSelection);
         this.film = film;
         this.filmPanel.getController().orbit.reset();
 
@@ -460,15 +463,17 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
     public String getSelectedPartName()
     {
-        for (var entry : this.replaysList.bodyParts.getList())
-        {
-            if (entry.getPath().equals(this.selectedPart))
-            {
-                return entry.toString();
-            }
-        }
+        return this.partSelection.title(this.replaysList.bodyParts);
+    }
 
-        return "-";
+    private void selectBodyParts(List<UIForms.FormEntry> parts)
+    {
+        if (this.replay == null) return;
+        this.partSelection.select(parts, this.replaysList.bodyParts.getActivePath());
+        this.setActionsMode(false);
+        this.revealedSearchTrack = null;
+        this.pendingPick = null;
+        this.updateChannelsList();
     }
 
     public void selectBodyPart(String path)
@@ -480,15 +485,14 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
         this.setActionsMode(false);
 
-        if (this.selectedPart.equals(path))
+        if (this.partSelection.activePart.equals(path))
         {
             return;
         }
 
-        this.selectedPart = path;
+        this.partSelection.focus(path);
         this.revealedSearchTrack = null;
         this.pendingPick = null;
-        this.selectedPartsByReplay.put(this.replay.getId(), path);
         this.updateChannelsList();
     }
 
@@ -515,7 +519,8 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             this.pendingPick = null;
             if (this.replay != replay) this.revealedSearchTrack = null;
             this.replay = replay;
-            this.selectedPart = replay == null ? "" : this.selectedPartsByReplay.getOrDefault(replay.getId(), "");
+            this.partSelection = replay == null ? new TimelineBodyPartSelection()
+                : this.selectedPartsByReplay.computeIfAbsent(replay.getId(), key -> new TimelineBodyPartSelection());
 
             if (orbit == OrbitReaction.RESET)
             {
@@ -558,7 +563,8 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
     {
         this.poseOverlayCount = BBSSettings.recordingPoseOverlays.get();
         this.transformOverlayCount = BBSSettings.recordingTransformOverlays.get();
-        this.selectedPart = this.replaysList.setBodyPartsReplay(this.replay, this.selectedPart);
+        this.allBodyPartsSetting = TimelineBodyPartSelection.allParts();
+        this.replaysList.setBodyPartsReplay(this.replay, this.partSelection);
         this.replaysList.resize();
 
         UIKeyframes lastEditor = this.keyframeEditor != null ? this.keyframeEditor.view : null;
@@ -574,8 +580,9 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             return;
         }
 
-        this.selectedPartsByReplay.put(this.replay.getId(), this.selectedPart);
-        List<TrackDescriptor> catalog = TrackCatalog.forPart(this.replay.form.get(), this.replay.properties, this.selectedPart);
+        List<TrackDescriptor> catalog = TrackCatalog.of(this.replay.form.get(), this.replay.properties);
+        catalog.removeIf(track -> !this.partSelection.includes(track.id().formPath()));
+        catalog = TrackCatalog.ordered(catalog);
 
         List<UIKeyframeSheet> sheets = new ArrayList<>();
 
@@ -617,7 +624,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             if (this.revealedSearchTrack != null && this.revealedSearchTrack.key().equals(v.id)
                 && this.revealedSearchTrack.owned() == (getSheetForm(v) != null)) return false;
 
-            return isTrackHidden(v.id, getSheetFilterKey(v), getSheetForm(v));
+            return UIReplaysEditorUtils.isTrackHidden(v.id, getSheetFilterKey(v), getSheetForm(v));
         });
 
         /*
@@ -628,6 +635,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
         boolean filteredOutEverything = hadTracks && sheets.isEmpty();
 
         UIReplaysEditorUtils.pruneTree(sheets);
+        this.partSelection.groupSheets(sheets, this.replaysList.bodyParts, this.getExpandedTracks());
 
         if (!sheets.isEmpty() || filteredOutEverything)
         {
@@ -798,71 +806,23 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
         }
     }
 
-    private static boolean isTrackHidden(String id, String filterKey, Form owner)
-    {
-        for (String disabled : BBSSettings.disabledSheets.get())
-        {
-            if (filterKey.equals(disabled) || id.equals(disabled) || id.endsWith("/" + disabled)) return true;
-        }
-        return owner != null && (owner.disabledTracks.get().contains(Form.DISABLED_ALL)
-            || owner.disabledTracks.get().contains(filterKey));
-    }
-
     public void openTrackSearch()
     {
         if (this.replay == null) return;
 
         Replay source = this.replay;
         String replayId = source.getId();
-        List<TrackSearchEntry> entries = new ArrayList<>();
-        /* No FormProperties: opening the navigator must not create channels. */
-        List<TrackDescriptor> catalog = TrackCatalog.of(source.form.get());
-        Map<String, String> names = new HashMap<>();
-        for (var part : this.replaysList.bodyParts.getList()) names.put(part.getPath(), part.toString());
-
-        for (TrackDescriptor track : catalog)
-        {
-            String path = track.id().formPath();
-            String location = names.getOrDefault("", "");
-            String prefix = "";
-            if (!path.isEmpty())
-            {
-                for (String segment : path.split("/"))
-                {
-                    prefix = prefix.isEmpty() ? segment : prefix + "/" + segment;
-                    location += " → " + names.getOrDefault(prefix, segment);
-                }
-            }
-            location += " · " + categoryOf(track.id(), true).label.get();
-            entries.add(new TrackSearchEntry(track.key(), path, true,
-                BBSSettings.trackStyles.name(track.filterKey(), track.title().get()), track.title().get(), location,
-                BBSSettings.trackStyles.color(track.filterKey(), track.color()), track.icon(),
-                isTrackHidden(track.key(), track.filterKey(), track.owner())));
-        }
+        List<TrackSearchEntry> entries = UIReplaysEditorUtils.formSearchEntries(source.form.get(), this.replaysList.bodyParts, false);
         for (String key : ReplayKeyframes.CURATED_CHANNELS)
         {
             entries.add(new TrackSearchEntry(key, "", false, BBSSettings.trackStyles.name(key, key), key,
                 TrackCategory.REPLAY.label.get() + " · " + L10n.lang("bbs.ui.film.replay.sections." + replaySection(key)).get(),
-                BBSSettings.trackStyles.color(key, getColor(key)), getIcon(key), isTrackHidden(key, key, null)));
+                BBSSettings.trackStyles.color(key, getColor(key)), getIcon(key), UIReplaysEditorUtils.isTrackHidden(key, key, null)));
         }
 
         List<String> recent = this.recentTrackSearches.computeIfAbsent(replayId, id -> new ArrayList<>());
-        UITrackSearchOverlayPanel panel = new UITrackSearchOverlayPanel(entries, this.selectedPart, recent,
-            (entry, createKeyframe) ->
-            {
-                if (this.replay != source) return;
-                if (this.revealTrack(entry, createKeyframe))
-                {
-                    recent.remove(entry.identity());
-                    recent.add(0, entry.identity());
-                    if (recent.size() > 20) recent.remove(recent.size() - 1);
-                }
-            });
-        UIOverlay overlay = UIOverlay.addOverlay(this.getContext(), panel, 420, 338);
-        panel.relative(overlay).xy(0.5F, 0.5F).anchor(0.5F);
-        panel.getFlex().w.max = Math.max(1, overlay.area.w - 12);
-        panel.getFlex().h.max = Math.max(1, overlay.area.h - 12);
-        overlay.resize();
+        UITrackSearchOverlayPanel.open(this.getContext(), entries, this.partSelection.activePart, recent,
+            (entry, createKeyframe) -> this.replay == source && this.revealTrack(entry, createKeyframe));
     }
 
     private boolean revealTrack(TrackSearchEntry entry, boolean createKeyframe)
@@ -870,40 +830,13 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
         this.setActionsMode(false);
         this.pendingPick = null;
         this.revealedSearchTrack = entry;
-        if (entry.owned()) this.selectedPart = entry.path();
+        if (entry.owned()) this.partSelection.focus(entry.path());
         this.allMode = false;
         this.category = entry.owned() ? categoryOf(TrackId.parse(entry.key()), true) : TrackCategory.REPLAY;
         this.updateChannelsList();
         if (this.keyframeEditor == null) return false;
 
-        for (UIKeyframeSheet sheet : this.keyframeEditor.view.getDopeSheet().getSheets())
-        {
-            if (sheet.id.equals(entry.key()) && entry.owned() == (getSheetForm(sheet) != null))
-            {
-                this.keyframeEditor.view.getDopeSheet().revealSheet(sheet);
-                if (createKeyframe)
-                {
-                    var graph = this.keyframeEditor.view.getDopeSheet();
-                    float tick = this.keyframeEditor.view.getPlayheadTick(this.getContext());
-                    float sourceTick = sheet.channel.getSourceTick(tick);
-                    /* Existing keys (including a loop's source key) are selected without rewriting them. */
-                    for (int i = 0; i < sheet.channel.getKeyframes().size(); i++)
-                    {
-                        var keyframe = sheet.channel.get(i);
-                        if (keyframe.getTick() == sourceTick)
-                        {
-                            graph.clearSelection();
-                            sheet.selection.add(i);
-                            graph.pickKeyframe(keyframe);
-                            return true;
-                        }
-                    }
-                    graph.addKeyframeManually(sheet, tick, null);
-                }
-                return true;
-            }
-        }
-        return false;
+        return UIReplaysEditorUtils.revealSearchTrack(this.keyframeEditor, entry, createKeyframe, this.getContext());
     }
 
     private void collectCuratedSheets(List<UIKeyframeSheet> sheets)
@@ -1330,7 +1263,8 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
     public void render(UIContext context)
     {
         /* Settings can change while this timeline remains open behind another panel. */
-        if (this.replay != null && (this.poseOverlayCount != BBSSettings.recordingPoseOverlays.get()
+        if (this.replay != null && (this.allBodyPartsSetting != TimelineBodyPartSelection.allParts()
+            || this.poseOverlayCount != BBSSettings.recordingPoseOverlays.get()
             || this.transformOverlayCount != BBSSettings.recordingTransformOverlays.get()))
         {
             this.updateChannelsList();
@@ -1416,7 +1350,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
         if (replay != null)
         {
-            this.selectedPartsByReplay.put(replay.getId(), data.getString("body_part"));
+            this.selectedPartsByReplay.computeIfAbsent(replay.getId(), key -> new TimelineBodyPartSelection()).read(data);
         }
 
         this.setReplay(replay, true, OrbitReaction.KEEP);
@@ -1434,7 +1368,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
         int index = this.film.replays.getList().indexOf(this.getReplay());
 
         data.putInt("replay", index);
-        data.putString("body_part", this.selectedPart);
+        this.partSelection.write(data);
         data.put("selection", DataStorageUtils.intListToData(this.replaysList.replays.getCurrentIndices()));
     }
 

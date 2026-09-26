@@ -1920,10 +1920,7 @@ public class UIClips extends UITimelineCanvas
             {
                 int ly = this.toLayerY(i);
 
-                if (i % 2 != 0)
-                {
-                    batcher.box(leftEdge, ly, this.area.ex(), ly + h, BBSSettings.baseSurface());
-                }
+                batcher.box(area.x, ly, area.ex(), ly + h, BBSSettings.timelineRowSurface(i));
             }
         }
         finally
@@ -2074,21 +2071,10 @@ public class UIClips extends UITimelineCanvas
         context.batcher.outline(x, y, d, y + h, Colors.WHITE);
     }
 
-    /**
-     * Paint the field before the first tick and after the last one.
-     *
-     * <p>It drops to the floor of the tonal ladder — nothing can be put there, so it is not a
-     * surface but the absence of one. The far edge is where the ruler stops labelling, so the
-     * two agree on where the camera work ends; with no clips at all the ruler runs the whole
-     * width and there is no outside to paint.</p>
-     *
-     * <p>Goes on after the layer rows, which run the full width of the view: painting it before
-     * them (or before the backdrop, as it used to be) means painting under them. That is what
-     * silently swallowed this strip when the surfaces stopped being translucent tints.</p>
-     */
+    /** Fill the area outside the film with the darkest tonal surface. */
     private void renderOutOfRange(Batcher2D batcher, int leftEdge)
     {
-        int color = BBSSettings.sunkenSurface();
+        int color = BBSSettings.timelineOutsideOverlay();
 
         if (leftEdge > this.area.x)
         {
