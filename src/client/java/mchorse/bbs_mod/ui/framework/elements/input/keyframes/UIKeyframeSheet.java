@@ -298,17 +298,27 @@ public class UIKeyframeSheet
 
     public List<Integer> sort()
     {
+        return this.sort(false);
+    }
+
+    public List<Integer> sort(boolean overwrite)
+    {
         List<Keyframe> selected = this.selection.getSelected();
         List<Integer> lastSelection = new ArrayList<>(this.selection.getIndices());
 
-        this.channel.sort();
+        if (overwrite)
+        {
+            this.channel.sort(selected);
+        }
+        else
+        {
+            this.channel.sort();
+        }
         this.selection.clear();
-
-        List keyframes = this.channel.getKeyframes();
 
         for (Keyframe keyframe : selected)
         {
-            this.selection.add(keyframes.indexOf(keyframe));
+            this.selection.add(keyframe);
         }
 
         return lastSelection;
