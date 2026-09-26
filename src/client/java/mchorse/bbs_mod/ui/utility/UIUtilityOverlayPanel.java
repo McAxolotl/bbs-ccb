@@ -2,294 +2,292 @@ package mchorse.bbs_mod.ui.utility;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.BBSResources;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.fonts.FontManager;
-import mchorse.bbs_mod.l10n.L10nUtils;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIClickable;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
-import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIMessageFolderOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.input.UISliderTrackpad;
+import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIMessageOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIStatusLogOverlayPanel;
-import mchorse.bbs_mod.ui.utility.audio.UIAudioEditorPanel;
-import mchorse.bbs_mod.ui.utils.UIConstants;
+import mchorse.bbs_mod.ui.framework.elements.utils.RowStyle;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIText;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-import mchorse.bbs_mod.utils.Pair;
-import mchorse.bbs_mod.utils.StringUtils;
-import mchorse.bbs_mod.utils.resources.CDNAssetSyncService;
+import mchorse.bbs_mod.utils.iris.IrisShaderPacks;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.Window;
-
 import java.io.File;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 public class UIUtilityOverlayPanel extends UIOverlayPanel
 {
     public Runnable callback;
-
     public UIScrollView view;
-    public UITrackpad width;
-    public UITrackpad height;
-
-    private Window window;
+    private final UISliderTrackpad time;
+    private final UIStringList shaders;
+    private final UIText shaderStatus;
+    private final boolean iris = FabricLoader.getInstance().isModLoaded("iris");
+    private boolean focused;
+    private int pendingTime = -1;
+    private long timeRequestDeadline;
 
     public UIUtilityOverlayPanel(IKey title, Runnable callback)
     {
         super(title);
-
-        this.window = MinecraftClient.getInstance().getWindow();
         this.callback = callback;
+        this.focused = MinecraftClient.getInstance().isWindowFocused();
+        this.view = UI.scrollView(3, 10, 140);
+        this.view.relative(this.content).w(0.4F).h(1F);
 
-        this.view = UI.scrollView(5, 10, 140);
-        this.view.full(this.content);
+        UIIcon gameFolder = new UIIcon(Icons.FOLDER, b -> this.openFolder(BBSMod.getGameFolder()));
+        gameFolder.tooltip(UIKeys.UTILITY_OPEN_GAME_FOLDER);
+        this.view.add(this.header(UIKeys.UTILITY_ASSETS, gameFolder));
+        this.view.add(this.assetRow(UIKeys.UTILITY_MODELS, Icons.POSE, "models"));
+        this.view.add(this.assetRow(UIKeys.UTILITY_AUDIO, Icons.SOUND, "audio"));
+        this.view.add(this.assetRow(UIKeys.UTILITY_VIDEO, Icons.VIDEO_CAMERA, "video"));
+        this.view.add(this.assetRow(UIKeys.UTILITY_FONTS, Icons.FONT, "fonts"));
+        this.view.add(this.assetRow(UIKeys.UTILITY_STRUCTURES, Icons.STRUCTURE, "structures").marginBottom(5));
+        this.view.add(UI.label(UIKeys.UTILITY_RELOAD_LABEL));
+        this.view.add(UI.row(
+            this.reload(Icons.MATERIAL, UIKeys.UTILITY_RELOAD_TEXTURES, () -> BBSModClient.getTextures().delete()),
+            this.reload(Icons.GLOBE, UIKeys.UTILITY_RELOAD_LANG, () -> BBSModClient.getL10n().reload()),
+            this.reload(Icons.POSE, UIKeys.UTILITY_RELOAD_MODELS, () -> BBSModClient.getModels().reload()),
+            this.reload(Icons.SOUND, UIKeys.UTILITY_RELOAD_SOUNDS, () -> BBSModClient.getSounds().deleteSounds()),
+            this.reload(Icons.TREE, UIKeys.UTILITY_RELOAD_TERRAIN, BBSShaders::setup)
+        ).marginBottom(5));
 
-        UIIcon openGameDirectory = new UIIcon(Icons.FOLDER, (b) -> this.openFolder(BBSMod.getGameFolder()));
-        openGameDirectory.w(0).tooltip(UIKeys.UTILITY_OPEN_GAME_FOLDER);
-        UIIcon openModelsDirectory = new UIIcon(Icons.POSE, (b) -> this.openFolder(BBSMod.getAssetsPath("models")));
-        openModelsDirectory.w(0).tooltip(UIKeys.UTILITY_OPEN_MODELS_FOLDER);
-        UIIcon openAudioDirectory = new UIIcon(Icons.SOUND, (b) -> this.openFolder(BBSMod.getAudioFolder()));
-        openAudioDirectory.w(0).tooltip(UIKeys.UTILITY_OPEN_AUDIO_FOLDER);
-        UIIcon openVideoDirectory = new UIIcon(Icons.VIDEO_CAMERA, (b) -> this.openFolder(BBSMod.getAssetsPath("video")));
-        openVideoDirectory.w(0).tooltip(UIKeys.UTILITY_OPEN_VIDEO_FOLDER);
-        UIIcon openFontsDirectory = new UIIcon(Icons.FONT, (b) -> this.openFolder(FontManager.getFolder()));
-        openFontsDirectory.w(0).tooltip(UIKeys.UTILITY_OPEN_FONTS_FOLDER);
-
-        UIIcon textures = new UIIcon(Icons.MATERIAL, (b) ->
+        this.time = new UISliderTrackpad(v -> this.setTime(v.intValue()));
+        this.time.limit(0, 23999, true).values(100, 10, 1000).snap(10).delayedInput();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        this.time.setValue(mc.world == null ? 6000 : Math.floorMod(mc.world.getTimeOfDay(), 24000));
+        this.time.setEnabled(this.canChangeWorld());
+        this.time.tooltip(UIKeys.UTILITY_TIME_PERMISSION);
+        this.view.add(UI.label(UIKeys.UTILITY_TIME), this.time);
+        UIButton commands = new UIButton(UIKeys.UTILITY_EXECUTE_DEFAULT_COMMANDS, b -> this.executeDefaultCommands());
+        commands.tooltip(UIKeys.UTILITY_PREPARE_WORLD_DESCRIPTION);
+        commands.setEnabled(this.canChangeWorld());
+        UIIcon kill = new UIIcon(Icons.SKULL, b ->
         {
-            this.print("Reloading textures!");
-            BBSModClient.getTextures().delete();
-            this.close();
+            if (this.canChangeWorld()) MinecraftClient.getInstance().player.networkHandler.sendCommand("kill @e[type=!player]");
         });
-        textures.w(0).tooltip(UIKeys.UTILITY_RELOAD_TEXTURES);
-        UIIcon language = new UIIcon(Icons.GLOBE, (b) ->
-        {
-            this.print("Reloading languages!");
-            BBSModClient.getL10n().reload();
-            this.close();
-        });
-        language.w(0).tooltip(UIKeys.UTILITY_RELOAD_LANG);
-        UIIcon models = new UIIcon(Icons.POSE, (b) ->
-        {
-            this.print("Reloading models");
-            BBSModClient.getModels().reload();
-            this.close();
-        });
-        models.w(0).tooltip(UIKeys.UTILITY_RELOAD_MODELS);
-        UIIcon sounds = new UIIcon(Icons.SOUND, (b) ->
-        {
-            this.print("Reloading sounds");
-            BBSModClient.getSounds().deleteSounds();
-            this.close();
-        });
-        sounds.w(0).tooltip(UIKeys.UTILITY_RELOAD_SOUNDS);
-        UIIcon terrain = new UIIcon(Icons.TREE, (b) ->
-        {
-            this.print("Forcing chunk loader");
-            // TODO: this.getContext().menu.bridge.get(IBridgeWorld.class).getWorld().chunks.buildChunks(BBS.getRender(), true);
-            BBSShaders.setup();
-            this.close();
-        });
-        terrain.w(0).tooltip(UIKeys.UTILITY_RELOAD_TERRAIN);
+        kill.wh(16, 16);
+        kill.tooltip(UIKeys.UTILITY_KILL_ENTITIES);
+        kill.setEnabled(this.canChangeWorld());
+        UIElement worldActions = new UIElement();
+        worldActions.row(5).preferred(0).height(20);
+        worldActions.add(commands, kill);
+        this.view.add(worldActions);
 
-        this.width = new UITrackpad((v) ->
+        UIElement right = new UIElement();
+        right.relative(this.content).x(0.4F).w(0.6F).h(1F);
+        UIIcon folder = new UIIcon(Icons.FOLDER, b -> this.openFolder(this.iris
+            ? IrisShaderPacks.folder() : BBSMod.getGamePath("shaderpacks")));
+        folder.tooltip(UIKeys.UTILITY_OPEN_SHADERS);
+        UIElement header = this.header(UIKeys.UTILITY_SHADERS, folder);
+        header.relative(right).xy(10, 10).w(1F, -20).h(20);
+        this.shaders = new UIStringList(list ->
         {
-            this.window.setWindowedSize((int) this.width.getValue(), (int) this.height.getValue());
-        });
-        this.height = new UITrackpad((v) ->
+            if (!list.isEmpty()) this.selectShader(list.get(0));
+        })
         {
-            this.window.setWindowedSize((int) this.width.getValue(), (int) this.height.getValue());
-        });
-
-        this.width.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getWidth());
-        this.height.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getHeight());
-
-        UIButton analyze = new UIButton(UIKeys.UTILITY_ANALYZE_LANG, (b) -> this.analyzeLanguageStrings());
-        UIButton compile = new UIButton(UIKeys.UTILITY_COMPILE_LANG, (b) -> this.compileLanguageStrings());
-        UIButton langEditor = new UIButton(UIKeys.UTILITY_LANG_EDITOR, (b) -> this.openLangEditor());
-        UIButton openAudioEditor = new UIButton(UIKeys.UTILITY_OPEN_AUDIO_EDITOR, (b) -> this.openAudioEditor());
-        UIButton defaultCommands = new UIButton(UIKeys.UTILITY_EXECUTE_DEFAULT_COMMANDS, (b) -> this.executeDefaultCommands());
-
-        UIButton cdnDownload = new UIButton(UIKeys.GENERAL_DOWNLOAD, (b) ->
-        {
-            UIStatusLogOverlayPanel panel = new UIStatusLogOverlayPanel(UIKeys.CDN_DOWNLOADING_TITLE);
-
-            UIOverlay.addOverlay(this.getContext(), panel);
-
-            Thread thread = new Thread(() ->
+            @Override
+            protected String elementToString(UIContext context, int i, String element)
             {
-                BBSResources.stopWatchdog();
+                return element.isEmpty() ? UIKeys.UTILITY_SHADERS_OFF.get() : element;
+            }
+        };
+        this.shaders.relative(right).xy(10, 35).w(1F, -20).h(1F, -45);
+        this.shaders.scroll.scrollItemSize = 18;
+        this.shaders.background(BBSSettings.inputSurface());
+        this.shaderStatus = new UIText().text(UIKeys.UTILITY_IRIS_REQUIRED);
+        this.shaderStatus.relative(right).xy(15, 40).w(1F, -30).h(1F, -50);
+        this.shaderStatus.setVisible(!this.iris);
+        this.shaders.setEnabled(this.iris);
+        right.add(header, this.shaders, this.shaderStatus);
+        this.content.add(this.view, right);
+        this.refreshShaders();
+    }
 
-                try
-                {
-                    CDNAssetSyncService syncService = new CDNAssetSyncService(BBSSettings.cdnUrl.get(), BBSMod.getAssetsFolder().toPath(), (p) ->
-                    {
-                        MinecraftClient.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
-                    });
+    private UIElement header(IKey label, UIIcon icon)
+    {
+        UIElement header = new UIElement();
+        header.row(5).preferred(0).height(20);
+        header.add(UI.label(label, 20).labelAnchor(0, 0.5F), icon);
+        return header;
+    }
 
-                    syncService.syncOnce();
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
-
-                BBSResources.setupWatchdog();
-                
-                MinecraftClient.getInstance().execute(() ->
-                {
-                    BBSModClient.getTextures().delete();
-                    BBSModClient.getSounds().deleteSounds();
-                    BBSModClient.getModels().reload();
-                });
-            }, "CDNDownloadThread");
-
-            thread.start();
-        });
-
-        UIButton cdnUpload = new UIButton(UIKeys.GENERAL_UPLOAD, (b) ->
+    private UIElement assetRow(IKey label, Icon icon, String path)
+    {
+        UIElement row = new UIElement();
+        row.row(5).preferred(0).height(20);
+        AssetButton shared = new AssetButton(label, icon, () -> this.openFolder(new File(BBSMod.getOriginalSourcePack().getFolder(), path)));
+        shared.tooltip(UIKeys.UTILITY_OPEN_SHARED);
+        UIIcon world = new UIIcon(Icons.GLOBE, b ->
         {
-            UIStatusLogOverlayPanel panel = new UIStatusLogOverlayPanel(UIKeys.CDN_UPLOADING_TITLE);
-
-            UIOverlay.addOverlay(this.getContext(), panel);
-
-            Thread thread = new Thread(() ->
-            {
-                try
-                {
-                    CDNAssetSyncService syncService = new CDNAssetSyncService(BBSSettings.cdnUrl.get(), BBSMod.getAssetsFolder().toPath(), (p) ->
-                    {
-                        MinecraftClient.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
-                    });
-
-                    syncService.pushChangedFiles(BBSSettings.cdnToken.get());
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
-            }, "CDNUploadThread");
-
-            thread.start();
+            if (this.hasWorldAssets()) this.openFolder(BBSMod.getAssetsPath(path));
         });
+        world.tooltip(this.hasWorldAssets() ? UIKeys.UTILITY_OPEN_WORLD : UIKeys.UTILITY_WORLD_UNAVAILABLE);
+        world.setEnabled(this.hasWorldAssets());
+        row.add(shared, world);
+        return row;
+    }
 
-        this.view.add(UI.label(UIKeys.UTILITY_OPEN_FOLDER), UI.row(openGameDirectory, openModelsDirectory, openAudioDirectory, openVideoDirectory, openFontsDirectory).marginBottom(UIConstants.SECTION_GAP));
-        this.view.add(UI.label(UIKeys.UTILITY_RELOAD_LABEL), UI.row(textures, language, models, sounds, terrain));
-        this.view.add(defaultCommands.marginBottom(UIConstants.SECTION_GAP));
-        this.view.add(UI.column(UI.label(UIKeys.UTILITY_RESIZE_WINDOW), UI.row(this.width, this.height)).marginBottom(UIConstants.SECTION_GAP));
-        this.view.add(UI.label(UIKeys.UTILITY_LANG_LABEL), UI.row(analyze, compile), langEditor.marginBottom(UIConstants.SECTION_GAP));
-        this.view.add(UI.label(UIKeys.UTILITY_AUDIO), openAudioEditor.marginBottom(UIConstants.SECTION_GAP));
-        this.view.add(UI.label(IKey.raw("CDN")), UI.row(cdnDownload, cdnUpload));
-        this.content.add(this.view);
+    private boolean hasWorldAssets()
+    {
+        return MinecraftClient.getInstance().getServer() != null
+            && !BBSMod.getAssetsFolder().equals(BBSMod.getOriginalSourcePack().getFolder());
+    }
+
+    private UIIcon reload(Icon icon, IKey tooltip, Runnable action)
+    {
+        UIIcon button = new UIIcon(icon, b ->
+        {
+            action.run();
+            this.close();
+        });
+        button.w(0).tooltip(tooltip);
+        return button;
+    }
+
+    private boolean canChangeWorld()
+    {
+        var player = MinecraftClient.getInstance().player;
+        return player != null && player.hasPermissionLevel(2);
+    }
+
+    private void setTime(int ticks)
+    {
+        if (!this.canChangeWorld()) return;
+        this.pendingTime = ticks;
+        this.timeRequestDeadline = System.nanoTime() + 3_000_000_000L;
+        MinecraftClient.getInstance().player.networkHandler.sendCommand("time set " + ticks);
     }
 
     private void executeDefaultCommands()
     {
-        List<String> commands = Arrays.asList(
-            "gamerule doDaylightCycle false",
-            "gamerule doWeatherCycle false",
-            "gamerule doWardenSpawning false",
-            "gamerule doMobSpawning false",
-            "gamerule doTraderSpawning false",
-            "gamerule randomTickSpeed 3"
-        );
-
-        for (String command : commands)
+        if (!this.canChangeWorld()) return;
+        for (String command : List.of("gamerule doDaylightCycle false", "gamerule doWeatherCycle false",
+            "gamerule doWardenSpawning false", "gamerule doMobSpawning false",
+            "gamerule doTraderSpawning false", "gamerule randomTickSpeed 0"))
         {
             MinecraftClient.getInstance().player.networkHandler.sendCommand(command);
         }
     }
 
-    private void openFolder(File gameFolder)
+    private void openFolder(File folder)
     {
-        gameFolder.mkdirs();
-
-        UIUtils.openFolder(gameFolder);
+        folder.mkdirs();
+        UIUtils.openFolder(folder);
     }
 
-    private void openLangEditor()
+    private void refreshShaders()
     {
-        UIContext context = this.getContext();
-
-        this.close();
-
-        UIOverlay.addOverlay(context, new UILanguageEditorOverlayPanel(), 0.6F, 0.9F);
-    }
-
-    private void openAudioEditor()
-    {
-        UIContext context = this.getContext();
-
-        this.close();
-
-        for (UIDashboardPanels child : context.menu.getRoot().getChildren(UIDashboardPanels.class))
+        if (!this.iris) return;
+        try
         {
-            child.setPanel(child.getPanel(UIAudioEditorPanel.class));
+            List<String> packs = new ArrayList<>();
+            packs.add("");
+            packs.addAll(IrisShaderPacks.list());
+            this.shaderStatus.setVisible(false);
+            this.shaders.setList(packs);
+            this.shaders.setCurrent(IrisShaderPacks.current());
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            this.shaders.setList(new ArrayList<>());
+            this.shaderStatus.text(UIKeys.UTILITY_SHADER_ERROR);
+            this.shaderStatus.setVisible(true);
         }
     }
 
-    private void analyzeLanguageStrings()
+    private void selectShader(String name)
     {
-        this.print(L10nUtils.analyzeStrings(BBSModClient.getL10n()));
-    }
-
-    private void compileLanguageStrings()
-    {
-        L10nUtils.compile(BBSMod.getExportFolder(), BBSModClient.getL10n().getStrings());
-
-        UIMessageFolderOverlayPanel panel = new UIMessageFolderOverlayPanel(UIKeys.GENERAL_SUCCESS, UIKeys.UTILITY_COMPILE_LANG_DESCRIPTION, BBSMod.getExportFolder());
-        UIOverlay.addOverlay(this.getContext(), panel);
-    }
-
-    private void print(String string)
-    {
-        int longest = 0;
-        String[] splits = string.split("\n");
-
-        for (String s : splits)
+        if (!this.iris || name.equals(IrisShaderPacks.current())) return;
+        try
         {
-            longest = Math.max(s.length(), longest);
+            IrisShaderPacks.select(name);
         }
-
-        String separator = StringUtils.repeat("-", longest);
-
-        System.out.println(separator);
-
-        for (String s : splits)
+        catch (Exception e)
         {
-            System.out.println(s);
+            e.printStackTrace();
+            UIOverlay.addOverlay(this.getContext(), new UIMessageOverlayPanel(UIKeys.GENERAL_ERROR, UIKeys.UTILITY_SHADER_ERROR));
         }
-
-        System.out.println(separator);
+        this.shaders.setCurrent(IrisShaderPacks.current());
     }
 
     @Override
-    public void resize()
+    public void render(UIContext context)
     {
-        super.resize();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        boolean focused = mc.isWindowFocused();
+        if (focused && !this.focused) this.refreshShaders();
+        this.focused = focused;
+        if (!this.time.isDragging() && !this.time.isFocused() && mc.world != null)
+        {
+            int worldTime = (int) Math.floorMod(mc.world.getTimeOfDay(), 24000);
+            /* Keep the requested position until the server's time catches up. Allow a
+             * few advancing ticks, including the midnight wrap; don't wait forever
+             * if the command was rejected or another source controls world time. */
+            if (this.pendingTime >= 0 && (Math.floorMod(worldTime - this.pendingTime, 24000) <= 40
+                || System.nanoTime() >= this.timeRequestDeadline))
+            {
+                this.pendingTime = -1;
+            }
+            if (this.pendingTime < 0) this.time.setValue(worldTime);
+        }
+        super.render(context);
+    }
 
-        this.width.setValue(this.window.getWidth());
-        this.height.setValue(this.window.getHeight());
+    @Override
+    protected void renderBackground(UIContext context)
+    {
+        super.renderBackground(context);
+        int x = this.content.area.x + (int) (this.content.area.w * 0.4F);
+        context.batcher.box(x, this.content.area.y + 10, x + 1, this.content.area.ey() - 10, BBSSettings.dividerColor());
     }
 
     @Override
     public void onClose()
     {
         super.onClose();
+        if (this.callback != null) this.callback.run();
+    }
 
-        if (this.callback != null)
+    private static class AssetButton extends UIClickable<AssetButton>
+    {
+        private final IKey label;
+        private final Icon icon;
+
+        AssetButton(IKey label, Icon icon, Runnable action)
         {
-            this.callback.run();
+            super(b -> action.run());
+            this.label = label;
+            this.icon = icon;
+        }
+
+        @Override
+        protected AssetButton get() { return this; }
+
+        @Override
+        protected void renderSkin(UIContext context)
+        {
+            RowStyle.row(context.batcher, this.area.x, this.area.y, this.area.w, this.area.h, 0, false, this.hover, false);
+            context.batcher.icon(this.icon, RowStyle.iconColor(this.hover), this.area.x + 10, this.area.my(), 0.5F, 0.5F);
+            var font = context.batcher.getFont();
+            context.batcher.text(font.limitToWidth(this.label.get(), Math.max(0, this.area.w - 25)),
+                this.area.x + 23, this.area.my() - font.getHeight() / 2, RowStyle.textColor(this.hover));
         }
     }
 }
