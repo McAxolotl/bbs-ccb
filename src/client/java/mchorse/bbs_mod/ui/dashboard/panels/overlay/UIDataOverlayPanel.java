@@ -59,12 +59,19 @@ public class UIDataOverlayPanel <T extends ValueGroup> extends UICRUDOverlayPane
 
             if (folder != null)
             {
-                menu.action(Icons.FOLDER, UIKeys.PANELS_CONTEXT_OPEN, () ->
-                {
-                    UIUtils.openFolder(new File(folder, this.namesList.getPath().toString()));
-                });
+                menu.action(Icons.FOLDER, UIKeys.PANELS_CONTEXT_OPEN, this::openFolder);
             }
         });
+    }
+
+    protected void openFolder()
+    {
+        File folder = this.panel.getType().getRepository().getFolder();
+
+        if (folder != null)
+        {
+            UIUtils.openFolder(new File(folder, this.namesList.getPath().toString()));
+        }
     }
 
     /* CRUD */
