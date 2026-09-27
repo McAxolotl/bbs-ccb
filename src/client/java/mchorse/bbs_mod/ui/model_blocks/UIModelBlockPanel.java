@@ -72,6 +72,7 @@ import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -144,6 +145,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
     private Vector3f mouseDirection = new Vector3f();
 
     private Set<ModelBlockEntity> toSave = new HashSet<>();
+    private World lastWorld;
 
     private ImmersiveModelBlockCameraController cameraController;
 
@@ -160,6 +162,8 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
     {
         super(dashboard);
 
+        this.lastWorld = MinecraftClient.getInstance().world;
+
         this.keyDude = new UIElement().noCulling();
         this.keyDude.keys().register(Keys.MODEL_BLOCKS_MOVE_TO, () ->
         {
@@ -175,7 +179,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
                 this.modelBlock.getProperties().getTransform().translate.set(hit.x - pos.getX() - 0.5F, hit.y - pos.getY(), hit.z - pos.getZ() - 0.5F);
                 this.fillData();
             }
-        }).active(() -> this.modelBlock != null);
+        }).active(() -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            return this.modelBlock != null && !this.modelBlock.isRemoved() && mc.world != null && this.modelBlock.getWorld() == mc.world;
+        });
 
         this.modelBlocks = new UIModelBlockEntityList((l) -> this.fill(l.get(0), false));
         this.modelBlocks.context((menu) ->
@@ -382,7 +389,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
         {
             this.orbit.teleportPivotToSubject();
             UIUtils.playClick();
-        }).strict().active(() -> this.modelBlock != null);
+        }).strict().active(() -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            return this.modelBlock != null && !this.modelBlock.isRemoved() && mc.world != null && this.modelBlock.getWorld() == mc.world;
+        });
 
         this.add(this.scrollView, this.draggable);
 
@@ -394,12 +404,18 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
 
     private void refreshBlocks()
     {
-        this.updateList();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
-        if (this.modelBlock != null && this.modelBlock.isRemoved())
+        this.lastWorld = mc.world;
+
+        if (this.modelBlock != null && (mc.world == null || this.modelBlock.getWorld() != mc.world || this.modelBlock.isRemoved()))
         {
-            this.fill(null, true);
+            this.fill(null, false);
+            this.gizmo.stop();
+            this.gizmoStencil.clearPicking();
         }
+
+        this.updateList();
     }
 
     private void enterEditing()
@@ -436,9 +452,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
     {
         this.removeCameraController();
 
+        MinecraftClient mc = MinecraftClient.getInstance();
+
         for (ModelBlockEntity entity : this.toSave)
         {
-            this.save(entity);
+            if (!entity.isRemoved() && mc.world != null && entity.getWorld() == mc.world)
+            {
+                this.save(entity);
+            }
         }
 
         this.toSave.clear();
@@ -446,7 +467,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
 
     private void teleport()
     {
-        if (this.modelBlock != null)
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (this.modelBlock != null && !this.modelBlock.isRemoved() && mc.world != null && this.modelBlock.getWorld() == mc.world)
         {
             BlockPos pos = this.modelBlock.getPos();
 
@@ -492,7 +515,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
     @Override
     public boolean startGizmo(UIContext context, int stencilIndex)
     {
-        if (this.modelBlock == null)
+        if (!this.canShowGizmo())
         {
             return false;
         }
@@ -560,7 +583,12 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
 
     private boolean canShowGizmo()
     {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
         return this.modelBlock != null
+            && !this.modelBlock.isRemoved()
+            && mc.world != null
+            && this.modelBlock.getWorld() == mc.world
             && BBSSettings.gizmos.get()
             && !UIBaseMenu.isHideGizmoHeld()
             && this.getChildren(UIFormPalette.class).isEmpty();
@@ -923,6 +951,31 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
     @Override
     public void render(UIContext context)
     {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (this.lastWorld != mc.world)
+        {
+            boolean hadWorld = this.lastWorld != null;
+
+            this.lastWorld = mc.world;
+
+            if (hadWorld)
+            {
+                this.fill(null, false);
+                this.updateList();
+                this.gizmo.stop();
+                this.gizmoStencil.clearPicking();
+            }
+        }
+
+        if (this.modelBlock != null && (mc.world == null || this.modelBlock.getWorld() != mc.world || this.modelBlock.isRemoved()))
+        {
+            this.fill(null, false);
+            this.updateList();
+            this.gizmo.stop();
+            this.gizmoStencil.clearPicking();
+        }
+
         if (this.canOrbit())
         {
             this.orbit.handleOrbiting(context);
