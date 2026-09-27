@@ -64,7 +64,15 @@ public class UIListGrid<T> extends UIItemGrid<T>
         if (this.source.preview != null)
         {
             int size = Math.max(1, Math.min(w - 8, h - CellPainter.CAPTION_HEIGHT - 8));
-            this.source.preview.render(context, item, x + (w - size) / 2, y + 4, size);
+            context.batcher.clip(x, y, w, h, context);
+            try
+            {
+                this.source.preview.render(context, item, x + (w - size) / 2, y + 4, size);
+            }
+            finally
+            {
+                context.batcher.unclip(context);
+            }
         }
         CellPainter.caption(context, this.caption(item), x, y, w, h, state.hover || state.selected, 1F);
         CellPainter.bar(context, x, y, w, h, state);

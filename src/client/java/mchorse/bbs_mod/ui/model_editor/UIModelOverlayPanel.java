@@ -8,8 +8,10 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDataDashboardPanel;
 import mchorse.bbs_mod.ui.dashboard.panels.overlay.UIDataOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
+import java.io.File;
 import java.util.function.Consumer;
 
 /**
@@ -29,6 +31,17 @@ public class UIModelOverlayPanel extends UIDataOverlayPanel<ModelConfig>
         this.namesList.preview = (context, item, x, y, size) -> preview.render(context, item.toString(), x, y, size);
         this.namesList.scroll.scrollItemSize = 24;
         this.names.views();
+    }
+
+    @Override
+    protected void openFolder()
+    {
+        File folder = this.panel.getType().getRepository().getFolder();
+
+        if (folder != null && (folder.isDirectory() || folder.mkdirs()))
+        {
+            UIUtils.openFolder(folder);
+        }
     }
 
     @Override

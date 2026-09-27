@@ -41,6 +41,11 @@ public class UIUtils
      */
     public static boolean openFolder(File folder)
     {
+        if (folder == null || !folder.isDirectory())
+        {
+            return false;
+        }
+
         try
         {
             String path = folder.getAbsolutePath();
