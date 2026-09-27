@@ -305,7 +305,27 @@ loom {
         }
     }
 }
-tasks.named('runAddonApiCheck') { dependsOn 'addonApiCheckJar' }
+tasks.named('runAddonApiCheck', JavaExec) {
+    dependsOn 'addonApiCheckJar'
+}
+
+if (System.getProperty('os.name').startsWith('Windows')) {
+    gradle.projectsEvaluated {
+        tasks.named('runAddonApiCheck', JavaExec) {
+            // Gradle's long-classpath JAR splits Fabric/Mixin classes between app and Knot.
+            // A Java argument file preserves the original classpath and its native encoding.
+            def originalClasspath = classpath.asPath
+            def argsFile = layout.buildDirectory.file('addonApiCheck-classpath.args').get().asFile
+            classpath = project.files()
+            jvmArgs '@' + argsFile.absolutePath
+            doFirst {
+                argsFile.parentFile.mkdirs()
+                argsFile.setText('-classpath\n"' + originalClasspath.replace('\\', '/') + '"\n',
+                    System.getProperty('native.encoding', System.getProperty('file.encoding')))
+            }
+        }
+    }
+}
 tasks.register('addonApiCheck') {
     group = 'verification'
     description = 'Checks addon data/editor/pose contracts under Fabric, exiting before a game window opens.'
