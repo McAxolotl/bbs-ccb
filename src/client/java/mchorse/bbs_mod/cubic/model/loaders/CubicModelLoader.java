@@ -51,6 +51,7 @@ public class CubicModelLoader implements IModelLoader
             if (info.model != null)
             {
                 theModel = info.model;
+                newModel.setSourceFile(modelBBS);
             }
 
             if (info.animations != null)
@@ -118,6 +119,11 @@ public class CubicModelLoader implements IModelLoader
         }
 
         newModel.model = theModel;
+
+        if (newModel.getSourceFile() == null)
+        {
+            newModel.setSourceFile(IModelLoader.getLink(model.combine("model.obj"), links, ".obj"));
+        }
 
         /* The model editor writes back only what it fully owns: a cubic model that is a real file in
          * the user's assets (a pack's model resolves to a path that isn't there), with nothing compiled

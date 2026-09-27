@@ -75,6 +75,7 @@ public class BOBJModelLoader implements IModelLoader
                 bobjData.initiateArmatures();
 
                 ModelInstance instance = new ModelInstance(id, bobjModel, this.convertAnimations(bobjData, new Animations(models.parser)), modelTexture);
+                instance.setSourceFile(modelBOBJ);
 
                 /* Each BOBJ mesh is its own material (keyed by mesh name): load its default texture
                  * from a folder named after the mesh; without one it falls back to the model texture. */

@@ -137,6 +137,9 @@ public class ModelInstance implements IModelInstance
      */
     private Link modelFile;
 
+    /** Geometry source, including formats that the editor can only configure. */
+    private Link sourceFile;
+
     /**
      * Per-material default textures, loaded from the model's {@code textures/<material>/}
      * folders (or synthesized as a 1x1 swatch for flat-color materials). Keyed by material
@@ -196,6 +199,16 @@ public class ModelInstance implements IModelInstance
     public void setModelFile(Link modelFile)
     {
         this.modelFile = modelFile;
+    }
+
+    public Link getSourceFile()
+    {
+        return this.sourceFile;
+    }
+
+    public void setSourceFile(Link sourceFile)
+    {
+        this.sourceFile = sourceFile;
     }
 
     /** Whether the model editor may edit the model itself — see {@link #getModelFile()}. */

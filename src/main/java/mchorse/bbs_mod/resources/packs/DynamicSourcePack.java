@@ -25,7 +25,12 @@ public class DynamicSourcePack implements ISourcePack
 
     public ISourcePack getSourcePack()
     {
-        return this.secondary == null ? this.main : this.secondary;
+        return this.main;
+    }
+
+    public ISourcePack getSecondary()
+    {
+        return this.secondary;
     }
 
     @Override
@@ -57,13 +62,19 @@ public class DynamicSourcePack implements ISourcePack
         File local = secondary == null ? null : secondary.getFile(link);
         File shared = this.main.getFile(link);
 
-        /* Existing files stay editable where they were loaded; new files belong to the world. */
+        /* Merged folders use the main library for browsing and creating resources. */
+        if (shared != null && shared.isDirectory() && (local == null || !local.isFile()))
+        {
+            return shared;
+        }
+
+        /* Existing world files stay editable in place; new files belong to the main library. */
         if (local != null && local.exists())
         {
             return local;
         }
 
-        return shared != null && shared.exists() ? shared : (local == null ? shared : local);
+        return shared;
     }
 
     @Override

@@ -227,6 +227,13 @@ public class ModelManager implements IWatchDogListener
     {
         File file = this.provider.getFile(Link.assets(MODELS_PREFIX + id).combine("config.json"));
 
+        if (file != null && !file.exists())
+        {
+            File folder = this.getModelFolder(id);
+
+            file = folder == null ? null : new File(folder, "config.json");
+        }
+
         if (file == null)
         {
             return false;
@@ -235,6 +242,31 @@ public class ModelManager implements IWatchDogListener
         file.getParentFile().mkdirs();
 
         return DataToString.writeSilently(file, data, true);
+    }
+
+    /** Locate the model by its geometry, not by an unrelated texture or config override. */
+    public File getModelFolder(String id)
+    {
+        ModelInstance instance = this.models.get(id);
+        Link source = instance == null ? null : instance.getSourceFile();
+        String prefix = MODELS_PREFIX + id + "/";
+
+        if (source != null && source.path.startsWith(prefix))
+        {
+            File file = this.provider.getFile(source);
+
+            if (file != null && file.isFile())
+            {
+                for (String part : source.path.substring(prefix.length()).split("/"))
+                {
+                    file = file.getParentFile();
+                }
+
+                return file;
+            }
+        }
+
+        return this.provider.getFile(Link.assets(MODELS_PREFIX + id));
     }
 
     /**

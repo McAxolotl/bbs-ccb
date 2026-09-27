@@ -52,6 +52,7 @@ public class VoxModelLoader implements IModelLoader
             this.ensurePalette(models.provider, document, modelVox, palette);
 
             ModelInstance modelInstance = new ModelInstance(id, newModel, new Animations(models.parser), palette);
+            modelInstance.setSourceFile(modelVox);
 
             modelInstance.applyConfig(config);
 

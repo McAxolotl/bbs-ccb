@@ -2,9 +2,8 @@ package mchorse.bbs_mod.ui.utils;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.cubic.model.ModelManager;
-import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.OS;
 import net.minecraft.client.MinecraftClient;
@@ -78,7 +77,7 @@ public class UIUtils
             return false;
         }
 
-        File folder = BBSMod.getProvider().getFile(Link.assets(ModelManager.MODELS_PREFIX + id));
+        File folder = BBSModClient.getModels().getModelFolder(id);
 
         /* Built-in models may not have an external folder yet. Never launch Explorer with a missing path. */
         return folder != null && (folder.isDirectory() || folder.mkdirs()) && openFolder(folder);
