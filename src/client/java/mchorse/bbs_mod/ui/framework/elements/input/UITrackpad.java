@@ -378,7 +378,7 @@ public class UITrackpad extends UINumericInput<UITrackpad>
         boolean plus = !dragging && this.plusOne.isInside(context);
         boolean minus = !dragging && this.minusOne.isInside(context);
 
-        if (this.isEnabled() && (this.textbox.isFocused() || (!dragging && this.area.isInside(context))))
+        if (this.isEnabled() && this.area.isInside(context) && (this.textbox.isFocused() || !dragging))
         {
             context.requestCursor(GLFW.GLFW_IBEAM_CURSOR);
         }
