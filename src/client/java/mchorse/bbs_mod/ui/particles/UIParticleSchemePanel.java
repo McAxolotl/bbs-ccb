@@ -132,6 +132,10 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
         this.add(new UIUndoKeys(this::undo, this::redo).full(this));
 
         this.overlay.namesList.setFileIcon(Icons.PARTICLE);
+        var particlePreview = mchorse.bbs_mod.ui.framework.elements.input.list.ResourcePreviews.particles();
+        this.overlay.namesList.preview = (context, item, x, y, size) -> particlePreview.render(context, item.toString(), x, y, size);
+        this.overlay.namesList.scroll.scrollItemSize = 24;
+        this.overlay.names.views();
 
         UIIcon restart = new UIIcon(Icons.TRASH, (b) ->
         {

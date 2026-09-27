@@ -28,6 +28,7 @@ public class UIParticleSettings extends UIElement
         this.particle = new UIButton(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_PICK, (b) ->
         {
             UIListOverlayPanel overlayPanel = new UIListOverlayPanel(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_TITLE, (l) -> this.setParticle(new Identifier(l)), UIVanillaParticleList::new);
+            overlayPanel.list.views();
             List<String> strings = new ArrayList<>();
 
             for (RegistryKey<ParticleType<?>> key : Registries.PARTICLE_TYPE.getKeys())

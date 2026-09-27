@@ -18,6 +18,7 @@ public class UIVanillaParticleList extends UIStringList
         super(callback);
 
         this.scroll.scrollItemSize = PREVIEW_SIZE + 4;
+        this.preview = (context, item, x, y, size) -> VanillaParticlePreview.render(context, new Identifier(item), x, y, size, mchorse.bbs_mod.utils.colors.Colors.WHITE);
     }
 
     @Override

@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.dashboard.list;
 
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIList;
-import mchorse.bbs_mod.ui.framework.elements.utils.RowStyle;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.DataPath;
@@ -11,9 +10,7 @@ import mchorse.bbs_mod.utils.NaturalOrderComparator;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
-import java.util.ArrayList;
 import java.util.function.Consumer;
 
 public class UIDataPathList extends UIList<DataPath>
@@ -34,37 +31,13 @@ public class UIDataPathList extends UIList<DataPath>
      */
     private Icon fileIcon = Icons.FILE;
 
-    private DataPath previousPath;
-    private boolean openOnSingleClick = true;
-    private Consumer<List<DataPath>> openCallback;
-    private ArrayList<DataPath> openArgs = new ArrayList<>(1);
+    private DataPath selectedFolder;
+    private Runnable changed = () -> {};
 
     public UIDataPathList(Consumer<List<DataPath>> callback)
     {
-        super(null);
-
-        this.openCallback = callback;
+        super(callback);
         this.scroll.scrollItemSize = 16;
-    }
-
-    public UIDataPathList openOnSingleClick(boolean openOnSingleClick)
-    {
-        this.openOnSingleClick = openOnSingleClick;
-
-        return this;
-    }
-
-    private void open(DataPath dataPath)
-    {
-        if (this.openCallback == null)
-        {
-            return;
-        }
-
-        this.openArgs.clear();
-        this.openArgs.add(dataPath);
-
-        this.openCallback.accept(this.openArgs);
     }
 
     public void setFileIcon(Icon icon)
@@ -91,6 +64,16 @@ public class UIDataPathList extends UIList<DataPath>
         return copy;
     }
 
+    public void onChanged(Runnable changed)
+    {
+        this.changed = changed;
+    }
+
+    public Collection<DataPath> getHierarchy()
+    {
+        return java.util.Collections.unmodifiableSet(this.hierarchy);
+    }
+
     public void fill(Collection<String> hierarchy)
     {
         this.hierarchy.clear();
@@ -100,50 +83,53 @@ public class UIDataPathList extends UIList<DataPath>
             this.hierarchy.add(new DataPath(string));
         }
 
-        this.goTo(DataPath.EMPTY);
+        while (!this.path.strings.isEmpty() && this.hierarchy.stream().noneMatch(p -> p.startsWith(this.path)))
+        {
+            this.path.copy(this.path.getParent());
+        }
+
+        this.goTo(this.path.copy());
     }
 
-    private void goTo(DataPath path)
+    public void goTo(DataPath path)
     {
         this.path.copy(path);
-        this.previousPath = null;
-
-        this.filter("");
         this.deselect();
+        this.selectedFolder = path.strings.isEmpty() ? null : path.copy();
         this.updateStrings();
+        this.changed.run();
     }
 
     private void updateStrings()
     {
-        Set<DataPath> paths = new HashSet<>();
-
-        if (!this.path.strings.isEmpty())
-        {
-            DataPath copy = this.path.copy();
-
-            copy.strings.add("..");
-            paths.add(copy);
-        }
+        this.list.clear();
 
         for (DataPath dataPath : this.hierarchy)
         {
-            if (dataPath.startsWith(this.path, 1))
+            if (!dataPath.folder && (this.path.strings.isEmpty() || this.isFiltering() || dataPath.startsWith(this.path, 1)))
             {
-                paths.add(dataPath);
-            }
-            else if (dataPath.startsWith(this.path) && !dataPath.equals(this.path))
-            {
-                DataPath to = dataPath.getTo(this.path.strings.size() + 1);
-
-                paths.add(to);
+                this.list.add(dataPath);
             }
         }
 
-        this.list.clear();
-        this.list.addAll(paths);
-
         this.sort();
-        this.update();
+        this.refilter();
+    }
+
+    @Override
+    public void filter(String query)
+    {
+        super.filter(query);
+        this.deselect();
+        this.selectedFolder = null;
+        this.updateStrings();
+    }
+
+    @Override
+    public DataPath getCurrentFirst()
+    {
+        DataPath file = super.getCurrentFirst();
+        return file == null ? this.selectedFolder : file;
     }
 
     public boolean hasInHierarchy(String path)
@@ -161,49 +147,17 @@ public class UIDataPathList extends UIList<DataPath>
      */
     public void addFile(String path)
     {
-        DataPath dataPath = this.getFilename(path);
-
-        if (dataPath != null)
-        {
-            this.hierarchy.add(dataPath);
-
-            this.add(dataPath);
-            this.sort();
-            this.setCurrentFile(path);
-        }
+        this.hierarchy.add(new DataPath(path));
+        this.setCurrentFile(path);
     }
 
-    /**
-     * Removes given path from the hierarchy and currently displayed list.
-     */
     public void removeFile(String path)
     {
-        DataPath dataPath = this.getFilename(path);
-
-        if (dataPath != null && this.hasInHierarchy(path))
-        {
-            this.hierarchy.remove(dataPath);
-
-            this.remove(dataPath);
-            this.deselect();
-        }
-    }
-
-    /**
-     * Get the filename of the path. It returns filename only if
-     * given path matches the current path in the hierarchy, otherwise
-     * it will return {@code null}.
-     */
-    private DataPath getFilename(String path)
-    {
-        DataPath dataPath = new DataPath(path);
-
-        if (dataPath.startsWith(this.path, 1))
-        {
-            return dataPath;
-        }
-
-        return null;
+        this.hierarchy.remove(new DataPath(path));
+        this.deselect();
+        this.selectedFolder = null;
+        this.updateStrings();
+        this.changed.run();
     }
 
     public void setCurrentFile(String path)
@@ -215,69 +169,29 @@ public class UIDataPathList extends UIList<DataPath>
 
         DataPath dataPath = new DataPath(path);
 
+        if (this.visible().contains(dataPath))
+        {
+            this.setCurrent(dataPath);
+            this.moveSelection(0);
+            this.selectedFolder = null;
+            return;
+        }
+
         if (dataPath.strings.size() == 1)
         {
             this.goTo(DataPath.EMPTY);
             this.setCurrentScroll(dataPath);
+            this.selectedFolder = null;
         }
         else
         {
             this.goTo(dataPath.getParent());
             this.setCurrentScroll(dataPath);
+            this.selectedFolder = null;
         }
     }
 
     /* UIList overrides */
-
-    @Override
-    public boolean subMouseClicked(UIContext context)
-    {
-        if (this.scroll.mouseClicked(context))
-        {
-            return true;
-        }
-
-        if (this.area.isInside(context) && context.mouseButton == 0)
-        {
-            int index = this.getIndexAtCursor(context);
-
-            if (this.exists(index))
-            {
-                this.applySelectionOnClick(index);
-
-                DataPath dataPath = this.list.get(index);
-
-                if (dataPath.folder)
-                {
-                    if (Objects.equals(this.previousPath, dataPath))
-                    {
-                        DataPath newPath;
-
-                        if (dataPath.getLast().equals(".."))
-                        {
-                            newPath = this.path.getParent();
-                        }
-                        else
-                        {
-                            newPath = dataPath;
-                        }
-
-                        this.goTo(newPath);
-                    }
-                }
-                else if (this.openOnSingleClick || Objects.equals(this.previousPath, dataPath))
-                {
-                    this.open(dataPath);
-                }
-
-                this.previousPath = dataPath.copy();
-
-                return true;
-            }
-        }
-
-        return super.subMouseClicked(context);
-    }
 
     @Override
     protected boolean mouseClickedContextMenu(UIContext context)
@@ -300,12 +214,6 @@ public class UIDataPathList extends UIList<DataPath>
     {
         this.list.sort((a, b) ->
         {
-            if (a.folder && !b.folder) return -1;
-            if (b.folder && !a.folder) return 1;
-
-            if (a.toString().endsWith("/..")) return -1;
-            if (b.toString().endsWith("/..")) return 1;
-
             return NaturalOrderComparator.compare(true, a.toString(), b.toString());
         });
 
@@ -315,14 +223,22 @@ public class UIDataPathList extends UIList<DataPath>
     @Override
     protected void renderElementPart(UIContext context, DataPath element, int i, int x, int y, boolean hover, boolean selected)
     {
-        context.batcher.icon(element.folder ? Icons.FOLDER : this.fileIcon, RowStyle.iconColor(hover || selected), x, y + this.rowHeight() / 2F, 0F, 0.5F);
+        if (this.preview != null)
+        {
+            super.renderElementPart(context, element, i, x, y, hover, selected);
+            return;
+        }
 
-        super.renderElementPart(context, element, i, x + 12, y, hover, selected);
+        context.batcher.icon(this.fileIcon, mchorse.bbs_mod.ui.framework.elements.utils.RowStyle.iconColor(hover || selected),
+            x + 2, y + this.rowHeight() / 2F, 0F, 0.5F);
+        String label = context.batcher.getFont().limitToWidth(element.toString(), Math.max(1, this.area.w - 20));
+        context.batcher.textShadow(label, x + 16, y + (this.rowHeight() - context.batcher.getFont().getHeight()) / 2,
+            mchorse.bbs_mod.ui.framework.elements.utils.RowStyle.textColor(hover || selected));
     }
 
     @Override
     protected String elementToString(UIContext context, int i, DataPath element)
     {
-        return element.getLast() + (element.folder ? "/" : "");
+        return element.toString();
     }
 }

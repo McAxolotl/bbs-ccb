@@ -25,6 +25,10 @@ public class UIModelOverlayPanel extends UIDataOverlayPanel<ModelConfig>
 
         /* Same icon the tabs and the landing screen use, so a model reads as a model everywhere. */
         this.namesList.setFileIcon(Icons.POSE);
+        var preview = mchorse.bbs_mod.ui.framework.elements.input.list.ResourcePreviews.models();
+        this.namesList.preview = (context, item, x, y, size) -> preview.render(context, item.toString(), x, y, size);
+        this.namesList.scroll.scrollItemSize = 24;
+        this.names.views();
     }
 
     @Override

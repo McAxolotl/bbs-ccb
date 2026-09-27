@@ -40,6 +40,14 @@ import java.util.function.IntSupplier;
  */
 public abstract class UIList <T> extends UIItems<T>
 {
+    @FunctionalInterface
+    public interface Preview<T>
+    {
+        void render(UIContext context, T item, int x, int y, int size);
+    }
+
+    public Preview<T> preview;
+
     /** Left padding of a row's content, before the indent. */
     public static final int ROW_PADDING = 4;
 
@@ -627,6 +635,32 @@ public abstract class UIList <T> extends UIItems<T>
         }
 
         return null;
+    }
+
+    /** Move the pick through search results without applying it or taking focus from search. */
+    public void moveSelection(int direction)
+    {
+        List<T> visible = this.visible();
+
+        if (visible.isEmpty())
+        {
+            this.deselect();
+            return;
+        }
+
+        int index = visible.indexOf(this.getCurrentFirst());
+        int next = index < 0 ? 0 : Math.max(0, Math.min(visible.size() - 1, index + direction));
+
+        this.setCurrent(visible.get(next));
+        this.cursor = next;
+        this.scrollIntoView(next);
+    }
+
+    public T getVisibleSelection()
+    {
+        T selected = this.getCurrentFirst();
+
+        return this.visible().contains(selected) ? selected : null;
     }
 
     public int getIndex()
@@ -1274,6 +1308,15 @@ public abstract class UIList <T> extends UIItems<T>
      */
     protected void renderElementPart(UIContext context, T element, int i, int x, int y, boolean hover, boolean selected)
     {
+        if (this.preview != null)
+        {
+            int size = Math.max(8, this.rowHeight() - 4);
+            this.preview.render(context, element, x + 4, y + 2, size);
+            String label = context.batcher.getFont().limitToWidth(this.elementToString(context, i, element), Math.max(1, this.area.w - size - 14));
+            context.batcher.textShadow(label, x + size + 8, y + (this.rowHeight() - context.batcher.getFont().getHeight()) / 2, RowStyle.textColor(hover || selected));
+            return;
+        }
+
         int textX = x + this.rowContentX(element) + (this.branch(element) != null ? ARROW_SLOT : 0);
 
         this.renderArrow(context, element, x, y, hover || selected);

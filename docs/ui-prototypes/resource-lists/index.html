@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BBS — макеты панелей ресурсов</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="prototype">
+    <aside class="switcher" aria-label="Примеры интерфейса">
+      <div class="switcher-title">Макеты панелей</div>
+      <div class="switcher-group">БЫСТРЫЙ ВЫБОР</div>
+      <button class="example active" data-view="models"><i class="icon pose"></i>Список моделей</button>
+      <button class="example" data-view="textures"><i class="icon material"></i>Текстуры Ctrl+F</button>
+      <button class="example" data-view="particles"><i class="icon particle"></i>Частицы</button>
+      <div class="switcher-group second">УПРАВЛЕНИЕ ФАЙЛАМИ</div>
+      <button class="example" data-view="crud"><i class="icon film"></i>CRUD фильмов</button>
+      <button class="example" data-view="modelCrud"><i class="icon pose"></i>CRUD моделей</button>
+      <div class="switcher-line"></div>
+      <label class="scale-label" for="scale">Масштаб <output id="scale-value">1×</output></label>
+      <input id="scale" type="range" min="0.85" max="1.15" step="0.05" value="1">
+    </aside>
+
+    <section class="stage" aria-label="Макет BBS">
+      <div class="dim"></div>
+      <button id="reopen" class="reopen" hidden>Открыть панель снова</button>
+      <section class="quick" id="quick" aria-labelledby="quick-title">
+        <header class="quick-header"><h1 id="quick-title">Модели</h1><button class="icon-button" id="quick-close" title="Закрыть" aria-label="Закрыть"><i class="icon close-icon"></i></button></header>
+        <div class="quick-search"><span aria-hidden="true">⌕</span><input id="quick-input" type="search" autocomplete="off" placeholder="Название модели" aria-label="Поиск ресурса"></div>
+        <div class="quick-list" id="quick-list" role="listbox" aria-label="Результаты поиска"></div>
+      </section>
+      <section class="browser" id="browser" aria-labelledby="browser-title" hidden>
+        <header class="browser-header">
+          <div class="browser-title"><i id="title-icon" class="icon film"></i><h1 id="browser-title">Фильмы</h1></div>
+          <button class="icon-button" id="close" title="Закрыть" aria-label="Закрыть"><i class="icon close-icon"></i></button>
+        </header>
+        <div class="toolbar">
+          <div class="search-field"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Поиск фильмов" aria-label="Поиск ресурсов" autocomplete="off"><button id="clear-search" title="Очистить поиск" aria-label="Очистить поиск">×</button></div>
+          <div class="view-buttons" role="group" aria-label="Вид результатов"><button id="grid-view" title="Плитки" aria-label="Плитки">▦</button><button id="list-view" title="Список" aria-label="Список">☰</button></div>
+        </div>
+        <div class="browser-body">
+          <aside class="folders" id="folders" aria-label="Дерево папок"><div id="folder-list" role="tree" aria-label="Папки ресурсов"></div></aside>
+          <section class="results" aria-label="Ресурсы"><div class="items" id="items"></div><div class="empty" id="empty" hidden>Ничего не найдено</div></section>
+          <aside class="action-rail" role="toolbar" aria-label="Действия с ресурсом">
+            <button id="create" title="Создать фильм" aria-label="Создать фильм"><i class="icon add"></i></button>
+            <div class="rail-divider" id="rail-divider"></div>
+            <button id="duplicate" title="Дублировать фильм" aria-label="Дублировать фильм"><i class="icon dupe"></i></button>
+            <button id="rename" title="Переименовать фильм" aria-label="Переименовать фильм"><i class="icon edit"></i></button>
+            <button id="remove" title="Удалить фильм" aria-label="Удалить фильм"><i class="icon remove"></i></button>
+          </aside>
+        </div>
+      </section>
+      <output id="status" class="status" aria-live="polite"></output>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
