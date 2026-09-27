@@ -49,6 +49,17 @@ public class FormCategories implements IWatchDogListener
 
     public void setup()
     {
+        this.setup(true);
+    }
+
+    /** Rebuild asset sections without re-reading user categories whose saves may still be queued. */
+    public void reloadAssets()
+    {
+        this.setup(false);
+    }
+
+    private void setup(boolean reloadUserForms)
+    {
         this.sections.clear();
         this.sections.add(this.recentForms);
         this.sections.add(this.userForms);
@@ -63,7 +74,10 @@ public class FormCategories implements IWatchDogListener
 
         for (FormSection section : this.sections)
         {
-            section.initiate();
+            if (reloadUserForms || (section != this.recentForms && section != this.userForms))
+            {
+                section.initiate();
+            }
         }
 
         this.markDirty();

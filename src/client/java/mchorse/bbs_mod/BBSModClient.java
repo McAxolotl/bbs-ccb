@@ -527,7 +527,7 @@ public class BBSModClient implements ClientModInitializer
 
         File parentFile = BBSMod.getSettingsFolder().getParentFile();
 
-        particles = new ParticleManager(() -> new File(BBSMod.getAssetsFolder(), "particles"));
+        particles = new ParticleManager(() -> new File(BBSMod.getAssetsFolder(), "particles"), BBSMod.getDynamicSourcePack());
 
         /* Both of these are read by the objects made right below, and both lists are rebuilt
          * on every asset reload — so the moment to add to them is before the first build. */
@@ -780,8 +780,24 @@ public class BBSModClient implements ClientModInitializer
             }
         });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() ->
         {
+            if (client.getNetworkHandler() == handler)
+            {
+                BBSResources.enterWorld();
+            }
+        }));
+
+        /* Fabric can deliver disconnect on Netty's IO thread. All resource disposal below
+         * belongs to the client thread, where the OpenGL context is current. */
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(() ->
+        {
+            /* An old connection must not reset a new session if its cleanup was delayed. */
+            if (client.getNetworkHandler() != null && client.getNetworkHandler() != handler)
+            {
+                return;
+            }
+
             dashboard = null;
             DashboardWarmup.reset();
             worldExportSession.stop();
@@ -800,7 +816,8 @@ public class BBSModClient implements ClientModInitializer
             ClientNetwork.resetHandshake();
             films.reset();
             cameraController.reset();
-        });
+            BBSResources.leaveWorld();
+        }));
 
         ClientTickEvents.START_CLIENT_TICK.register((client) ->
         {
@@ -826,12 +843,14 @@ public class BBSModClient implements ClientModInitializer
                 films.updateEndWorld();
             }
 
-            BBSResources.tick();
         });
 
         ClientTickEvents.END_CLIENT_TICK.register((client) ->
         {
             MinecraftClient mc = MinecraftClient.getInstance();
+
+            /* Files can change while an editor or the unfocused game pauses world ticks. */
+            BBSResources.tick();
 
             if (mc.currentScreen instanceof UIScreen screen)
             {

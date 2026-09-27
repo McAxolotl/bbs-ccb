@@ -27,7 +27,7 @@ public class WatchDog implements Runnable
     private WatchService service;
     private Map<WatchKey, Path> keys = new HashMap<>();
     private Thread thread;
-    private boolean stopThread;
+    private volatile boolean stopThread;
 
     private boolean onlyTop;
 
@@ -92,6 +92,11 @@ public class WatchDog implements Runnable
     public void stop()
     {
         this.stopThread = true;
+
+        if (this.thread != null)
+        {
+            this.thread.interrupt();
+        }
     }
 
     @Override
@@ -102,6 +107,9 @@ public class WatchDog implements Runnable
             this.service = FileSystems.getDefault().newWatchService();
 
             this.registerFolderRecursive(this.folder);
+
+            while (!this.stopThread && this.pollEvents())
+            {}
         }
         catch (IOException e)
         {
@@ -110,12 +118,21 @@ public class WatchDog implements Runnable
             e.printStackTrace();
         }
 
-        while (!this.stopThread)
+        finally
         {
-            if (!this.pollEvents())
+            if (this.service != null)
             {
-                return;
+                try
+                {
+                    this.service.close();
+                }
+                catch (IOException e)
+                {
+                    e.printStackTrace();
+                }
             }
+
+            this.keys.clear();
         }
     }
 

@@ -66,13 +66,13 @@ public class ParticleFormSection extends SubFormSection
     {
         Link link = BBSMod.getProvider().getLink(path.toFile());
 
-        if (link.path.startsWith("particles/") && link.path.endsWith(".json"))
+        if (link != null && link.path.startsWith("particles/") && link.path.endsWith(".json"))
         {
             String key = link.path.substring("particles/".length());
 
             key = key.substring(0, key.length() - ".json".length());
 
-            if (event == WatchDogEvent.DELETED)
+            if (event == WatchDogEvent.DELETED && !BBSMod.getDynamicSourcePack().hasAsset(link))
             {
                 this.remove(key);
             }

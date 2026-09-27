@@ -41,6 +41,7 @@
         "EntityRendererMixin",
         "ClientPlayerEntityAccessor",
         "iris.IrisRenderingPipelineAccessor",
+        "iris.RenderTargetsMixin",
         "iris.CustomUniformsBuilderMixin",
         "iris.CustomUniformsAccessor",
         "iris.JcppProcessorMixin",

@@ -243,7 +243,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         IKey looping = UIKeys.CAMERA_EDITOR_KEYS_LOOPING_TITLE;
         Supplier<Boolean> active = () -> !this.isFlying();
 
-        this.keys().register(Keys.PLAUSE, () -> this.preview.plause.clickItself()).active(active).category(editor);
+        this.keys().register(Keys.PLAUSE, this::togglePlayback).active(active).category(editor);
         this.keys().register(Keys.NEXT_CLIP, () -> this.setCursor(this.data.camera.findNextTick(this.getCursor()))).active(active).category(editor);
         this.keys().register(Keys.PREV_CLIP, () -> this.setCursor(this.data.camera.findPreviousTick(this.getCursor()))).active(active).category(editor);
         this.keys().register(Keys.NEXT, () -> this.setCursor(this.getCursor() + 1)).active(active).category(editor);
@@ -334,7 +334,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.panels.add(this.replayEditor);
 
         this.secretPlay = new UIElement();
-        this.secretPlay.keys().register(Keys.PLAUSE, () -> this.preview.plause.clickItself()).active(() -> !this.isFlying() && !this.canBeSeen() && this.data != null).category(editor);
+        this.secretPlay.keys().register(Keys.PLAUSE, this::togglePlayback).active(() -> !this.isFlying() && !this.canBeSeen() && this.data != null).category(editor);
 
         this.setUndoId("film_panel");
         this.cameraEditor.setUndoId("camera_editor");

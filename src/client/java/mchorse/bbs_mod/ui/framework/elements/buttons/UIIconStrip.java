@@ -247,7 +247,7 @@ public abstract class UIIconStrip <T> extends UIClickable<T>
             }
             else if (cellHover)
             {
-                RowStyle.hover(context.batcher, x1, this.area.y, x2 - x1, this.area.h, 0);
+                RowStyle.cellWash(context.batcher, x1, this.area.y, x2 - x1, this.area.h, true, false);
             }
 
             /* The mark under a cell says which one is active; the icon's own brightness says it

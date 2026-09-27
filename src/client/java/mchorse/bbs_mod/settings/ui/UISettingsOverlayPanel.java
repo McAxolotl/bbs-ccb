@@ -9,6 +9,7 @@ import mchorse.bbs_mod.settings.value.ValueKeyCombo;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.utility.UIUtilitySettings;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
@@ -146,7 +147,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
 
         for (ValueGroup category : this.settings.categories.values())
         {
-            if (!category.isVisible())
+            if (!this.isCategoryVisible(category))
             {
                 continue;
             }
@@ -186,7 +187,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
 
             for (ValueGroup category : this.settings.categories.values())
             {
-                if (!category.isVisible() || !this.hasMatch(category))
+                if (!this.isCategoryVisible(category) || !this.hasMatch(category))
                 {
                     continue;
                 }
@@ -256,6 +257,38 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
                 this.options.add(element);
             }
         }
+        if (this.isMisc(category))
+        {
+            boolean language = !filtered || this.matchesLanguageTools();
+            boolean cdn = !filtered || this.matchesCdnTools();
+            if (language || cdn) this.options.add(new UIUtilitySettings(language, cdn).marginTop(10));
+        }
+    }
+
+    private boolean isCategoryVisible(ValueGroup category)
+    {
+        /* CDN keeps its persisted keys, but its controls live under Miscellaneous. */
+        return category.isVisible() && !(this.settings.getId().equals("bbs") && category.getId().equals("cdn"));
+    }
+
+    private boolean isMisc(ValueGroup category)
+    {
+        return this.settings.getId().equals("bbs") && category.getId().equals("misc");
+    }
+
+    private boolean matchesLanguageTools()
+    {
+        return this.filter.isEmpty() || List.of(UIKeys.UTILITY_LANG_LABEL, UIKeys.UTILITY_ANALYZE_LANG,
+            UIKeys.UTILITY_COMPILE_LANG, UIKeys.UTILITY_LANG_EDITOR).stream()
+            .anyMatch(key -> key.get().toLowerCase().contains(this.filter));
+    }
+
+    private boolean matchesCdnTools()
+    {
+        return this.filter.isEmpty() || "cdn".contains(this.filter)
+            || this.matches(BBSSettings.cdnUrl) || this.matches(BBSSettings.cdnToken)
+            || UIKeys.GENERAL_DOWNLOAD.get().toLowerCase().contains(this.filter)
+            || UIKeys.GENERAL_UPLOAD.get().toLowerCase().contains(this.filter);
     }
 
     private boolean isVisible(List<BaseValue> values)
@@ -286,6 +319,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
 
     private boolean hasMatch(ValueGroup category)
     {
+        if (this.isMisc(category) && (this.matchesLanguageTools() || this.matchesCdnTools())) return true;
         for (BaseValue value : category.getAll())
         {
             if (this.isValueVisible(value) && this.matches(value))

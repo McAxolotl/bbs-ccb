@@ -12,6 +12,8 @@ import mchorse.bbs_mod.utils.interps.Interpolations;
 
 public class UIKeys
 {
+    public static final IKey WORLD_ASSETS_ERROR = L10n.lang("bbs.ui.world_assets.error");
+
     public static final IKey ACTIONS_ATTACK_DAMAGE = L10n.lang("bbs.ui.actions.attack.damage");
     public static final IKey ACTIONS_BLOCK_DIRECTION = L10n.lang("bbs.ui.actions.block.direction");
     public static final IKey ACTIONS_BLOCK_DIRECTION_DOWN = L10n.lang("bbs.ui.actions.block.direction.down");
@@ -1770,6 +1772,24 @@ public class UIKeys
     public static final IKey TRANSFORMS_SCALE = L10n.lang("bbs.ui.transforms.scale");
     public static final IKey TRANSFORMS_TRANSLATE = L10n.lang("bbs.ui.transforms.translate");
     public static final IKey TRANSFORMS_UNIFORM_SCALE = L10n.lang("bbs.ui.transforms.uniform_scale");
+    public static final IKey UTILITY_PREPARE_WORLD_DESCRIPTION = L10n.lang("bbs.ui.utility.prepare_world-description");
+    public static final IKey UTILITY_KILL_ENTITIES = L10n.lang("bbs.ui.utility.kill_entities");
+    public static final IKey UTILITY_ASSETS = L10n.lang("bbs.ui.utility.assets");
+    public static final IKey UTILITY_MODELS = L10n.lang("bbs.ui.utility.models");
+    public static final IKey UTILITY_VIDEO = L10n.lang("bbs.ui.utility.video");
+    public static final IKey UTILITY_STRUCTURES = L10n.lang("bbs.ui.utility.structures");
+    public static final IKey UTILITY_FONTS = L10n.lang("bbs.ui.utility.fonts");
+    public static final IKey UTILITY_OPEN_SHARED = L10n.lang("bbs.ui.utility.open_shared");
+    public static final IKey UTILITY_OPEN_WORLD = L10n.lang("bbs.ui.utility.open_world");
+    public static final IKey UTILITY_WORLD_UNAVAILABLE = L10n.lang("bbs.ui.utility.world_unavailable");
+    public static final IKey UTILITY_SHADERS = L10n.lang("bbs.ui.utility.shaders");
+    public static final IKey UTILITY_SHADERS_OFF = L10n.lang("bbs.ui.utility.shaders_off");
+    public static final IKey UTILITY_OPEN_SHADERS = L10n.lang("bbs.ui.utility.open_shaders");
+    public static final IKey UTILITY_IRIS_REQUIRED = L10n.lang("bbs.ui.utility.iris_required");
+    public static final IKey UTILITY_SHADER_ERROR = L10n.lang("bbs.ui.utility.shader_error");
+    public static final IKey UTILITY_TIME = L10n.lang("bbs.ui.utility.time");
+    public static final IKey UTILITY_TIME_PERMISSION = L10n.lang("bbs.ui.utility.time_permission");
+
     public static final IKey UTILITY_ANALYZE_LANG = L10n.lang("studio.ui.utility.analyze_lang");
     public static final IKey UTILITY_AUDIO = L10n.lang("studio.ui.utility.audio");
     public static final IKey UTILITY_COMPILE_LANG = L10n.lang("studio.ui.utility.compile_lang");
@@ -1792,6 +1812,11 @@ public class UIKeys
     public static final IKey UTILITY_RELOAD_TEXTURES = L10n.lang("studio.ui.utility.reload_textures");
     public static final IKey UTILITY_RESIZE_WINDOW = L10n.lang("studio.ui.utility.resize");
     public static final IKey UTILITY_TITLE = L10n.lang("studio.ui.utility.title");
+    public static final IKey CONFIG_PREVIEW_ICONS = L10n.lang("bbs.config.viewport.preview_icons");
+    public static final IKey FILM_OPEN_SCREENSHOTS = L10n.lang("bbs.ui.film.open_screenshots");
+    public static final IKey FILM_TOGGLE_SHADERS = L10n.lang("bbs.ui.film.toggle_shaders");
+    public static final IKey FILM_SELECT_SHADER = L10n.lang("bbs.ui.film.select_shader");
+
     public static final IKey CONFIG_GIZMO_ELEMENTS = L10n.lang("bbs.config.transformation.gizmo_elements");
     public static final IKey CONFIG_KEYFRAME_STYLE_EDIT = L10n.lang("bbs.config.timeline.keyframe_default_style.edit");
     public static final IKey CONFIG_EDITOR_PREVIEW_MODE_EXPORT = L10n.lang("bbs.config.viewport.preview_size_mode.export");

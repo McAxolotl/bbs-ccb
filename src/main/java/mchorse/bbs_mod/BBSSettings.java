@@ -200,6 +200,18 @@ public class BBSSettings {
 	public static ValueFloat editorPreviewResolutionScale;
 	public static ValueBoolean editorClipAutoName;
 	public static ValueBoolean editorPreviewIconsAutoHide;
+	public static ValueBoolean previewIconOnionSkin;
+	public static ValueBoolean previewIconMotionPath;
+	public static ValueBoolean previewIconTeleport;
+	public static ValueBoolean previewIconFlight;
+	public static ValueBoolean previewIconPlayback;
+	public static ValueBoolean previewIconControl;
+	public static ValueBoolean previewIconPerspective;
+	public static ValueBoolean previewIconAutoKeyframe;
+	public static ValueBoolean previewIconShaders;
+	public static ValueBoolean previewIconRecordReplay;
+	public static ValueBoolean previewIconExport;
+
 	public static ValueBoolean editorPreviewSelectionHud;
 	public static ValueBoolean editorKeepFrameOnExit;
 
@@ -801,6 +813,18 @@ public class BBSSettings {
 		editorPreviewResolutionScale = builder.getFloat("preview_resolution_scale", 2F, 1F, 3F).slider();
 		editorClipPreview = builder.getBoolean("clip_preview", true);
 		editorPreviewIconsAutoHide = builder.getBoolean("preview_icons_auto_hide", false);
+		previewIconOnionSkin = builder.getBoolean("preview_icon_onion_skin", true);
+		previewIconMotionPath = builder.getBoolean("preview_icon_motion_path", true);
+		previewIconTeleport = builder.getBoolean("preview_icon_teleport", true);
+		previewIconFlight = builder.getBoolean("preview_icon_flight", true);
+		previewIconPlayback = builder.getBoolean("preview_icon_playback", true);
+		previewIconControl = builder.getBoolean("preview_icon_control", true);
+		previewIconPerspective = builder.getBoolean("preview_icon_perspective", true);
+		previewIconAutoKeyframe = builder.getBoolean("preview_icon_auto_keyframe", true);
+		previewIconShaders = builder.getBoolean("preview_icon_shaders", true);
+		previewIconRecordReplay = builder.getBoolean("preview_icon_record_replay", true);
+		previewIconExport = builder.getBoolean("preview_icon_export", true);
+
 		editorPreviewSelectionHud = builder.getBoolean("preview_selection_hud", true);
 		builder.register(editorOnionSkin = new ValueOnionSkin("onion_skin"));
 		builder.register(editorMotionPath = new ValueMotionPath("motion_path"));

@@ -819,7 +819,7 @@ public class UIModelEditorPanel extends UIDataDashboardPanel<ModelConfig>
 
         if (id != null && !id.isEmpty())
         {
-            UIUtils.openFolder(BBSMod.getAssetsPath(ModelManager.MODELS_PREFIX + id + "/"));
+            UIUtils.openModelFolder(id);
         }
     }
 
