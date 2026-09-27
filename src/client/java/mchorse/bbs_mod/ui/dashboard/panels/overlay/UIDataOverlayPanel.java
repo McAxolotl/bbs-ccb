@@ -191,7 +191,10 @@ public class UIDataOverlayPanel <T extends ValueGroup> extends UICRUDOverlayPane
                 {
                     String id = this.panel.getData().getId();
 
-                    this.panel.getData().setId(name + "/" + id.substring(path.length()));
+                    if (id.startsWith(path + "/"))
+                    {
+                        this.panel.getData().setId(name + id.substring(path.length()));
+                    }
                 }
 
                 this.panel.onDataFolderRenamed(path, name);

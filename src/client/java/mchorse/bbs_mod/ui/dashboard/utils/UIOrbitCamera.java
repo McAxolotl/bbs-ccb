@@ -34,6 +34,9 @@ public class UIOrbitCamera implements IUIElement
 
         if (!control)
         {
+            /* Key releases are no longer routed to the camera while control is off. */
+            this.orbit.reset();
+
             /* Nothing is being flown any more, so the mouse is nobody's to hold. */
             this.setFreeLook(false);
         }

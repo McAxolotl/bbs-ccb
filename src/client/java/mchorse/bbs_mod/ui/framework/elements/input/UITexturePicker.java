@@ -151,6 +151,8 @@ public class UITexturePicker extends UIElement implements IImportPathProvider, I
         }
 
         UIListOverlayPanel panel = new UIListOverlayPanel(UIKeys.TEXTURE_FIND_TITLE, callback);
+        panel.list.list.preview = mchorse.bbs_mod.ui.framework.elements.input.list.ResourcePreviews::texture;
+        panel.list.views();
 
         panel.addValues(list);
         panel.list.list.sort();

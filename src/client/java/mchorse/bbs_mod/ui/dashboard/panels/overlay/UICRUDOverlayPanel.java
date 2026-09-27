@@ -5,6 +5,7 @@ import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.list.UIDataPathList;
+import mchorse.bbs_mod.ui.dashboard.list.UIDataFolderTree;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
@@ -25,6 +26,7 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
     public UIIcon remove;
     public UISearchList<DataPath> names;
     public UIDataPathList namesList;
+    public UIDataFolderTree folders;
 
     protected Consumer<String> callback;
 
@@ -52,10 +54,22 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
                 this.callback.accept(list.get(0).toString());
             }
         }));
-        this.names.full(this.content).x(6).w(1F, -12);
+        this.names.full(this.content).x(0.3F, 3).w(0.7F, -6);
         this.namesList = (UIDataPathList) this.names.list;
         this.names.label(UIKeys.GENERAL_SEARCH);
-        this.content.add(this.names);
+        this.names.list.y(22).h(1F, -22);
+        this.folders = new UIDataFolderTree(this.namesList, title);
+        this.folders.callback = values ->
+        {
+            if (!values.isEmpty())
+            {
+                this.names.filter("", true);
+                this.namesList.goTo(values.get(0));
+            }
+        };
+        this.folders.relative(this.content).xy(4, 0).w(0.3F, -4).h(1F);
+        this.folders.background(mchorse.bbs_mod.BBSSettings.chromeSurface());
+        this.content.add(this.folders, this.names);
 
         if (this.canCreate())
         {
@@ -66,6 +80,22 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
         {
             this.icons.add(this.dupe, this.rename, this.remove);
         }
+    }
+
+    @Override
+    public int getPreferredWidth()
+    {
+        return 480;
+    }
+
+    @Override
+    public void render(UIContext context)
+    {
+        DataPath selected = this.namesList.getCurrentFirst();
+        this.dupe.setEnabled(selected != null && !selected.folder);
+        this.rename.setEnabled(selected != null);
+        this.remove.setEnabled(selected != null);
+        super.render(context);
     }
 
     /**
@@ -233,7 +263,7 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
             panel = new UIPromptOverlayPanel(
                 UIKeys.PANELS_MODALS_RENAME_FOLDER_TITLE,
                 UIKeys.PANELS_MODALS_RENAME_FOLDER,
-                (str) -> this.renameFolder(this.namesList.getPath(str).toString())
+                (str) -> this.renameFolder(current.getParent().getChild(str).toString())
             );
         }
 

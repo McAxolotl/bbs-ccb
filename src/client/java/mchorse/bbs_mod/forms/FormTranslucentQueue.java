@@ -233,7 +233,7 @@ public class FormTranslucentQueue
 
         for (DrawCommand command : commands)
         {
-            resetBlend();
+            prepareDraw();
 
             /* Solid geometry keeps depth writes for correct self-occlusion — the sort already
              * ordered the commands between models. Flat single-quad forms don't write, so they
@@ -263,6 +263,8 @@ public class FormTranslucentQueue
 
         commands.clear();
 
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.enableCull();
         RenderSystem.depthMask(true);
         RenderSystem.disableBlend();
@@ -272,14 +274,17 @@ public class FormTranslucentQueue
     }
 
     /**
-     * Blending is per-command state, not per-pass: a {@link RenderLayerCommand} ends with the
-     * layer's own endDrawing, and every vanilla translucent layer disables blending there. The
-     * command replayed next — a label's background quad right after its text, a billboard after
+     * Depth testing and blending are per-command state: a {@link RenderLayerCommand} ends with
+     * the layer's own endDrawing, which disables both. Without restoring depth testing, later
+     * models and billboards ignore occlusion and cannot write depth even with depthMask(true).
+     * The command replayed next — a label's background quad right after its text, a billboard after
      * a block — would then draw with GL_BLEND off and lose its alpha entirely. Each command
      * (and each child inside a group) starts from the same known state instead.
      */
-    private static void resetBlend()
+    private static void prepareDraw()
     {
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
     }
@@ -542,7 +547,7 @@ public class FormTranslucentQueue
         {
             for (DrawCommand child : this.children)
             {
-                resetBlend();
+                prepareDraw();
 
                 child.draw();
             }
@@ -586,6 +591,8 @@ public class FormTranslucentQueue
         @Override
         public void draw()
         {
+            int overlayTexture = RenderSystem.getShaderTexture(1);
+            int lightmapTexture = RenderSystem.getShaderTexture(2);
             this.layer.startDrawing();
 
             /* startDrawing applied the layer's own write mask — re-assert ours. */
@@ -602,6 +609,10 @@ public class FormTranslucentQueue
             this.unbindOverlay(previousOverlay);
 
             this.layer.endDrawing();
+            /* Vanilla tears down these samplers in endDrawing. Subsequent custom model
+             * commands share the pass lighting and do not start a vanilla render layer. */
+            RenderSystem.setShaderTexture(1, overlayTexture);
+            RenderSystem.setShaderTexture(2, lightmapTexture);
         }
 
         @Override

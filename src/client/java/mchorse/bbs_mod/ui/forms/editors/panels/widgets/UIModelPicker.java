@@ -18,6 +18,8 @@ public class UIModelPicker
     public static void open(UIContext context, String current, Consumer<String> callback)
     {
         UIListOverlayPanel list = new UIListOverlayPanel(UIKeys.FORMS_EDITOR_MODEL_MODELS, callback);
+        list.list.list.preview = mchorse.bbs_mod.ui.framework.elements.input.list.ResourcePreviews.models();
+        list.list.views();
 
         list.addValues(BBSModClient.getModels().getAvailableKeys());
         list.list.list.sort();
