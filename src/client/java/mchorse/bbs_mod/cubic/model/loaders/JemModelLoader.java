@@ -116,6 +116,7 @@ public class JemModelLoader implements IModelLoader
             this.print(model, warnings);
 
             ModelInstance newModel = new ModelInstance(id, modelModel, new Animations(models.parser), modelTexture);
+            newModel.setSourceFile(chosen);
 
             newModel.cemAnimation = result.animation();
             newModel.cemAnimation.jem = entity;

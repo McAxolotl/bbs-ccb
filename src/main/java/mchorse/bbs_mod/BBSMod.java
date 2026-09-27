@@ -301,14 +301,20 @@ public class BBSMod implements ModInitializer
      */
     public static File getAssetsFolder()
     {
-        ISourcePack sourcePack = getDynamicSourcePack().getSourcePack();
+        return assetsFolder;
+    }
+
+    /** Additional assets of the local world, or null outside a local world. */
+    public static File getWorldAssetsFolder()
+    {
+        ISourcePack sourcePack = getDynamicSourcePack().getSecondary();
 
         if (sourcePack instanceof ExternalAssetsSourcePack pack)
         {
             return pack.getFolder();
         }
 
-        return assetsFolder;
+        return null;
     }
 
     public static File getAudioFolder()

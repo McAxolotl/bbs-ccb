@@ -135,7 +135,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
         shared.tooltip(UIKeys.UTILITY_OPEN_SHARED);
         UIIcon world = new UIIcon(Icons.GLOBE, b ->
         {
-            if (this.hasWorldAssets()) this.openFolder(BBSMod.getAssetsPath(path));
+            if (this.hasWorldAssets()) this.openFolder(new File(BBSMod.getWorldAssetsFolder(), path));
         });
         world.tooltip(this.hasWorldAssets() ? UIKeys.UTILITY_OPEN_WORLD : UIKeys.UTILITY_WORLD_UNAVAILABLE);
         world.setEnabled(this.hasWorldAssets());
@@ -146,7 +146,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
     private boolean hasWorldAssets()
     {
         return MinecraftClient.getInstance().getServer() != null
-            && !BBSMod.getAssetsFolder().equals(BBSMod.getOriginalSourcePack().getFolder());
+            && BBSMod.getWorldAssetsFolder() != null;
     }
 
     private UIIcon reload(Icon icon, IKey tooltip, Runnable action)

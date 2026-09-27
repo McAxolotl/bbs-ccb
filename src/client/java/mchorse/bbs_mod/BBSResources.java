@@ -41,14 +41,14 @@ public class BBSResources
         stopWatchdog();
 
         File assetsFolder = BBSMod.getAssetsFolder();
-        File sharedFolder = BBSMod.getOriginalSourcePack().getFolder();
+        File worldFolder = BBSMod.getWorldAssetsFolder();
         List<WatchDog> watchers = new ArrayList<>();
 
         watchers.add(createWatchdog(assetsFolder));
 
-        if (!assetsFolder.equals(sharedFolder))
+        if (worldFolder != null && !assetsFolder.equals(worldFolder))
         {
-            watchers.add(createWatchdog(sharedFolder));
+            watchers.add(createWatchdog(worldFolder));
         }
 
         watchDogs = List.copyOf(watchers);
@@ -120,7 +120,7 @@ public class BBSResources
             }
             catch (IOException e)
             {
-                /* Do not quietly let editors write to the shared library on a failed world mount. */
+                /* Do not continue with an incomplete world asset library. */
                 e.printStackTrace();
                 MinecraftClient.getInstance().getNetworkHandler().getConnection()
                     .disconnect(Text.literal(UIKeys.WORLD_ASSETS_ERROR.get()));
@@ -141,9 +141,10 @@ public class BBSResources
     {
         RenderSystem.assertOnRenderThread();
 
-        File target = folder == null ? BBSMod.getOriginalSourcePack().getFolder() : folder;
+        File current = BBSMod.getWorldAssetsFolder();
 
-        if (BBSMod.getAssetsFolder().toPath().toAbsolutePath().normalize().equals(target.toPath().toAbsolutePath().normalize()))
+        if (java.util.Objects.equals(current == null ? null : current.toPath().toAbsolutePath().normalize(),
+            folder == null ? null : folder.toPath().toAbsolutePath().normalize()))
         {
             return;
         }

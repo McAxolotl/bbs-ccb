@@ -59,6 +59,7 @@ public class GeoCubicModelLoader implements IModelLoader
 
             Model modelModel = GeoModelParser.parse(modelJson, models.parser);
             ModelInstance newModel = new ModelInstance(id, modelModel, modelAnimations, modelTexture);
+            newModel.setSourceFile(modelGeo.get(0));
 
             if (modelModel.topGroups.isEmpty())
             {
