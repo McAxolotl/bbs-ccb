@@ -39,6 +39,24 @@ import org.joml.Vector3f;
  */
 public class FilmMatrices
 {
+    /** Full linear frame of a spline's point coordinates, including actor and anchor. */
+    public static Matrix4f getSplineParentCompositeMatrix(Map<String, IEntity> entities, IEntity entity, Replay replay,
+        double cameraX, double cameraY, double cameraZ, float transition, mchorse.bbs_mod.ui.utils.SplineEditorUtils.Point point)
+    {
+        if (entity == null || entity.getForm() == null || point == null) return null;
+        Form form = entity.getForm();
+        boolean relative = replay != null && replay.relative.get();
+        Vector3d origin = replayOrigin(replay, relative, cameraX, cameraY, cameraZ);
+        Matrix4f target = getMatrixForRenderWithRotation(entity, origin.x, origin.y, origin.z, transition);
+        if (!relative)
+        {
+            Pair<Matrix4f, Float> anchor = getTotalMatrix(entities, form.anchor.get(), target, origin.x, origin.y, origin.z, transition, 0);
+            if (anchor.a != null) target = anchor.a;
+        }
+        Matrix4f parent = mchorse.bbs_mod.ui.utils.SplineEditorUtils.parentMatrix(FormUtils.getRoot(form), entity, transition, point.form(), point.chain());
+        return parent == null ? null : new Matrix4f(target).mul(parent);
+    }
+
     public static Pair<Matrix4f, Float> getTotalMatrix(Map<String, IEntity> entities, Anchor value, Matrix4f defaultMatrix, double cx, double cy, double cz, float transition, int i)
     {
         return getTotalMatrix(entities, value, defaultMatrix, cx, cy, cz, transition, i, false);

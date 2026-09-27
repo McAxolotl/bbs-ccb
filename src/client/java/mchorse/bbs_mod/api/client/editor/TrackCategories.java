@@ -52,6 +52,11 @@ public final class TrackCategories
 
         if (kind != null)
         {
+            if (kind == TrackKind.PROPERTY && track.subject().startsWith("splines/"))
+            {
+                return TrackCategory.IK;
+            }
+
             switch (kind)
             {
                 case IK_CONTROLS, IK_TARGET, POLE_TARGET:

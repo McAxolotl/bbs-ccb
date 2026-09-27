@@ -29,7 +29,9 @@ public record FilmTarget(FilmTarget.Kind kind, String bone, TransformSpace space
         /** The form's anchor track, which parents the whole form. */
         ANCHOR,
         /** A bone inside the form, or the form's own transform. {@link #bone} is its path. */
-        BONE
+        BONE,
+        /** A spline control point addressed by its stable property path. */
+        SPLINE_POINT
     }
 
     public static final FilmTarget NONE = new FilmTarget(Kind.NONE, null, TransformSpace.LOCAL);
@@ -42,6 +44,11 @@ public record FilmTarget(FilmTarget.Kind kind, String bone, TransformSpace space
     public static FilmTarget anchor(TransformSpace space)
     {
         return new FilmTarget(Kind.ANCHOR, null, space == null ? TransformSpace.LOCAL : space);
+    }
+
+    public static FilmTarget splinePoint(String path, TransformSpace space)
+    {
+        return new FilmTarget(Kind.SPLINE_POINT, path, space == null ? TransformSpace.LOCAL : space);
     }
 
     public static FilmTarget root(TransformSpace space)

@@ -8,6 +8,8 @@ import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.cubic.constraints.BoneConstraint;
 import mchorse.bbs_mod.cubic.ik.IKControls;
 import mchorse.bbs_mod.cubic.physics.PhysicsControls;
+import mchorse.bbs_mod.cubic.spline.SplineIK;
+import mchorse.bbs_mod.cubic.spline.SplinePoint;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.utils.FormBone;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -20,6 +22,7 @@ import mchorse.bbs_mod.forms.renderers.MobFormRenderer;
 import mchorse.bbs_mod.forms.forms.utils.FormMaterial;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseKeyframeFactoryValue;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
@@ -171,6 +174,7 @@ public class TrackCatalog
             materials(modelForm, model, path, properties, out);
             bones(modelForm, model == null ? null : model.model, model == null ? null : model.getDisabledBones(), path, properties, out);
             ik(modelForm, model, path, properties, out);
+            splines(root, modelForm, path, properties, out);
             physics(modelForm, path, properties, out);
         }
         else if (form instanceof MobForm mobForm)
@@ -567,6 +571,41 @@ public class TrackCatalog
                 out.add(target(modelForm, id, properties, "pole/" + controller, Colors.ORANGE));
             }
         }
+    }
+
+    /** Ordinary property tracks also run in animation states, where solver override tracks do not. */
+    private static void splines(Form root, ModelForm form, String path, FormProperties properties, List<TrackDescriptor> out)
+    {
+        for (SplineIK spline : form.splines.getAllTyped())
+        {
+            String prefix = "splines/" + spline.getId() + "/";
+            String label = spline.name.get().isBlank() ? "Spline IK" : spline.name.get();
+            TrackId influence = TrackId.property(path, prefix + "influence");
+            IKey title = IKey.comp(List.of(IKey.constant(label + " / "), L10n.lang("bbs.ui.forms.editors.model.spline.influence")));
+
+            out.add(splineProperty(root, form, influence, properties, title, spline.influence));
+            out.add(splineProperty(root, form, TrackId.property(path, prefix + "twist"), properties,
+                L10n.lang("bbs.ui.forms.editors.model.spline.twist"), spline.twist).under(influence));
+            out.add(splineProperty(root, form, TrackId.property(path, prefix + "progress"), properties,
+                L10n.lang("bbs.ui.forms.editors.model.spline.progress"), spline.progress).under(influence));
+
+            int index = 1;
+
+            for (SplinePoint point : spline.points.getAllTyped())
+            {
+                TrackId id = TrackId.property(path, prefix + "points/" + point.getId() + "/position");
+
+                out.add(splineProperty(root, form, id, properties,
+                    L10n.lang("bbs.ui.forms.editors.model.spline.point").format(index++), point.position).under(influence));
+            }
+        }
+    }
+
+    private static TrackDescriptor splineProperty(Form root, ModelForm form, TrackId id, FormProperties properties,
+        IKey title, BaseValueBasic property)
+    {
+        return new TrackDescriptor(id, properties == null ? null : properties.getOrCreate(root, id), form,
+            title, Icons.CURVES, Colors.CYAN, property);
     }
 
     /* Physics */

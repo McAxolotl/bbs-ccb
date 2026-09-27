@@ -119,6 +119,24 @@ tasks.named('check') {
 	dependsOn tasks.named('migrationTest'), tasks.named('anchorInterpolationTest')
 }
 
+tasks.register('splineIKSolverTest', JavaExec) {
+	group = 'verification'
+	description = 'Checks spline arc lengths, segment lengths, frames and deterministic evaluation.'
+	dependsOn tasks.named('testClasses')
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'mchorse.bbs_mod.cubic.spline.SplineIKSolverTest'
+}
+
+tasks.register('splineIKDataTest') {
+	group = 'verification'
+	description = 'Checks spline stable identities, copying, film/state tracks and undo.'
+	dependsOn 'addonApiCheck'
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('splineIKSolverTest'), tasks.named('splineIKDataTest')
+}
+
 java {
 	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
 	// if it is present.
@@ -314,3 +332,13 @@ tasks.register('addonApiCheck') {
     dependsOn 'runAddonApiCheck'
 }
 tasks.named('check') { dependsOn 'addonApiCheck' }
+
+tasks.register('splineIKRuntimeTest', JavaExec) {
+	group = 'verification'
+	description = 'Checks cubic spline pose application, reset and independent form instances.'
+	dependsOn tasks.named('addonApiChecksClasses')
+	classpath = sourceSets.addonApiChecks.runtimeClasspath
+	mainClass = 'mchorse.bbs_mod.cubic.spline.SplineRuntimeCheck'
+}
+
+tasks.named('check') { dependsOn 'splineIKRuntimeTest' }

@@ -76,6 +76,43 @@ import net.minecraft.world.World;
 
 public class UIFilmController extends UIElement implements GizmoViewport
 {
+    private final mchorse.bbs_mod.ui.utils.SplineOverlay splineOverlay = new mchorse.bbs_mod.ui.utils.SplineOverlay();
+
+    public boolean pickSplinePoint(UIContext context)
+    {
+        if (context.mouseButton != 0 || this.isCovered() || this.isRecording() || this.panel.isFlying()
+            || !this.panel.preview.getViewport().isInside(context)) return false;
+        int stencil = this.getGizmoStencil().getIndex();
+        if (this.canShowGizmo() && stencil >= Gizmo.STENCIL_X && stencil <= Gizmo.STENCIL_MAX) return false;
+        var hit = this.splineOverlay.pick(context.mouseX, context.mouseY);
+        return hit != null && this.panel.replayEditor.pickSplinePoint(mchorse.bbs_mod.forms.FormUtils.getPropertyPath(hit.point().position), context);
+    }
+
+    private void renderSplineOverlay(UIContext context)
+    {
+        if (!this.splineOverlay.begin()) return;
+        IEntity entity = this.getCurrentEntity();
+        if (entity == null || entity.getForm() == null || this.isCovered() || this.isRecording()) return;
+        var camera = this.panel.getCamera();
+        float transition = this.getCurrentTransition();
+        String selected = mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(this.panel.replayEditor.keyframeEditor);
+        var selectedPoint = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(entity.getForm(), selected);
+        for (var entry : this.panel.replayEditor.replaysList.bodyParts.getList())
+        {
+            if (!(entry.getForm() instanceof mchorse.bbs_mod.forms.forms.ModelForm model)) continue;
+            for (var chain : model.splines.getAllTyped())
+            {
+                if (chain.points.getAllTyped().isEmpty()) continue;
+                String path = mchorse.bbs_mod.forms.FormUtils.getPropertyPath(chain.points.getAllTyped().get(0).position);
+                var point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(entity.getForm(), path);
+                Matrix4f parent = mchorse.bbs_mod.film.FilmMatrices.getSplineParentCompositeMatrix(this.getEntities(), entity, this.getReplay(),
+                    camera.position.x, camera.position.y, camera.position.z, transition, point);
+                if (parent == null) continue;
+                this.splineOverlay.draw(context, new Matrix4f(camera.view).mul(parent), camera.projection, this.panel.preview.getViewport(),
+                    point.chain(), selectedPoint != null && selectedPoint.chain() == point.chain() ? selectedPoint.point().getId() : null);
+            }
+        }
+    }
     private static final List<Function<UIFilmController, FilmEditorTool>> TOOL_FACTORIES = new ArrayList<>();
     private final List<FilmEditorTool> addonTools = new ArrayList<>();
 
@@ -923,6 +960,7 @@ public class UIFilmController extends UIElement implements GizmoViewport
 
     public void renderHUD(UIContext context, PreviewHud hud, Area navBlock)
     {
+        this.renderSplineOverlay(context);
         for (var tool : this.addonTools) tool.updateTool(context);
         this.hud.render(context, hud, navBlock);
     }
@@ -1065,6 +1103,12 @@ public class UIFilmController extends UIElement implements GizmoViewport
         if (this.isRecording() || this.isCovered())
         {
             return FilmTarget.NONE;
+        }
+
+        String point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(this.panel.replayEditor.keyframeEditor);
+        if (point != null)
+        {
+            return FilmTarget.splinePoint(point, this.panel.replayEditor.keyframeEditor.getBoneSpace());
         }
 
         Pair<String, TransformSpace> bone = this.getBone();

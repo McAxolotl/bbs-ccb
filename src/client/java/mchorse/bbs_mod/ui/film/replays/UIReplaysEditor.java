@@ -1086,6 +1086,20 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
         UIReplaysEditorUtils.pickFormWithOffers(context, new Pair<>(form, bone), this::pickFormBone);
     }
 
+    public boolean pickSplinePoint(String path, UIContext context)
+    {
+        if (this.replay == null) return false;
+        for (TrackSearchEntry entry : UIReplaysEditorUtils.formSearchEntries(this.replay.form.get(), this.replaysList.bodyParts, false))
+        {
+            if (!entry.key().equals(path)) continue;
+            this.filmPanel.showPanel(this);
+            this.revealTrack(entry, false);
+            mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectPointTrack(this.keyframeEditor, path, context);
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Picking a model bone in the viewport is a pose edit, but the pose/bone tracks
      * only exist in the {@link TrackCategory#POSE} category. So when another category
@@ -1126,6 +1140,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
     public boolean clickViewport(UIContext context, Area area)
     {
+        if (!this.filmPanel.isFlying() && this.filmPanel.getController().pickSplinePoint(context)) return true;
         /* In flight the buttons are the flight camera's, so the left one is left for it to
          * pick up as free look; only the middle one has to be handed over by hand. */
         if (this.filmPanel.isFlying() && area.isInside(context) && context.mouseButton == 2)

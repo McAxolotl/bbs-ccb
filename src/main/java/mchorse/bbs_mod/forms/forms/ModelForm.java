@@ -7,6 +7,7 @@ import mchorse.bbs_mod.cubic.constraints.BoneConstraintsIO;
 import mchorse.bbs_mod.cubic.ik.BoneIKIO;
 import mchorse.bbs_mod.cubic.physics.BonePhysicsIO;
 import mchorse.bbs_mod.cubic.physics.WindControl;
+import mchorse.bbs_mod.cubic.spline.ValueSplineIKs;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.utils.ValueBones;
@@ -46,6 +47,7 @@ public class ModelForm extends Form implements IPosedForm
     public final ValueShapeKeys shapeKeys = new ValueShapeKeys("shape_keys", new ShapeKeys());
     public final ValueBoolean boneTracks = new ValueBoolean("bone_tracks", true);
     public final ValueBones bones = new ValueBones("bones");
+    public final ValueSplineIKs splines = new ValueSplineIKs("splines");
 
     /** The global wind of the form's physics — one compound animatable property, not bound to a bone. */
     public final ValueWindControl wind = new ValueWindControl("wind", new WindControl());
@@ -119,6 +121,7 @@ public class ModelForm extends Form implements IPosedForm
 
         this.bones.invisible();
         this.add(this.bones);
+        this.add(this.splines);
         this.wind.invisible();
         this.add(this.wind);
 

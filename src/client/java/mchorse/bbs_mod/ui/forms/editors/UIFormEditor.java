@@ -69,6 +69,9 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UISplitter;
 import mchorse.bbs_mod.ui.utils.BoneSelection;
 import mchorse.bbs_mod.ui.utils.IBoneSelectionHost;
 import mchorse.bbs_mod.ui.utils.Gizmo;
+import mchorse.bbs_mod.ui.utils.SplineOverlay;
+import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
+import mchorse.bbs_mod.ui.forms.editors.panels.UIModelSplineFormPanel;
 import mchorse.bbs_mod.ui.utils.GizmoDrag;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 import mchorse.bbs_mod.ui.utils.bones.UIBonePicker;
@@ -99,6 +102,9 @@ import java.util.function.Supplier;
 public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBoneSelectionHost
 {
     private final BoneSelection boneSelection = new BoneSelection();
+    private final SplineOverlay splineOverlay = new SplineOverlay();
+    private static final Gizmo.HandleMask NO_GIZMO_HANDLES = Gizmo.HandleMask.of(
+        java.util.EnumSet.noneOf(Gizmo.Op.class), java.util.EnumSet.noneOf(mchorse.bbs_mod.utils.Axis.class));
 
     private static Map<Class, Supplier<UIForm>> panels = new HashMap<>();
 
@@ -506,7 +512,17 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
 
         if (this.statesEditor.isVisible())
         {
-            return this.statesKeyframes.clickViewport(context, stencil);
+            return this.statesKeyframes.pickSplinePoint(context) || this.statesKeyframes.clickViewport(context, stencil);
+        }
+
+        if (context.mouseButton == 0 && this.editor != null && this.editor.view instanceof UIModelSplineFormPanel panel)
+        {
+            SplineOverlay.Hit hit = this.splineOverlay.pick(context.mouseX, context.mouseY);
+            if (hit != null)
+            {
+                panel.select(hit.chain().getId(), hit.point().getId());
+                return true;
+            }
         }
 
         if (stencil.hasPicked() && (context.mouseButton == 0 || (context.mouseButton == 2 && Window.isCtrlPressed())))
@@ -524,6 +540,43 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
         return false;
     }
 
+    /** Translation-only handles for a spline control; ordinary form tools retain their mask. */
+    public Gizmo.HandleMask getGizmoHandleMask()
+    {
+        if (this.statesEditor.isVisible())
+        {
+            return SplineEditorUtils.selectedPath(this.statesKeyframes.keyframeEditor) == null ? Gizmo.HandleMask.ALL : SplineEditorUtils.HANDLES;
+        }
+        if (this.editor != null && this.editor.view instanceof UIModelSplineFormPanel panel)
+        {
+            return panel.getGizmoTransform() == null ? NO_GIZMO_HANDLES : SplineEditorUtils.HANDLES;
+        }
+        return Gizmo.HandleMask.ALL;
+    }
+
+    public void renderSplineOverlay(UIContext context)
+    {
+        if (!this.splineOverlay.begin()) return;
+        if (this.statesEditor.isVisible())
+        {
+            this.statesKeyframes.renderSplineOverlay(context);
+            return;
+        }
+        if (this.editor == null || !(this.editor.view instanceof UIModelSplineFormPanel panel)) return;
+        ModelForm model = panel.getModelForm();
+        if (model == null) return;
+        for (var chain : model.splines.getAllTyped())
+        {
+            Matrix4f parent = SplineEditorUtils.parentMatrix(FormUtils.getRoot(model), this.renderer.getTargetEntity(), context.getTransition(), model, chain);
+            if (parent == null) continue;
+            Matrix4f modelView = new Matrix4f(this.renderer.camera.view)
+                .translate((float) -this.renderer.camera.position.x, (float) -this.renderer.camera.position.y, (float) -this.renderer.camera.position.z)
+                .mul(this.renderer.toSceneMatrix(parent));
+            this.splineOverlay.draw(context, modelView, this.renderer.camera.projection, this.renderer.area, chain,
+                chain.getId().equals(panel.getChainId()) ? panel.getPointId() : "");
+        }
+    }
+
     private FormEditorTool getPanelTool()
     {
         return !this.statesEditor.isVisible() && this.editor != null
@@ -533,6 +586,11 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
 
     public boolean startGizmo(UIContext context, int stencilIndex)
     {
+        if (!this.statesEditor.isVisible() && this.editor != null
+            && this.editor.view instanceof UIModelSplineFormPanel panel && panel.getGizmoTransform() == null)
+        {
+            return false;
+        }
         var tool = this.getPanelTool();
         if (tool != null)
         {

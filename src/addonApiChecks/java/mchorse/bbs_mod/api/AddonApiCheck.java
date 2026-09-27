@@ -54,6 +54,7 @@ public final class AddonApiCheck implements net.fabricmc.loader.api.entrypoint.P
         field.setAccessible(true);
         FormArchitect architect = new FormArchitect();
         architect.register(new Link("check", "form"), TestForm.class);
+        architect.register(new Link("check", "model"), mchorse.bbs_mod.forms.forms.ModelForm.class);
         field.set(null, architect);
         KeyframeFactories.setup();
         FormPropertyAliases.register(OLD, KEY);
@@ -63,6 +64,7 @@ public final class AddonApiCheck implements net.fabricmc.loader.api.entrypoint.P
         transforms();
         lifecycle();
         categories();
+        mchorse.bbs_mod.cubic.spline.SplineIKDataTest.main(new String[]{"client"});
         System.out.println("AddonApiCheck: " + checks + " checks passed");
     }
 

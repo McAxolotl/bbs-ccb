@@ -564,6 +564,18 @@ public class UIReplaysEditorUtils
             return drag;
         }
 
+        String splinePath = mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(keyframeEditor);
+        if (splinePath != null && entity != null)
+        {
+            var point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(entity.getForm(), splinePath);
+            Matrix4f parent = FilmMatrices.getSplineParentCompositeMatrix(panel.getController().getEntities(), entity,
+                panel.replayEditor.getReplay(), camera.position.x, camera.position.y, camera.position.z, transition, point);
+            if (parent == null || Math.abs(parent.determinant()) < 1E-8F) return null;
+            drag.setJacobian(new org.joml.Matrix3f(parent));
+            drag.setFrameAxes(parent, parent);
+            return drag;
+        }
+
         Pair<String, TransformSpace> bone = keyframeEditor.getBone();
         Replay replay = panel.replayEditor.getReplay();
 

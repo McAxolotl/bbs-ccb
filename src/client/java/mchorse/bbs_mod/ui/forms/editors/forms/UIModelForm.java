@@ -13,6 +13,7 @@ import mchorse.bbs_mod.ui.forms.editors.panels.UIActionsFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelConstraintsFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelIKFormPanel;
+import mchorse.bbs_mod.ui.forms.editors.panels.UIModelSplineFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelPhysicsFormPanel;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
@@ -25,6 +26,7 @@ import org.joml.Vector3f;
 public class UIModelForm extends UIForm<ModelForm>
 {
     public UIModelFormPanel modelPanel;
+    public UIModelSplineFormPanel splinePanel;
 
     public UIModelForm()
     {
@@ -42,6 +44,8 @@ public class UIModelForm extends UIForm<ModelForm>
 
         this.registerPanel(this.defaultPanel, UIKeys.FORMS_EDITORS_MODEL_POSE, ModelForm.ICON);
         this.registerPanel(new UIModelIKFormPanel(this), UIKeys.FORMS_EDITORS_MODEL_IK, Icons.IK);
+        this.splinePanel = new UIModelSplineFormPanel(this);
+        this.registerPanel(this.splinePanel, UIModelSplineFormPanel.key("title"), Icons.GRAPH);
         this.registerPanel(new UIModelPhysicsFormPanel(this), UIKeys.FORMS_EDITORS_MODEL_PHYSICS_TITLE, Icons.PHYSICS);
         this.registerPanel(new UIModelConstraintsFormPanel(this), UIKeys.FORMS_EDITORS_MODEL_CONSTRAINTS_TITLE, Icons.LOCKED);
         this.registerPanel(new UIActionsFormPanel(this), UIKeys.FORMS_EDITORS_ACTIONS_TITLE, Icons.MORE);
@@ -69,6 +73,9 @@ public class UIModelForm extends UIForm<ModelForm>
     {
         super.collectUndoData(data);
 
+        data.putString("splineChain", this.splinePanel.getChainId());
+        data.putString("splinePoint", this.splinePanel.getPointId());
+
         data.put("bones", DataStorageUtils.stringListToData(this.modelPanel.poseEditor.groups.list.getCurrent()));
     }
 
@@ -76,6 +83,8 @@ public class UIModelForm extends UIForm<ModelForm>
     public void applyUndoData(MapType data)
     {
         super.applyUndoData(data);
+
+        this.splinePanel.select(data.getString("splineChain"), data.getString("splinePoint"));
 
         if (data.has("bones"))
         {

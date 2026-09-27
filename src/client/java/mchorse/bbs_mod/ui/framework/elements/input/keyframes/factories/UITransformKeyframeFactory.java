@@ -17,11 +17,25 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
     {
         super(keyframe, editor);
 
-        this.transform = new UIPoseTransforms(this);
-        this.transform.enableHotkeys();
+        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+        boolean point = sheet != null && mchorse.bbs_mod.ui.utils.SplineEditorUtils.isPoint(mchorse.bbs_mod.film.replays.tracks.TrackId.parse(sheet.id));
+        this.transform = point ? new UIPointTransform(this) : new UIPoseTransforms(this);
+        this.transform.enableHotkeys(() -> true, op -> !point || op == mchorse.bbs_mod.ui.framework.elements.input.drag.TransformOp.TRANSLATE);
         this.transform.setTransform(keyframe.getValue());
 
         this.scroll.add(this.transform);
+    }
+
+    /** A point has a position; hidden rotation/scale channels must not accept gestures. */
+    private static class UIPointTransform extends UIPoseTransforms
+    {
+        public UIPointTransform(UITransformKeyframeFactory editor)
+        {
+            super(editor);
+            this.noScale();
+            this.rotateRow.setVisible(false);
+            this.h(2 * mchorse.bbs_mod.ui.utils.UIConstants.CONTROL_HEIGHT);
+        }
     }
 
     public static class UIPoseTransforms extends UIKeyframePropTransform
