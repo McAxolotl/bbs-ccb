@@ -81,6 +81,15 @@ public class BillboardFormRenderer <T extends BillboardForm> extends FormRendere
     @Override
     public void render3D(FormRenderingContext context)
     {
+        /* Vanilla/modded entity layers can leave depth testing disabled between forms
+         * (notably after entity shadows). Immediate billboards do not start a RenderLayer,
+         * so establish their own world depth state rather than inheriting that cleanup.
+         * UI body parts retain the depth policy of their preview/list. */
+        if (!context.ui)
+        {
+            RenderSystem.enableDepthTest();
+        }
+
         boolean shading = this.form.shading.get();
 
         if (BBSRendering.isIrisShadersEnabled())
