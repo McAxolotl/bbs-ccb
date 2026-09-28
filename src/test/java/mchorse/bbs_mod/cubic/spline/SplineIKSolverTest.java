@@ -55,7 +55,67 @@ public class SplineIKSolverTest
         normal = SplineIKSolver.transport(normal, previous, reversed);
         check(normal.isFinite() && Math.abs(normal.dot(reversed)) < 1E-4F, "Exact reversal has stable normal");
         progress(line, lengths, straight);
+        tightBends();
+        nearReversal();
         System.out.println("SplineIKSolverTest: " + checks + " checks passed");
+    }
+
+    /** These six-joint curves used to jump by 1.7--2.0 link lengths when one guide moved 0.001. */
+    private static void tightBends()
+    {
+        float[][] fixtures = {
+            {-0.28958058F, -1.7761958F, 1.3994902F, -0.2933588F, -1.8199039F, -1.4651225F},
+            {-0.61370015F, 0.06655431F, -1.0328425F, -1.591258F, -1.6457553F, 0.5865176F},
+            {-1.9391105F, -0.2984588F, 1.6778201F, 1.0335934F, -1.7708871F, -0.6419947F}
+        };
+        float[] lengths = {1F, 1F, 1F, 1F, 1F};
+
+        for (float[] fixture : fixtures)
+        {
+            SplineIKSolver.Result previous = null;
+            for (int step = 0; step <= 80; step++)
+            {
+                List<Vector3f> controls = List.of(new Vector3f(), new Vector3f(fixture[0], fixture[1], 0),
+                    new Vector3f(fixture[2] + (step - 40) * 0.0005F, fixture[3], 0), new Vector3f(fixture[4], fixture[5], 0));
+                SplineIKSolver.Result result = SplineIKSolver.solve(controls, lengths, false);
+                lengths(result, lengths);
+                if (previous != null)
+                {
+                    for (int i = 0; i < result.joints().length; i++)
+                    {
+                        check(result.joints()[i].distance(previous.joints()[i]) < 0.01F, "Tight bend moves joints continuously");
+                        check(result.tangents()[i].dot(previous.tangents()[i]) > 0.999F, "Tight bend turns links continuously");
+                    }
+                }
+
+                /* The same pose in 3D must not depend on a world axis or another solve. */
+                Quaternionf rotation = new Quaternionf().rotationXYZ(0.7F, -0.4F, 1.1F);
+                Vector3f translation = new Vector3f(3, -2, 4);
+                List<Vector3f> movedControls = controls.stream().map(p -> rotation.transform(new Vector3f(p)).add(translation)).toList();
+                SplineIKSolver.Result moved = SplineIKSolver.solve(movedControls, lengths, false);
+                lengths(moved, lengths);
+                SplineIKSolver.solve(controls, lengths, false, -0.5F);
+                SplineIKSolver.Result repeated = SplineIKSolver.solve(controls, lengths, false);
+                for (int i = 0; i < result.joints().length; i++)
+                {
+                    close(moved.joints()[i], rotation.transform(new Vector3f(result.joints()[i])).add(translation), "Rigid guides follow a rotated curve");
+                    close(repeated.joints()[i], result.joints()[i], "Tight bend pose is independent of scrubbing history");
+                }
+                previous = result;
+            }
+        }
+    }
+
+    private static void nearReversal()
+    {
+        Vector3f from = new Vector3f(1, 0, 0);
+        Vector3f normal = new Vector3f(0, 1, 0);
+        Vector3f a = new Vector3f(-1, 0.0142F, 0).normalize();
+        Vector3f b = new Vector3f(-1, 0.0140F, 0).normalize();
+        Vector3f first = SplineIKSolver.transport(normal, from, a);
+        Vector3f second = SplineIKSolver.transport(normal, from, b);
+        check(first.dot(second) > 0.999F, "Near reversal does not switch the roll axis at the old dot threshold");
+        check(Math.abs(first.dot(a)) < 1E-5F && Math.abs(second.dot(b)) < 1E-5F, "Near-reversal normals stay perpendicular");
     }
 
     private static void progress(List<Vector3f> line, float[] lengths, SplineIKSolver.Result original)

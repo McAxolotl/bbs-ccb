@@ -36,6 +36,24 @@ public final class SplineCurve
             .mul(0.5F);
     }
 
+    /** Derivative with respect to a segment parameter; callers normalize when needed. */
+    static Vector3f tangent(List<Vector3f> points, float t)
+    {
+        int count = points.size();
+        float scaled = Math.max(0F, Math.min(1F, t)) * (count - 1);
+        int i = Math.min(count - 2, (int) scaled);
+        float u = scaled - i;
+        Vector3f b = points.get(i);
+        Vector3f c = points.get(i + 1);
+        Vector3f a = i == 0 ? new Vector3f(b).mul(2F).sub(c) : points.get(i - 1);
+        Vector3f d = i + 2 == count ? new Vector3f(c).mul(2F).sub(b) : points.get(i + 2);
+
+        return new Vector3f(c).sub(a)
+            .fma(2F * u, new Vector3f(a).mul(2F).fma(-5F, b).fma(4F, c).sub(d))
+            .fma(3F * u * u, new Vector3f(a).negate().fma(3F, b).fma(-3F, c).add(d))
+            .mul(0.5F);
+    }
+
     public static List<Vector3f> sample(List<Vector3f> points, int subdivisionsPerSegment)
     {
         if (points.isEmpty()) return List.of();
