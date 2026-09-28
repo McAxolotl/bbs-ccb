@@ -150,6 +150,7 @@ public abstract class BaseFilmController
         FilmEvents.TICK_BEFORE.invoker().onFilmTick(this, ticks);
 
         List<Replay> replays = this.replays();
+        World clientWorld = MinecraftClient.getInstance().world;
 
         for (int i = 0; i < replays.size(); i++)
         {
@@ -159,6 +160,11 @@ public abstract class BaseFilmController
             if (entity == null || !this.canUpdate(i, replay, entity, UpdateMode.UPDATE))
             {
                 continue;
+            }
+
+            if (clientWorld != null && entity.getWorld() != clientWorld)
+            {
+                entity.setWorld(clientWorld);
             }
 
             if (replay != null)
@@ -185,7 +191,7 @@ public abstract class BaseFilmController
 
                     if (entityId != null)
                     {
-                        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+                        Entity anEntity = clientWorld != null ? clientWorld.getEntityById(entityId) : null;
 
                         if (anEntity instanceof ActorEntity actor)
                         {
@@ -241,6 +247,7 @@ public abstract class BaseFilmController
         int ticks = this.getTick();
 
         List<Replay> replays = this.replays();
+        World clientWorld = MinecraftClient.getInstance().world;
 
         for (int i = 0; i < replays.size(); i++)
         {
@@ -250,6 +257,11 @@ public abstract class BaseFilmController
             if (entity == null || !this.canUpdate(i, replay, entity, UpdateMode.UPDATE))
             {
                 continue;
+            }
+
+            if (clientWorld != null && entity.getWorld() != clientWorld)
+            {
+                entity.setWorld(clientWorld);
             }
 
             if (replay != null)
@@ -267,7 +279,7 @@ public abstract class BaseFilmController
 
                     if (entityId != null)
                     {
-                        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+                        Entity anEntity = clientWorld != null ? clientWorld.getEntityById(entityId) : null;
 
                         if (anEntity instanceof PlayerEntity player)
                         {
@@ -352,6 +364,7 @@ public abstract class BaseFilmController
     public void startRenderFrame(float transition)
     {
         List<Replay> replays = this.replays();
+        World clientWorld = MinecraftClient.getInstance().world;
 
         for (int i = 0; i < replays.size(); i++)
         {
@@ -361,6 +374,11 @@ public abstract class BaseFilmController
             if (entity == null || !this.canUpdate(i, replay, entity, UpdateMode.PROPERTIES))
             {
                 continue;
+            }
+
+            if (clientWorld != null && entity.getWorld() != clientWorld)
+            {
+                entity.setWorld(clientWorld);
             }
 
             float delta = this.getTransition(entity, transition);
@@ -388,7 +406,7 @@ public abstract class BaseFilmController
 
                 if (entityId != null)
                 {
-                    Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+                    Entity anEntity = clientWorld != null ? clientWorld.getEntityById(entityId) : null;
 
                     ThirdPersonItemUse.set(anEntity, use, offUse);
 
@@ -508,6 +526,7 @@ public abstract class BaseFilmController
         BBSProfiler.begin(BBSProfiler.Timer.WORLD_FORMS);
 
         List<Replay> replays = this.replays();
+        World clientWorld = MinecraftClient.getInstance().world;
         Frustum frustum = BBSSettings.frustumCulling.get() && !BBSRendering.isIrisShadowPass() ? context.frustum() : null;
 
         for (int i = 0; i < replays.size(); i++)
@@ -518,6 +537,11 @@ public abstract class BaseFilmController
             if (entity == null || !this.canUpdate(i, replay, entity, UpdateMode.RENDER))
             {
                 continue;
+            }
+
+            if (clientWorld != null && entity.getWorld() != clientWorld)
+            {
+                entity.setWorld(clientWorld);
             }
 
             /* Claimed before culling, not inside the draw: the film and the world cull by
@@ -598,7 +622,9 @@ public abstract class BaseFilmController
         {
             BBSModClient.getFilms().markActorDrawn(entityId);
 
-            if (MinecraftClient.getInstance().world.getEntityById(entityId) instanceof ActorEntity actor)
+            World clientWorld = MinecraftClient.getInstance().world;
+
+            if (clientWorld != null && clientWorld.getEntityById(entityId) instanceof ActorEntity actor)
             {
                 /* The higher of the recorded flash and the one being taken right now, so a replay
                  * that carries a damage track keeps it while its shell can still be hit. Read from
