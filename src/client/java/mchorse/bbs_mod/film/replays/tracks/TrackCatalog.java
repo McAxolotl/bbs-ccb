@@ -200,10 +200,35 @@ public class TrackCatalog
 
     private static void properties(Form root, Form form, ModelInstance model, String path, FormProperties properties, List<TrackDescriptor> out)
     {
+        boolean hasIK = false;
+        boolean hasPhysics = false;
+
+        if (form instanceof ModelForm modelForm)
+        {
+            for (BaseValue value : modelForm.bones.getAll())
+            {
+                if (value instanceof FormBone bone)
+                {
+                    hasIK |= bone.hasChain();
+                    hasPhysics |= bone.hasPhysicsChain();
+                }
+            }
+        }
+
         for (BaseValue value : form.getAll())
         {
 
             String name = value.getId();
+
+            /* Solver tracks follow the configured rig, not its animated weight or cached controls.
+             * Wind acts on physics chains, so it is offered alongside physics. */
+            if (form instanceof ModelForm modelForm
+                && ((value == modelForm.ik && !hasIK)
+                    || ((value == modelForm.physics || value == modelForm.wind) && !hasPhysics)
+                    || (value == modelForm.splineIK && modelForm.splines.getAll().isEmpty())))
+            {
+                continue;
+            }
 
             /* Shape key tracks only apply to models that actually expose shape keys. */
             if (form instanceof ModelForm modelForm && value == modelForm.shapeKeys
