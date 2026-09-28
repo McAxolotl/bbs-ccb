@@ -5,7 +5,6 @@ import mchorse.bbs_mod.api.client.editor.FormEditorTool;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.spline.ModelSplineRuntime;
 import mchorse.bbs_mod.cubic.spline.SplineIK;
-import mchorse.bbs_mod.cubic.spline.SplineCurve;
 import mchorse.bbs_mod.cubic.spline.SplinePoint;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -182,8 +181,6 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         int index = this.pointIndex();
         menu.icon(MenuVerb.ADD, this::addPoint);
         menu.icon(MenuVerb.REMOVE, this::removePoint).enabled(index >= 0);
-        menu.icon(MenuVerb.RESET, this::resetCurve)
-            .enabled(ModelSplineRuntime.getChain(this.form, chain).size() >= 2);
         menu.icon(MenuVerb.COPY, this::copyPoints);
         menu.icon(MenuVerb.PASTE, this::pastePoints);
         if (chain.points.getAllTyped().size() > 2)
@@ -406,30 +403,13 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         SplineIK chain = new SplineIK("");
         chain.name.set(key("title").get() + " " + (this.form.splines.getAllTyped().size() + 1));
         chain.tip.set(this.selectedBone);
-        this.setCurvePoints(chain, ModelSplineRuntime.createPoints(this.form, chain));
         BaseValue.edit(this.form.splines, list -> list.add(chain));
         this.select(chain.getId(), "");
     }
 
-    private void resetCurve()
-    {
-        SplineIK chain = this.chain();
-        if (chain == null) return;
-        List<Vector3f> reference = ModelSplineRuntime.createPoints(this.form, chain);
-        if (reference.size() < 2) return;
-        this.endPointEdit();
-        /* A reset preserves the animator's control count and IDs, including keyed points. */
-        int count = chain.points.getAllTyped().size();
-        List<Vector3f> points = new ArrayList<>();
-        if (count == 0) points.addAll(reference);
-        else for (int i = 0; i < count; i++) points.add(SplineCurve.evaluate(reference, i / (float) Math.max(1, count - 1)));
-        BaseValue.edit(chain.points, list -> this.setCurvePoints(chain, points));
-        this.updateFields();
-    }
-
     private void setCurvePoints(SplineIK chain, List<Vector3f> positions)
     {
-        /* Keep destination IDs when resetting or pasting; only extra points receive new IDs. */
+        /* Keep destination IDs when pasting; only extra points receive new IDs. */
         List<SplinePoint> points = chain.points.getAllTyped();
         while (points.size() < positions.size()) chain.points.add(new SplinePoint(""));
         while (points.size() > positions.size()) points.remove(points.size() - 1);

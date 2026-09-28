@@ -59,16 +59,18 @@ public final class SplineRuntimeCheck
         spline.tip.set("bone7");
         form.splines.add(spline);
         List<Vector3f> originals = positions(model);
-        List<Vector3f> autoPoints = ModelSplineRuntime.createPoints(instance, spline);
-        check(autoPoints.size() == 4, "Straight snake starts with four editable handles");
-        for (Vector3f point : autoPoints) addPoint(spline, point);
+        check(spline.points.getAllTyped().isEmpty(), "New spline has no automatic controls");
+        List<Vector3f> controls = List.of(new Vector3f(4F, 6F, 0F).div(16F),
+            new Vector3f(4F, 6F, 16.38F).div(16F), new Vector3f(4F, 6F, 32.76F).div(16F),
+            new Vector3f(4F, 6F, 49.14F).div(16F));
+        for (Vector3f point : controls) addPoint(spline, point);
         model.snapshotChannels();
         ModelSplineRuntime.apply(instance, form);
         List<Vector3f> solved = positions(model);
         check(mchorse.bbs_mod.cubic.ik.ModelIKRuntime.isRotationConstrained(model, form, "bone0"), "Active spline owns FK rotation gestures");
         check(mchorse.bbs_mod.cubic.ik.ModelIKRuntime.isRotationConstrained(model, form, "bone7"), "Terminal rotation is owned too");
         check(!mchorse.bbs_mod.cubic.ik.ModelIKRuntime.isRotationConstrained(model, form, "other"), "Unrelated FK rotations remain editable");
-        for (int i = 0; i < 8; i++) close(solved.get(i), originals.get(i), "Auto curve preserves original straight pose");
+        for (int i = 0; i < 8; i++) close(solved.get(i), originals.get(i), "Authored straight curve preserves original pose");
         check(other.orient == null && other.offset == null, "Side branch remains untouched");
 
         spline.chainLength.set(2);
@@ -81,7 +83,7 @@ public final class SplineRuntimeCheck
         spline.chainLength.set(1);
         check(!ModelSplineRuntime.isRotationConstrained(model, form, "bone7"), "A single bone cannot form a spline segment");
         spline.tip.set("missing");
-        check(ModelSplineRuntime.createPoints(instance, spline).isEmpty(), "Missing tip produces no chain");
+        check(!ModelSplineRuntime.isRotationConstrained(model, form, "bone0"), "Missing tip does not constrain bones");
         spline.tip.set("bone7");
         spline.chainLength.set(8);
 
@@ -89,9 +91,9 @@ public final class SplineRuntimeCheck
         model.restoreChannels();
         ModelSplineRuntime.apply(instance, form);
         List<Vector3f> advanced = positions(model);
-        Vector3f advance = new Vector3f(autoPoints.get(3)).sub(autoPoints.get(0)).mul(0.25F);
+        Vector3f advance = new Vector3f(controls.get(3)).sub(controls.get(0)).mul(0.25F);
         for (int i = 0; i < 8; i++) close(advanced.get(i), new Vector3f(originals.get(i)).add(advance), "Percentage advances the actual cubic chain, including beyond the curve");
-        for (int i = 0; i < autoPoints.size(); i++) close(spline.points.getAllTyped().get(i).position.get().translate, autoPoints.get(i), "Progress never moves authored controls");
+        for (int i = 0; i < controls.size(); i++) close(spline.points.getAllTyped().get(i).position.get().translate, controls.get(i), "Progress never moves authored controls");
         spline.progress.set(0F);
 
         spline.points.getAllTyped().get(1).position.get().translate.x += 1F;
@@ -218,7 +220,7 @@ public final class SplineRuntimeCheck
             actualFrames.get("bone7").position(), "Last spline handle matches rendered tip through captured attachment frame");
         close(SplineEditorUtils.parentFrame(formFrame, null).transformPosition(new Vector3f(all.initial.translate).mul(1F / 16F)),
             actualFrames.get("All").position(), "Top-level root uses form frame and the model half-turn exactly once");
-        checkModelMotion(model, instance, form, spline, all, jaw, autoPoints);
+        checkModelMotion(model, instance, form, spline, all, jaw, controls);
         System.out.println("SplineRuntimeCheck: " + checks + " checks passed");
     }
 
@@ -301,7 +303,9 @@ public final class SplineRuntimeCheck
         top.tip.set("bone7");
         top.progress.set(20F);
         topForm.splines.add(top);
-        for (Vector3f point : ModelSplineRuntime.createPoints(instance, top)) addPoint(top, point);
+        addPoint(top, new Vector3f());
+        addPoint(top, new Vector3f(4F, 6F, 0F).div(16F));
+        addPoint(top, new Vector3f(4F, 6F, 49.14F).div(16F));
         model.snapshotChannels();
         ModelSplineRuntime.apply(instance, topForm);
         Map<String, Matrix4f> topChainOnly = renderedMatrices(model, null);

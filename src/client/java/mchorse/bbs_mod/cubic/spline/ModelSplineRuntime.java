@@ -5,8 +5,6 @@ import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.ik.ModelIKRuntime;
-import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.FormBone;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
@@ -197,56 +195,6 @@ public final class ModelSplineRuntime
         }
 
         return List.of();
-    }
-
-    /**
-     * Fresh FK sample for creation, avoiding the shared asset's last rendered actor. The editor
-     * can use the overload after evaluating its own entity to include the current action time.
-     */
-    public static List<Vector3f> createPoints(ModelForm form, SplineIK spline)
-    {
-        if (!(FormUtilsClient.getRenderer(form) instanceof ModelFormRenderer renderer)) return List.of();
-        ModelInstance instance = renderer.evaluateChannels(new StubEntity(), 0F);
-        return createPoints(instance, spline);
-    }
-
-    public static List<Vector3f> createPoints(ModelInstance instance, SplineIK spline)
-    {
-        if (instance == null || !(instance.model instanceof Model model)) return List.of();
-        List<ModelGroup> chain = chain(model, spline);
-        if (chain.size() < 2) return List.of();
-        List<Vector3f> result = new ArrayList<>();
-        Matrix4f matrix = new Matrix4f();
-        for (ModelGroup bone : chain)
-        {
-            result.add(matrix.transformPosition(pivotPosition(bone)));
-            localFrame(matrix, bone);
-        }
-
-        /* Four handles are sufficient for a straight rest chain (the common tail/snake).
-         * Keep all pivots for an already bent FK pose rather than silently changing its shape. */
-        if (result.size() > 4)
-        {
-            Vector3f first = result.get(0);
-            Vector3f last = result.get(result.size() - 1);
-            Vector3f axis = new Vector3f(last).sub(first);
-            float lengthSquared = axis.lengthSquared();
-            boolean straight = lengthSquared > EPS * EPS;
-            float previous = -1F;
-            for (Vector3f point : result)
-            {
-                Vector3f relative = new Vector3f(point).sub(first);
-                float fraction = relative.dot(axis) / lengthSquared;
-                if (!straight || fraction < previous || new Vector3f(first).fma(fraction, axis).distanceSquared(point) > EPS * EPS)
-                {
-                    straight = false;
-                    break;
-                }
-                previous = fraction;
-            }
-            if (straight) return List.of(new Vector3f(first), new Vector3f(first).lerp(last, 1F / 3F), new Vector3f(first).lerp(last, 2F / 3F), new Vector3f(last));
-        }
-        return result;
     }
 
     /**
