@@ -816,6 +816,8 @@ public class UIReplaysEditorUtils
             && keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory
             && poseFactory.poseEditor.hasBone(bone))
         {
+            IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
+            keyframeEditor.view.getDopeSheet().revealSheet(graph.getSheet(graph.getSelected()));
             poseFactory.poseEditor.selectBone(bone, true);
 
             return;
@@ -836,6 +838,7 @@ public class UIReplaysEditorUtils
             }
             if (isPoseSheet(currentSheet, path))
             {
+                keyframeEditor.view.getDopeSheet().revealSheet(currentSheet);
                 float tick = keyframeEditor.view.getTick();
                 Keyframe closest = getClosestKeyframe(currentSheet, tick);
                 if (closest != null)
@@ -991,6 +994,7 @@ public class UIReplaysEditorUtils
 
     private static void pickProperty(UIKeyframeEditor keyframeEditor, ICursor filmPanel, String bone, UIKeyframeSheet sheet, boolean insert)
     {
+        keyframeEditor.view.getDopeSheet().revealSheet(sheet);
         IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
         float tick = keyframeEditor.view.getTick();
 
@@ -1050,6 +1054,7 @@ public class UIReplaysEditorUtils
      */
     private static void insertIntoPropertySheet(UIKeyframeEditor keyframeEditor, String bone, UIKeyframeSheet sheet)
     {
+        keyframeEditor.view.getDopeSheet().revealSheet(sheet);
         IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
         float tick = keyframeEditor.view.getTick();
         Keyframe existing = getKeyframeAt(sheet, tick);
