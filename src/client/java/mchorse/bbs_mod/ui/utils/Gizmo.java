@@ -1296,15 +1296,15 @@ public class Gizmo
      */
     private void collectHandles(Layout layout, HandleSink output)
     {
-        /* Move geometry and its pick bounds flip together, instantly. Sort the
-         * reflected bounds to preserve box winding. Scale keeps its original
-         * positive handles and rotation keeps its camera-facing visible arcs. */
+        /* Move and scale geometry share the same instant flip, including pick
+         * bounds. Sort reflected bounds to preserve box winding. Rotation
+         * keeps its camera-facing visible arcs. */
         HandleSink sink = new HandleSink()
         {
             @Override
             public void box(Handle handle, float x1, float y1, float z1, float x2, float y2, float z2, int color)
             {
-                if (handle.op == Op.MOVE)
+                if (handle.op == Op.MOVE || handle.op == Op.SCALE)
                 {
                     Vector3f signs = Gizmo.this.facingSigns;
                     x1 *= signs.x;
