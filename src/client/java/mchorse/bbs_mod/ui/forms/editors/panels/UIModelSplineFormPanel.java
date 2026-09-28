@@ -7,10 +7,14 @@ import mchorse.bbs_mod.cubic.spline.ModelSplineRuntime;
 import mchorse.bbs_mod.cubic.spline.SplineIK;
 import mchorse.bbs_mod.cubic.spline.SplineCurve;
 import mchorse.bbs_mod.cubic.spline.SplinePoint;
+import mchorse.bbs_mod.data.DataStorageUtils;
+import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
+import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
@@ -35,6 +39,7 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.bones.UIBonePicker;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
+import mchorse.bbs_mod.ui.utils.context.MenuVerb;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.ModelSplineManager;
@@ -48,6 +53,8 @@ import java.util.List;
 /** Spline controls are form values: fields, gestures, undo and animation share their identity. */
 public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormEditorTool
 {
+    private static final String POINTS_CLIPBOARD = "_CopySplinePoints";
+
     public final UIToggle debug;
     public final UIStringList points;
     public final UIPropTransform position;
@@ -92,7 +99,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
             @Override
             protected String elementToString(UIContext context, int i, String id)
             {
-                return key("point").format(i + 1).get();
+                return SplinePoint.displayName(i + 1);
             }
         };
         this.points.background();
@@ -161,14 +168,70 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
     {
         SplineIK chain = this.chain();
         if (chain == null) return;
-        if (ModelSplineRuntime.getChain(this.form, chain.root.get(), chain.tip.get()).size() >= 2)
-            menu.action(Icons.REFRESH, UIKeys.GENERAL_RESET, this::resetCurve);
-        menu.action(Icons.ADD, UIKeys.GENERAL_ADD, this::addPoint);
         int index = this.pointIndex();
+        menu.icon(MenuVerb.ADD, this::addPoint);
+        menu.icon(MenuVerb.REMOVE, this::removePoint).enabled(index >= 0);
+        menu.icon(MenuVerb.RESET, this::resetCurve)
+            .enabled(ModelSplineRuntime.getChain(this.form, chain.root.get(), chain.tip.get()).size() >= 2);
+        menu.icon(MenuVerb.COPY, this::copyPoints);
+        menu.icon(MenuVerb.PASTE, this::pastePoints);
+        if (chain.points.getAllTyped().size() > 2)
+            menu.action(Icons.ALL_DIRECTIONS, key("distribute_points"), this::distributePoints);
         if (index < 0) return;
         if (index > 0) menu.action(Icons.MOVE_UP, key("up"), () -> this.movePoint(-1));
         if (index + 1 < chain.points.getAllTyped().size()) menu.action(Icons.MOVE_DOWN, key("down"), () -> this.movePoint(1));
-        menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, this::removePoint);
+    }
+
+    private void copyPoints()
+    {
+        SplineIK chain = this.chain();
+        if (chain == null) return;
+        ListType positions = new ListType();
+        for (SplinePoint point : chain.points.getAllTyped())
+            positions.add(DataStorageUtils.vector3fToData(point.position.get().translate));
+        MapType data = new MapType();
+        data.put("points", positions);
+        Window.setClipboard(data, POINTS_CLIPBOARD);
+    }
+
+    private void pastePoints()
+    {
+        SplineIK chain = this.chain();
+        if (chain == null) return;
+        MapType data = Window.getClipboardMap(POINTS_CLIPBOARD);
+        if (data == null || !data.has("points", BaseType.TYPE_LIST)) return;
+        List<Vector3f> positions = new ArrayList<>();
+        /* Validate the complete clipboard before replacing any of the destination points. */
+        for (BaseType entry : data.getList("points"))
+        {
+            if (!entry.isList() || entry.asList().size() != 3) return;
+            ListType coordinates = entry.asList();
+            for (BaseType coordinate : coordinates) if (!BaseType.isNumeric(coordinate)) return;
+            Vector3f position = DataStorageUtils.vector3fFromData(coordinates);
+            if (!position.isFinite()) return;
+            positions.add(position);
+        }
+        this.endPointEdit();
+        /* Copy coordinates, not source IDs: existing destination animation keeps its addresses. */
+        BaseValue.edit(chain.points, IValueListener.FLAG_UNMERGEABLE, list -> this.setCurvePoints(chain, positions));
+        this.updateFields();
+    }
+
+    private void distributePoints()
+    {
+        SplineIK chain = this.chain();
+        if (chain == null || chain.points.getAllTyped().size() < 3) return;
+        this.endPointEdit();
+        List<SplinePoint> points = chain.points.getAllTyped();
+        Vector3f first = new Vector3f(points.get(0).position.get().translate);
+        Vector3f last = new Vector3f(points.get(points.size() - 1).position.get().translate);
+        BaseValue.edit(chain.points, IValueListener.FLAG_UNMERGEABLE, list ->
+        {
+            /* Only interior positions change; both endpoints and every point ID stay intact. */
+            for (int i = 1; i < points.size() - 1; i++)
+                points.get(i).position.get().translate.set(first).lerp(last, i / (float) (points.size() - 1));
+        });
+        this.updateFields();
     }
 
     private UIBonePicker bonePicker()
@@ -346,7 +409,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
 
     private void setCurvePoints(SplineIK chain, List<Vector3f> positions)
     {
-        /* Keep existing IDs: resetting a curve must not orphan its animation tracks. */
+        /* Keep destination IDs when resetting or pasting; only extra points receive new IDs. */
         List<SplinePoint> points = chain.points.getAllTyped();
         while (points.size() < positions.size()) chain.points.add(new SplinePoint(""));
         while (points.size() > positions.size()) points.remove(points.size() - 1);

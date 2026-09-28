@@ -96,7 +96,7 @@ public class UIAnimationStateEditor extends UIElement
 
     public boolean pickSplinePoint(UIContext context)
     {
-        if (this.state == null || context.mouseButton != 0 || !this.editor.renderer.area.isInside(context)) return false;
+        if (this.state == null || (context.mouseButton != 0 && context.mouseButton != 1) || !this.editor.renderer.area.isInside(context)) return false;
         var hit = this.splineOverlay.pick(context.mouseX, context.mouseY);
         if (hit == null) return false;
         String path = FormUtils.getPropertyPath(hit.point().position);
@@ -104,7 +104,7 @@ public class UIAnimationStateEditor extends UIElement
         {
             if (!entry.key().equals(path)) continue;
             this.revealTrack(entry, false);
-            mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectPointTrack(this.keyframeEditor, path, context);
+            UIReplaysEditorUtils.pickPropertyTrack(this.keyframeEditor, this.editor, path, context.mouseButton == 1);
             return true;
         }
         return false;

@@ -22,7 +22,6 @@ import mchorse.bbs_mod.forms.renderers.MobFormRenderer;
 import mchorse.bbs_mod.forms.forms.utils.FormMaterial;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseKeyframeFactoryValue;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
@@ -579,15 +578,13 @@ public class TrackCatalog
         for (SplineIK spline : form.splines.getAllTyped())
         {
             String prefix = "splines/" + spline.getId() + "/";
-            String label = spline.name.get().isBlank() ? "Spline IK" : spline.name.get();
             TrackId influence = TrackId.property(path, prefix + "influence");
-            IKey title = IKey.comp(List.of(IKey.constant(label + " / "), L10n.lang("bbs.ui.forms.editors.model.spline.influence")));
 
-            out.add(splineProperty(root, form, influence, properties, title, spline.influence));
+            out.add(splineProperty(root, form, influence, properties, "spline_ik", Icons.CURVES, Colors.CYAN, spline.influence));
             out.add(splineProperty(root, form, TrackId.property(path, prefix + "twist"), properties,
-                L10n.lang("bbs.ui.forms.editors.model.spline.twist"), spline.twist).under(influence));
+                "twist", Icons.ORBIT, Colors.MAGENTA, spline.twist));
             out.add(splineProperty(root, form, TrackId.property(path, prefix + "progress"), properties,
-                L10n.lang("bbs.ui.forms.editors.model.spline.progress"), spline.progress).under(influence));
+                "progress", Icons.MOVE_TO, Colors.ORANGE, spline.progress));
 
             int index = 1;
 
@@ -596,16 +593,16 @@ public class TrackCatalog
                 TrackId id = TrackId.property(path, prefix + "points/" + point.getId() + "/position");
 
                 out.add(splineProperty(root, form, id, properties,
-                    L10n.lang("bbs.ui.forms.editors.model.spline.point").format(index++), point.position).under(influence));
+                    SplinePoint.displayName(index++), Icons.MAIN_HANDLE, Colors.GREEN, point.position));
             }
         }
     }
 
     private static TrackDescriptor splineProperty(Form root, ModelForm form, TrackId id, FormProperties properties,
-        IKey title, BaseValueBasic property)
+        String title, Icon icon, int color, BaseValueBasic property)
     {
         return new TrackDescriptor(id, properties == null ? null : properties.getOrCreate(root, id), form,
-            title, Icons.CURVES, Colors.CYAN, property);
+            IKey.constant(title), icon, color, property);
     }
 
     /* Physics */

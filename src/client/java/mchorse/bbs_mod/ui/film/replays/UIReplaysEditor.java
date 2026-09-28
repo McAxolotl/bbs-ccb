@@ -1094,7 +1094,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             if (!entry.key().equals(path)) continue;
             this.filmPanel.showPanel(this);
             this.revealTrack(entry, false);
-            mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectPointTrack(this.keyframeEditor, path, context);
+            UIReplaysEditorUtils.pickPropertyTrack(this.keyframeEditor, this.filmPanel, path, context.mouseButton == 1);
             return true;
         }
         return false;

@@ -23,25 +23,6 @@ public class SplineEditorUtils
     public static final Gizmo.HandleMask HANDLES = Gizmo.HandleMask.of(
         java.util.EnumSet.of(Gizmo.Op.MOVE, Gizmo.Op.SCREEN), java.util.EnumSet.noneOf(mchorse.bbs_mod.utils.Axis.class));
 
-    public static void selectPointTrack(UIKeyframeEditor editor, String path, mchorse.bbs_mod.ui.framework.UIContext context)
-    {
-        if (editor == null) return;
-        var graph = editor.view.getGraph();
-        var sheet = graph.getSheet(path);
-        if (sheet == null) return;
-        float tick = editor.view.getPlayheadTick(context);
-        mchorse.bbs_mod.utils.keyframes.Keyframe closest = null;
-        float distance = Float.MAX_VALUE;
-        for (Object value : sheet.channel.getKeyframes())
-        {
-            var key = (mchorse.bbs_mod.utils.keyframes.Keyframe) value;
-            float d = Math.abs(key.getTick() - tick);
-            if (d < distance) { distance = d; closest = key; }
-        }
-        if (closest == null) graph.addKeyframeManually(sheet, tick, null);
-        else { graph.clearSelection(); graph.selectKeyframe(closest); graph.pickKeyframe(closest); }
-    }
-
     public record Point(ModelForm form, SplineIK chain, SplinePoint point, TrackId track) {}
 
     public static String selectedPath(UIKeyframeEditor editor)

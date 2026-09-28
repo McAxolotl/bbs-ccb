@@ -80,10 +80,10 @@ public class UIFilmController extends UIElement implements GizmoViewport
 
     public boolean pickSplinePoint(UIContext context)
     {
-        if (context.mouseButton != 0 || this.isCovered() || this.isRecording() || this.panel.isFlying()
+        if ((context.mouseButton != 0 && context.mouseButton != 1) || this.isCovered() || this.isRecording() || this.panel.isFlying()
             || !this.panel.preview.getViewport().isInside(context)) return false;
         int stencil = this.getGizmoStencil().getIndex();
-        if (this.canShowGizmo() && stencil >= Gizmo.STENCIL_X && stencil <= Gizmo.STENCIL_MAX) return false;
+        if (context.mouseButton == 0 && this.canShowGizmo() && stencil >= Gizmo.STENCIL_X && stencil <= Gizmo.STENCIL_MAX) return false;
         var hit = this.splineOverlay.pick(context.mouseX, context.mouseY);
         return hit != null && this.panel.replayEditor.pickSplinePoint(mchorse.bbs_mod.forms.FormUtils.getPropertyPath(hit.point().position), context);
     }

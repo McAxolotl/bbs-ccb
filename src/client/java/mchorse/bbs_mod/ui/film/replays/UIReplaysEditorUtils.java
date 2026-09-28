@@ -17,6 +17,7 @@ import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.AnimationPart;
 import mchorse.bbs_mod.cubic.ik.ModelIKRuntime;
+import mchorse.bbs_mod.cubic.spline.SplineIK;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.tracks.TrackDescriptor;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
@@ -52,6 +53,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.IUIKeyframeG
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.StringUtils;
+import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
@@ -262,10 +264,26 @@ public class UIReplaysEditorUtils
     public static void buildSheets(List<TrackDescriptor> catalog, List<UIKeyframeSheet> sheets)
     {
         Map<TrackId, UIKeyframeSheet> rows = new HashMap<>();
+        Map<String, UIKeyframeSheet.Section> splineSections = new HashMap<>();
 
         for (TrackDescriptor track : catalog)
         {
             UIKeyframeSheet sheet = new UIKeyframeSheet(track);
+
+            if (track.kind() == TrackKind.PROPERTY && track.owner() instanceof ModelForm model
+                && track.id().subject().startsWith("splines/"))
+            {
+                String[] parts = track.id().subject().split("/", 3);
+                SplineIK spline = parts.length == 3 ? model.splines.get(parts[1]) : null;
+
+                if (spline != null)
+                {
+                    String sectionId = "spline_section/" + TrackId.property(track.id().formPath(), "splines/" + spline.getId()).toKey();
+
+                    sheet.section = splineSections.computeIfAbsent(sectionId, key -> new UIKeyframeSheet.Section(
+                        key, IKey.constant("spline_ik/" + spline.root.get()), Icons.CURVES, Colors.CYAN));
+                }
+            }
 
             rows.put(track.id(), sheet);
             sheets.add(sheet);
@@ -951,6 +969,17 @@ public class UIReplaysEditorUtils
         }
 
         return getPropertySheet(graph, formPath, property);
+    }
+
+    /** Viewport property controls use the same nearest-key selection and insertion as pose. */
+    public static void pickPropertyTrack(UIKeyframeEditor keyframeEditor, ICursor cursor, String key, boolean insert)
+    {
+        if (keyframeEditor == null) return;
+        UIKeyframeSheet sheet = keyframeEditor.view.getGraph().getSheet(key);
+        if (sheet == null) return;
+
+        if (insert) insertIntoPropertySheet(keyframeEditor, "", sheet);
+        else pickProperty(keyframeEditor, cursor, "", sheet, false);
     }
 
     private static void pickProperty(UIKeyframeEditor keyframeEditor, ICursor cursor, String bone, String key, boolean insert)
