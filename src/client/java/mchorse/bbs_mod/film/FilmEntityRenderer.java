@@ -40,6 +40,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.LightType;
+import net.minecraft.world.World;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -61,6 +62,28 @@ public class FilmEntityRenderer
         Camera camera = context.camera;
         MatrixStack stack = context.stack;
         float transition = context.transition;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        World world = mc.world != null ? mc.world : entity.getWorld();
+
+        if (mc.world != null)
+        {
+            if (entity.getWorld() != mc.world)
+            {
+                entity.setWorld(mc.world);
+            }
+
+            if (entities != null)
+            {
+                for (IEntity e : entities.values())
+                {
+                    if (e != null && e.getWorld() != mc.world)
+                    {
+                        e.setWorld(mc.world);
+                    }
+                }
+            }
+        }
 
         Form form = entity.getForm();
 
@@ -132,9 +155,15 @@ public class FilmEntityRenderer
         }
 
         BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
-        int sky = entity.getWorld().getLightLevel(LightType.SKY, pos);
-        int torch = entity.getWorld().getLightLevel(LightType.BLOCK, pos);
-        int light = LightmapTextureManager.pack(torch, sky);
+        int light = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+
+        if (world != null)
+        {
+            int sky = world.getLightLevel(LightType.SKY, pos);
+            int torch = world.getLightLevel(LightType.BLOCK, pos);
+
+            light = LightmapTextureManager.pack(torch, sky);
+        }
         int overlay = OverlayTexture.packUv(OverlayTexture.getU(0F), OverlayTexture.getV(entity.getHurtTimer() > 0));
 
         FormRenderingContext formContext = new FormRenderingContext()
