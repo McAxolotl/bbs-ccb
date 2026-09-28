@@ -37,7 +37,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIConstants;
-import mchorse.bbs_mod.ui.utils.bones.UIBonePicker;
+import mchorse.bbs_mod.ui.utils.bones.UIBoneTreeList;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
 import mchorse.bbs_mod.ui.utils.context.MenuVerb;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -49,6 +49,8 @@ import org.joml.Vector3f;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import mchorse.bbs_mod.ui.utils.UISplineControlFields;
 
 /** Spline controls are form values: fields, gestures, undo and animation share their identity. */
@@ -61,7 +63,9 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
     public final UIPropTransform position;
     private final UIIcon removePoint;
     private final UISection advanced;
-    private final UIBonePicker tip;
+    private final UITrackpad chainLength;
+    private final UILabel chainPreview;
+    private final Map<String, UIBoneTreeList.Marker[]> boneMarkers = new HashMap<>();
     private final UIToggle enabled;
     private final UIToggle fit;
     private final UIToggle moveModel;
@@ -81,7 +85,8 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
     public UIModelSplineFormPanel(UIForm editor)
     {
         super(editor);
-        this.bones.tooltip(key("root"));
+        this.bones.tooltip(key("tip"));
+        this.bones.markers(this.boneMarkers::get, key("chain_markers"));
         this.bonePresets(ModelSplineManager.INSTANCE, "_CopyModelSpline",
             key("context.copy"), key("context.paste"), key("context.reset"), key("context.save"), key("context.name"),
             this::toPresetData, this::applyPresetData);
@@ -108,7 +113,10 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         this.points.tooltip(key("points_tooltip"));
         this.removePoint = new UIIcon(Icons.REMOVE, b -> this.removePoint());
         this.removePoint.tooltip(UIKeys.GENERAL_REMOVE);
-        this.tip = this.bonePicker();
+        this.chainLength = new UITrackpad(v -> this.setChainLength(v.intValue()));
+        this.chainLength.limit(0).integer();
+        this.chainPreview = UI.label(IKey.EMPTY, UIConstants.LIST_ITEM_HEIGHT, Colors.LIGHTER_GRAY);
+        this.chainPreview.labelAnchor(0F, 0.5F);
         this.enabled = new UIToggle(key("enabled"), b -> this.setChainEnabled(b.getValue()));
         this.fit = new UIToggle(key("fit"), b -> { if (this.chain() != null) this.chain().fit.set(b.getValue()); });
         this.fit.tooltip(key("fit_tooltip"));
@@ -141,7 +149,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
             this.removePoint.wh(UIConstants.CONTROL_HEIGHT, UIConstants.CONTROL_HEIGHT));
         pointHeader.context(this::pointMenu);
         this.fields = UI.column(UIConstants.MARGIN,
-            UI.labelRow(key("tip"), this.tip), this.status,
+            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_IK_CHAIN_LENGTH, this.chainLength), this.chainPreview, this.status,
             UI.labelRow(key("influence"), this.influence), UI.labelRow(key("progress_short"), this.progress),
             pointHeader, this.points, this.position);
         properties.fields.add(this.enabled, this.fields);
@@ -175,7 +183,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         menu.icon(MenuVerb.ADD, this::addPoint);
         menu.icon(MenuVerb.REMOVE, this::removePoint).enabled(index >= 0);
         menu.icon(MenuVerb.RESET, this::resetCurve)
-            .enabled(ModelSplineRuntime.getChain(this.form, chain.root.get(), chain.tip.get()).size() >= 2);
+            .enabled(ModelSplineRuntime.getChain(this.form, chain).size() >= 2);
         menu.icon(MenuVerb.COPY, this::copyPoints);
         menu.icon(MenuVerb.PASTE, this::pastePoints);
         if (chain.points.getAllTyped().size() > 2)
@@ -237,32 +245,28 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         this.updateFields();
     }
 
-    private UIBonePicker bonePicker()
+    private void setChainLength(int length)
     {
-        UIBonePicker picker = new UIBonePicker(bone ->
+        SplineIK chain = this.chain();
+        if (chain == null || chain.chainLength.get() == length) return;
+        this.endPointEdit();
+        /* Structure changes keep the authored curve and its stable point addresses. */
+        chain.chainLength.set(length);
+        this.updateFields();
+    }
+
+    private void updateChainMarkers()
+    {
+        this.boneMarkers.clear();
+        if (this.form == null) return;
+        for (SplineIK spline : this.form.splines.getAllTyped())
         {
-            SplineIK chain = this.chain();
-            if (chain == null || ModelSplineRuntime.getChain(this.form, chain.root.get(), bone).size() < 2) return;
-            this.endPointEdit();
-            /* Choose the end and seed a new curve as one edit. Existing controls stay intact. */
-            SplineIK copy = new SplineIK(chain.getId());
-            copy.fromData(chain.toData());
-            copy.tip.set(bone);
-            if (copy.points.getAllTyped().isEmpty())
-                this.setCurvePoints(copy, ModelSplineRuntime.createPoints(this.form, copy.root.get(), bone));
-            chain.copy(copy);
-            this.updateFields();
-        });
-        picker.menu(menu ->
-        {
-            ModelInstance model = this.form == null ? null : ModelFormRenderer.getModel(this.form);
-            SplineIK chain = this.chain();
-            if (model == null || model.model == null || chain == null) return;
-            menu.bones(model.model, model.getDisabledBones()).set(chain.tip.get());
-            menu.disabled(bone -> ModelSplineRuntime.getChain(this.form, chain.root.get(), bone).size() < 2);
-        });
-        picker.viewport(this.viewportBonePicking());
-        return picker;
+            for (String bone : ModelSplineRuntime.getChain(this.form, spline))
+                this.boneMarkers.put(bone, new UIBoneTreeList.Marker[] {new UIBoneTreeList.Marker(0xFF5599FF, true)});
+        }
+        for (SplineIK spline : this.form.splines.getAllTyped())
+            this.boneMarkers.put(spline.tip.get(), new UIBoneTreeList.Marker[] {
+                new UIBoneTreeList.Marker(0xFF5599FF, false)});
     }
 
     @Override
@@ -297,7 +301,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         SplineIK selected = this.chain();
         if (selected != null)
         {
-            this.selectedBone = selected.root.get();
+            this.selectedBone = selected.tip.get();
             this.boneSelection().set(this.selectedBone);
             this.bones.setCurrentScroll(this.selectedBone);
         }
@@ -322,7 +326,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
     protected void updateFields()
     {
         SplineIK chain = this.chain();
-        if (chain == null || !chain.root.get().equals(this.selectedBone))
+        if (chain == null || !chain.tip.get().equals(this.selectedBone))
         {
             this.endPointEdit();
             chain = null;
@@ -330,29 +334,31 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
             {
                 for (SplineIK candidate : this.form.splines.getAllTyped())
                 {
-                    if (!candidate.root.get().equals(this.selectedBone)) continue;
-                    if (chain == null) chain = candidate;
-                    if (candidate.enabled.get()) { chain = candidate; break; }
+                    if (!candidate.tip.get().equals(this.selectedBone)) continue;
+                    chain = candidate;
+                    break;
                 }
             }
             this.chainId = chain == null ? "" : chain.getId();
             this.pointId = "";
         }
-        boolean on = chain != null && chain.enabled.get();
+        boolean on = chain != null;
         this.enabled.setEnabled(chain != null || this.availableBones.contains(this.selectedBone));
         this.enabled.setValue(on);
         this.fields.setVisible(on);
         this.advanced.setVisible(on);
         if (chain != null)
         {
-            this.tip.setLabel(IKey.constant(chain.tip.get().isEmpty() ? "—" : chain.tip.get()));
+            this.chainLength.setValue(chain.chainLength.get());
+            String path = String.join(" → ", ModelSplineRuntime.getChain(this.form, chain));
+            this.chainPreview.label = path.isEmpty() ? UIKeys.FORMS_EDITORS_MODEL_IK_CHAIN_EMPTY : IKey.constant(path);
             this.fit.setValue(chain.fit.get());
             this.influence.setValue(chain.influence.get());
             this.progress.setValue(chain.progress.get());
             this.moveModel.setValue(chain.moveModel.get());
             this.twist.setValue(chain.twist.get());
             String reason = ModelSplineRuntime.validate(this.form, chain);
-            boolean showStatus = reason != null && !reason.equals("invalid_chain");
+            boolean showStatus = reason != null;
             this.status.label = showStatus ? key("error." + reason) : IKey.EMPTY;
             this.status.tooltip(this.status.label);
             this.status.setVisible(showStatus);
@@ -367,6 +373,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
             this.pointId = "";
             this.points.setList(List.of());
         }
+        this.updateChainMarkers();
         this.points.h(this.pointListHeight());
         this.removePoint.setEnabled(this.point() != null);
         this.position.setVisible(on && this.point() != null);
@@ -378,8 +385,17 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
     {
         this.endPointEdit();
         SplineIK chain = this.chain();
-        if (chain != null) chain.enabled.set(enabled);
-        else if (enabled) this.addChain();
+        if (enabled && chain == null) this.addChain();
+        else if (!enabled && chain != null)
+        {
+            BaseValue.edit(this.form, IValueListener.FLAG_UNMERGEABLE, form ->
+            {
+                form.splines.getAllTyped().remove(chain);
+                form.splineIK.getOriginalValue().controls.remove(chain.getId());
+            });
+            this.chainId = "";
+            this.pointId = "";
+        }
         this.updateFields();
     }
 
@@ -389,7 +405,8 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         this.endPointEdit();
         SplineIK chain = new SplineIK("");
         chain.name.set(key("title").get() + " " + (this.form.splines.getAllTyped().size() + 1));
-        chain.root.set(this.selectedBone);
+        chain.tip.set(this.selectedBone);
+        this.setCurvePoints(chain, ModelSplineRuntime.createPoints(this.form, chain));
         BaseValue.edit(this.form.splines, list -> list.add(chain));
         this.select(chain.getId(), "");
     }
@@ -398,7 +415,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
     {
         SplineIK chain = this.chain();
         if (chain == null) return;
-        List<Vector3f> reference = ModelSplineRuntime.createPoints(this.form, chain.root.get(), chain.tip.get());
+        List<Vector3f> reference = ModelSplineRuntime.createPoints(this.form, chain);
         if (reference.size() < 2) return;
         this.endPointEdit();
         /* A reset preserves the animator's control count and IDs, including keyed points. */
@@ -478,9 +495,9 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
     @Override
     public UIPropTransform getGizmoTransform()
     {
-        if (this.point() == null || !this.chain().enabled.get()) return null;
+        if (this.point() == null) return null;
         ModelInstance model = ModelFormRenderer.getModel(this.form);
-        return model == null || model.model == null || model.model.getBone(this.chain().root.get()) == null ? null : this.position;
+        return model == null || model.model == null || model.model.getBone(ModelSplineRuntime.getRoot(this.form, this.chain())) == null ? null : this.position;
     }
 
     @Override
@@ -502,7 +519,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
             this.options.resize();
         }
         SplinePoint point = this.point();
-        if (point != null && this.chain().enabled.get() && !this.position.isUserEditing()) this.position.setTransform(point.position.getOriginalValue());
+        if (point != null && !this.position.isUserEditing()) this.position.setTransform(point.position.getOriginalValue());
         super.render(context);
     }
 }

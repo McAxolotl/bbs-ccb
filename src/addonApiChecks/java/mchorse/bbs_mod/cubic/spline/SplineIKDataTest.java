@@ -47,7 +47,7 @@ public class SplineIKDataTest
         spline.progress.set(137.5F);
         spline.moveModel.set(true);
         spline.name.set("Snake");
-        spline.root.set("bone");
+        spline.chainLength.set(2);
         spline.tip.set("bone8");
         form.splines.add(spline);
         SplinePoint first = point(1), second = point(3), third = point(5);

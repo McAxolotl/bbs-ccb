@@ -11,6 +11,7 @@ import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.FormBone;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
@@ -120,7 +121,17 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
 
         this.enabled = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_IK_ENABLED, (b) ->
         {
-            this.editControl((c) -> c.enabled = b.getValue());
+            if (b.getValue()) this.editControl(c -> c.enabled = true);
+            else
+            {
+                FormBone bone = this.selectedFormBone();
+                if (bone == null) return;
+                FormBone cleared = new FormBone(bone.getId());
+                cleared.fromData(bone.toData());
+                BoneIKIO.clearChain(cleared);
+                cleared.ik.getOriginalValue().enabled = false;
+                bone.copy(cleared, IValueListener.FLAG_UNMERGEABLE);
+            }
             this.updateFields();
         });
         this.enabled.h(UIConstants.CONTROL_HEIGHT);
@@ -644,7 +655,7 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
 
         String targetLabel = formBone == null ? "" : formBone.ikTarget.get();
         boolean hasChain = formBone != null && formBone.hasChain();
-        boolean active = formBone != null && control.enabled;
+        boolean active = formBone != null && formBone.ik.getOriginalValue().enabled;
         boolean poleOn = formBone != null && control.pole;
         boolean canEdit = !this.selectedBone.isEmpty() && this.bones.isEnabled() && active;
         int chainLength = formBone == null ? 0 : formBone.ikChainLength.get();

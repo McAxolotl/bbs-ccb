@@ -55,11 +55,11 @@ public final class SplineRuntimeCheck
         ModelInstance instance = new ModelInstance("spline-runtime-check", model, new Animations(null), null);
         ModelForm form = new ModelForm();
         SplineIK spline = new SplineIK("");
-        spline.root.set("bone0");
+        spline.chainLength.set(8);
         spline.tip.set("bone7");
         form.splines.add(spline);
         List<Vector3f> originals = positions(model);
-        List<Vector3f> autoPoints = ModelSplineRuntime.createPoints(instance, "bone0", "bone7");
+        List<Vector3f> autoPoints = ModelSplineRuntime.createPoints(instance, spline);
         check(autoPoints.size() == 4, "Straight snake starts with four editable handles");
         for (Vector3f point : autoPoints) addPoint(spline, point);
         model.snapshotChannels();
@@ -70,6 +70,20 @@ public final class SplineRuntimeCheck
         check(!mchorse.bbs_mod.cubic.ik.ModelIKRuntime.isRotationConstrained(model, form, "other"), "Unrelated FK rotations remain editable");
         for (int i = 0; i < 8; i++) close(solved.get(i), originals.get(i), "Auto curve preserves original straight pose");
         check(other.orient == null && other.offset == null, "Side branch remains untouched");
+
+        spline.chainLength.set(2);
+        check(ModelSplineRuntime.isRotationConstrained(model, form, "bone6"), "Length includes the tip and its parent");
+        check(!ModelSplineRuntime.isRotationConstrained(model, form, "bone5"), "Length excludes ancestors beyond the count");
+        spline.chainLength.set(0);
+        check(ModelSplineRuntime.isRotationConstrained(model, form, "All"), "Zero length reaches the hierarchy root");
+        spline.chainLength.set(100);
+        check(ModelSplineRuntime.isRotationConstrained(model, form, "All"), "Length beyond ancestry stops at the root");
+        spline.chainLength.set(1);
+        check(!ModelSplineRuntime.isRotationConstrained(model, form, "bone7"), "A single bone cannot form a spline segment");
+        spline.tip.set("missing");
+        check(ModelSplineRuntime.createPoints(instance, spline).isEmpty(), "Missing tip produces no chain");
+        spline.tip.set("bone7");
+        spline.chainLength.set(8);
 
         spline.progress.set(25F);
         model.restoreChannels();
@@ -109,7 +123,7 @@ public final class SplineRuntimeCheck
 
         ModelForm secondForm = new ModelForm();
         SplineIK secondSpline = new SplineIK("");
-        secondSpline.root.set("bone0");
+        secondSpline.chainLength.set(8);
         secondSpline.tip.set("bone7");
         secondForm.splines.add(secondSpline);
         addPoint(secondSpline, new Vector3f(5, 0, 0));
@@ -133,10 +147,10 @@ public final class SplineRuntimeCheck
         for (int i = 0; i < 8; i++) close(blended.get(i), new Vector3f(originals.get(i)).lerp(curved.get(i), 0.5F), "Half influence blends from FK");
         model.restoreChannels();
         spline.influence.set(1F);
-        spline.enabled.set(false);
+        form.splines.getAllTyped().remove(spline);
         ModelSplineRuntime.apply(instance, form);
-        compare(positions(model), originals, "Disabled spline returns exact FK");
-        spline.enabled.set(true);
+        compare(positions(model), originals, "Deleting the spline returns exact FK");
+        form.splines.add(spline);
 
         model.restoreChannels();
         ModelSplineRuntime.apply(instance, form);
@@ -273,9 +287,9 @@ public final class SplineRuntimeCheck
             check(ModelSplineRuntime.apply(instance, new ModelForm()) == null, "Another actor sharing this model does not inherit its motion");
             check(renderedMatrices(model, null).get("other").equals(fk.get("other"), 2E-4F), "Shared-model actor keeps its original head pose");
 
-            spline.enabled.set(false);
-            check(ModelSplineRuntime.apply(instance, form) == null, "Disabled model motion is neutral");
-            spline.enabled.set(true);
+            form.splines.getAllTyped().remove(spline);
+            check(ModelSplineRuntime.apply(instance, form) == null, "Deleted model motion is neutral");
+            form.splines.add(spline);
             spline.influence.set(0F);
             check(ModelSplineRuntime.apply(instance, form) == null, "Zero influence produces no model motion");
         }
@@ -283,11 +297,11 @@ public final class SplineRuntimeCheck
         model.resetPose();
         ModelForm topForm = new ModelForm();
         SplineIK top = new SplineIK("");
-        top.root.set("All");
+        top.chainLength.set(0);
         top.tip.set("bone7");
         top.progress.set(20F);
         topForm.splines.add(top);
-        for (Vector3f point : ModelSplineRuntime.createPoints(instance, "All", "bone7")) addPoint(top, point);
+        for (Vector3f point : ModelSplineRuntime.createPoints(instance, top)) addPoint(top, point);
         model.snapshotChannels();
         ModelSplineRuntime.apply(instance, topForm);
         Map<String, Matrix4f> topChainOnly = renderedMatrices(model, null);

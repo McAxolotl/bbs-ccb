@@ -54,7 +54,7 @@ public class SplineOverlay
         List<Vector3f> positions = new ArrayList<>();
         for (SplinePoint point : chain.points.getAllTyped()) positions.add(new Vector3f(control.point(point.getId()).translate));
         if (positions.isEmpty()) return;
-        int color = chain.enabled.get() ? 0xFF63D9E8 : 0xFF929AA6;
+        int color = 0xFF63D9E8;
         context.batcher.clip(viewport, context);
         Vector3f previous = null;
         for (Vector3f point : SplineCurve.sample(positions, 20))

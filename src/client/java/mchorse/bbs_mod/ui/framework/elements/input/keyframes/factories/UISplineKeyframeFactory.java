@@ -46,7 +46,7 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls>
             @Override protected String elementToString(UIContext context, int index, String id)
             {
                 SplineIK chain = UISplineKeyframeFactory.this.form == null ? null : UISplineKeyframeFactory.this.form.splines.get(id);
-                return chain == null ? id : chain.root.get();
+                return chain == null ? id : chain.tip.get();
             }
         };
         this.chains.background().h(UIConstants.LIST_ITEM_HEIGHT * 6).expand();

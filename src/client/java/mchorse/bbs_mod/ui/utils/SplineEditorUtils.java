@@ -4,6 +4,7 @@ import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.RigBone;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.spline.SplineIK;
+import mchorse.bbs_mod.cubic.spline.ModelSplineRuntime;
 import mchorse.bbs_mod.cubic.spline.SplinePoint;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
 import mchorse.bbs_mod.film.replays.tracks.TrackKind;
@@ -79,7 +80,7 @@ public class SplineEditorUtils
     {
         MatrixCache cache = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
         ModelInstance instance = ModelFormRenderer.getModel(form);
-        RigBone bone = instance == null ? null : instance.model.getBone(chain.root.get());
+        RigBone bone = instance == null ? null : instance.model.getBone(ModelSplineRuntime.getRoot(form, chain));
         if (bone == null) return null;
         String path = FormUtils.getPath(form);
         var renderer = (ModelFormRenderer) FormUtilsClient.getRenderer(form);

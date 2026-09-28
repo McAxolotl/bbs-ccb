@@ -4,6 +4,7 @@ import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
+import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 
 /** One form's curve and chain settings. The shared model asset never owns these values. */
@@ -38,9 +39,9 @@ public class SplineIK extends ValueGroup
     }
 
     public final ValueString name = new ValueString("name", "Spline IK");
-    public final ValueString root = new ValueString("root", "");
+    /** Number of bones including the tip; zero walks all the way to the root. */
+    public final ValueInt chainLength = new ValueInt("chainLength", 0, 0, Integer.MAX_VALUE);
     public final ValueString tip = new ValueString("tip", "");
-    public final ValueBoolean enabled = new ValueBoolean("enabled", true);
     public final ValueFloat influence = new ValueFloat("influence", 1F, 0F, 1F);
     /** Roll along the chain, in degrees. */
     public final ValueFloat twist = new ValueFloat("twist", 0F);
@@ -54,9 +55,8 @@ public class SplineIK extends ValueGroup
     {
         super(id);
         this.add(this.name.animatable(false).invisible());
-        this.add(this.root.animatable(false).invisible());
+        this.add(this.chainLength.animatable(false).invisible());
         this.add(this.tip.animatable(false).invisible());
-        this.add(this.enabled.animatable(false).invisible());
         this.add(this.influence);
         this.add(this.twist);
         this.add(this.progress);

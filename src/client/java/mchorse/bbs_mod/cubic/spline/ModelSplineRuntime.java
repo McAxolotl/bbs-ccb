@@ -48,9 +48,9 @@ public final class ModelSplineRuntime
         for (SplineIK spline : form.splines.getAllTyped())
         {
             SplineControl control = form.splineIK.get().get(spline.getId());
-            if (!spline.enabled.get() || !Float.isFinite(control.influence) || control.influence <= 0F) continue;
+            if (!Float.isFinite(control.influence) || control.influence <= 0F) continue;
 
-            List<ModelGroup> chain = chain(model, spline.root.get(), spline.tip.get());
+            List<ModelGroup> chain = chain(model, spline);
             if (validate(model, form, chain) != null || chain.stream().anyMatch(bone -> occupied.contains(bone.id))) continue;
 
             ModelGroup root = chain.get(0);
@@ -98,8 +98,8 @@ public final class ModelSplineRuntime
         for (SplineIK spline : form.splines.getAllTyped())
         {
             SplineControl control = form.splineIK.get().get(spline.getId());
-            if (!spline.enabled.get() || !Float.isFinite(control.influence) || control.influence <= 0F) continue;
-            List<ModelGroup> chain = chain(model, spline.root.get(), spline.tip.get());
+            if (!Float.isFinite(control.influence) || control.influence <= 0F) continue;
+            List<ModelGroup> chain = chain(model, spline);
             if (validate(model, form, chain) != null || chain.stream().anyMatch(group -> occupied.contains(group.id))) continue;
             if (!solve(chain, spline, control, false)) continue;
             for (ModelGroup group : chain) occupied.add(group.id);
@@ -108,23 +108,18 @@ public final class ModelSplineRuntime
     }
 
     /** Short stable error keys for the editor; null is a supported chain. */
-    public static String validate(ModelForm form, String root, String tip)
+    public static String validate(ModelForm form, SplineIK selected)
     {
         ModelInstance instance = ModelFormRenderer.getModel(form);
         if (instance == null || !(instance.model instanceof Model model)) return "cubic_only";
-        return validate(model, form, chain(model, root, tip));
-    }
-
-    public static String validate(ModelForm form, SplineIK selected)
-    {
-        String error = validate(form, selected.root.get(), selected.tip.get());
+        String error = validate(model, form, chain(model, selected));
         if (error != null) return error;
-        Set<String> ids = new HashSet<>(getChain(form, selected.root.get(), selected.tip.get()));
+        Set<String> ids = new HashSet<>(getChain(form, selected));
         for (SplineIK spline : form.splines.getAllTyped())
         {
             SplineControl control = form.splineIK.get().get(spline.getId());
             if (spline == selected) break;
-            if (spline.enabled.get() && control.influence > 0F && !Collections.disjoint(ids, getChain(form, spline.root.get(), spline.tip.get()))) return "spline_conflict";
+            if (control.influence > 0F && !Collections.disjoint(ids, getChain(form, spline))) return "spline_conflict";
         }
         return null;
     }
@@ -163,11 +158,24 @@ public final class ModelSplineRuntime
         return null;
     }
 
-    public static List<String> getChain(ModelForm form, String root, String tip)
+    public static List<String> getChain(ModelForm form, SplineIK spline)
     {
         ModelInstance instance = ModelFormRenderer.getModel(form);
         if (instance == null || !(instance.model instanceof Model model)) return List.of();
-        return chain(model, root, tip).stream().map(bone -> bone.id).toList();
+        return chain(model, spline).stream().map(bone -> bone.id).toList();
+    }
+
+    public static String getRoot(ModelForm form, SplineIK spline)
+    {
+        List<String> bones = getChain(form, spline);
+        return bones.isEmpty() ? "" : bones.get(0);
+    }
+
+    private static List<ModelGroup> chain(Model model, SplineIK spline)
+    {
+        if (model.getGroup(spline.tip.get()) == null) return List.of();
+        return ModelIKRuntime.chainBones(model, spline.tip.get(), spline.chainLength.get()).stream()
+            .map(model::getGroup).toList();
     }
 
     private static List<ModelGroup> chain(Model model, String root, String tip)
@@ -195,17 +203,17 @@ public final class ModelSplineRuntime
      * Fresh FK sample for creation, avoiding the shared asset's last rendered actor. The editor
      * can use the overload after evaluating its own entity to include the current action time.
      */
-    public static List<Vector3f> createPoints(ModelForm form, String root, String tip)
+    public static List<Vector3f> createPoints(ModelForm form, SplineIK spline)
     {
         if (!(FormUtilsClient.getRenderer(form) instanceof ModelFormRenderer renderer)) return List.of();
         ModelInstance instance = renderer.evaluateChannels(new StubEntity(), 0F);
-        return createPoints(instance, root, tip);
+        return createPoints(instance, spline);
     }
 
-    public static List<Vector3f> createPoints(ModelInstance instance, String root, String tip)
+    public static List<Vector3f> createPoints(ModelInstance instance, SplineIK spline)
     {
         if (instance == null || !(instance.model instanceof Model model)) return List.of();
-        List<ModelGroup> chain = chain(model, root, tip);
+        List<ModelGroup> chain = chain(model, spline);
         if (chain.size() < 2) return List.of();
         List<Vector3f> result = new ArrayList<>();
         Matrix4f matrix = new Matrix4f();

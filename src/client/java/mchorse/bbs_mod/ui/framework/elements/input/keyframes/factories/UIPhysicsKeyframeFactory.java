@@ -4,9 +4,7 @@ import mchorse.bbs_mod.cubic.physics.PhysicsControl;
 import mchorse.bbs_mod.cubic.physics.PhysicsControls;
 import mchorse.bbs_mod.forms.forms.utils.FormBone;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UISliderTrackpad;
-import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -21,7 +19,6 @@ public class UIPhysicsKeyframeFactory extends UIChainKeyframeFactory<PhysicsCont
     public UISliderTrackpad gravity;
     public UISliderTrackpad damping;
     public UISliderTrackpad stiffness;
-    public UIToggle enabled;
 
     public UIPhysicsKeyframeFactory(Keyframe<PhysicsControls> keyframe, UIKeyframes editor)
     {
@@ -33,14 +30,12 @@ public class UIPhysicsKeyframeFactory extends UIChainKeyframeFactory<PhysicsCont
         this.damping = this.input(fields.damping);
         this.stiffness = this.input(fields.stiffness);
 
-        this.enabled = this.input(new UIToggle(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_ENABLED, (b) -> this.edit((control) -> control.enabled = b.getValue())));
 
         this.setup(
             UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_IK_WEIGHT, this.weight),
             UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_GRAVITY, this.gravity),
             UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_DAMPING, this.damping),
             UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_STIFFNESS, this.stiffness),
-            this.enabled,
             this.binding("target", UIKeys.FORMS_EDITORS_MODEL_IK_TARGET_LABEL, UIKeys.FORMS_EDITORS_MODEL_IK_TARGET)
         );
     }
@@ -58,7 +53,6 @@ public class UIPhysicsKeyframeFactory extends UIChainKeyframeFactory<PhysicsCont
         this.gravity.setValue(control.gravity);
         this.damping.setValue(control.damping);
         this.stiffness.setValue(control.stiffness);
-        this.enabled.setValue(control.enabled);
     }
 
     @Override

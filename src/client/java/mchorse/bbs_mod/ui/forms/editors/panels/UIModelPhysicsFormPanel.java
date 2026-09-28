@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
 import mchorse.bbs_mod.ui.utils.UIPhysicsControlFields;
 
@@ -40,6 +41,7 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
     public UIBonePicker end;
     public UIBonePicker targetBone;
     public UIToggle enabled;
+    public UISliderTrackpad weight;
     public UISliderTrackpad gravity;
     public UIToggle relativeGravity;
     public UISliderTrackpad relativeGravityRotateX;
@@ -62,6 +64,7 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
     /* Hidden until the chain is switched on, exactly like the IK panel's chain
      * parameters. The wind section stays: it is the FORM's own property, not the
      * bone's, and it keeps working while every chain sits idle. */
+    private UIElement weightRow;
     private UIElement gravityRow;
     private UIElement gravityRotationLabel;
     private UIElement gravityRotationRow;
@@ -97,20 +100,20 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
             }
 
             FormBone bone = this.form.bones.getOrCreate(this.selectedBone);
-
-            /* Switching a chain on seeds its end with the bone itself, like it always did;
-             * switching it off only flips the scalar — the chain's setup stays put, so
-             * toggling no longer wipes what the animator tuned. */
-            if (b.getValue() && !bone.hasPhysicsChain())
+            FormBone updated = new FormBone(bone.getId());
+            updated.fromData(bone.toData());
+            if (b.getValue())
             {
-                bone.physicsEnd.set(this.selectedBone);
+                if (!updated.hasPhysicsChain()) updated.physicsEnd.set(this.selectedBone);
+                updated.physics.getOriginalValue().enabled = true;
             }
-
-            this.editControl((c) -> c.enabled = b.getValue());
+            else BonePhysicsIO.clearChain(updated);
+            bone.copy(updated, IValueListener.FLAG_UNMERGEABLE);
             this.updateFields();
         });
 
         var controls = new UIPhysicsControlFields(this::editControl);
+        this.weight = controls.weight;
         this.gravity = controls.gravity;
 
         this.relativeGravity = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_RELATIVE_GRAVITY, (b) -> this.editBone((bone) -> bone.physicsRelativeGravity.set(b.getValue())));
@@ -201,6 +204,7 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
 
         UISection settings = this.section(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_SETTINGS, "physics.settings", true);
 
+        this.weightRow = UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_IK_WEIGHT, this.weight);
         this.gravityRow = UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_GRAVITY, this.gravity);
         this.gravityRotationLabel = UI.label(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_RELATIVE_GRAVITY_ROTATION);
         this.gravityRotationRow = UI.row(this.relativeGravityRotateX, this.relativeGravityRotateY, this.relativeGravityRotateZ);
@@ -220,6 +224,7 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
                     edit.accept(anchor);
                     control.bindings.put("target", anchor);
                 })),
+            this.weightRow,
             this.gravityRow,
             this.relativeGravity,
             this.gravityRotationLabel,
@@ -277,6 +282,7 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
         this.enabled.setEnabled(enabled);
         this.end.setEnabled(enabled);
         this.targetBone.setEnabled(enabled);
+        this.weight.setEnabled(enabled);
         this.gravity.setEnabled(enabled);
         this.relativeGravity.setEnabled(enabled);
         this.relativeGravityRotateX.setEnabled(enabled);
@@ -331,16 +337,17 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
         FormBone bone = this.selectedFormBone();
         PhysicsControl control = bone == null ? PhysicsControl.DEFAULT : bone.physics.get();
         boolean hasChain = bone != null && bone.hasPhysicsChain();
-        boolean active = panelEnabled && boneSelected && hasChain && control.enabled;
+        boolean active = panelEnabled && boneSelected && hasChain;
 
         this.enabled.setEnabled(panelEnabled && boneSelected);
-        this.enabled.setValue(hasChain && control.enabled);
+        this.enabled.setValue(hasChain);
 
         /* Off means gone, not dimmed — the IK panel's rule, and the same reason. */
-        boolean on = hasChain && control.enabled;
+        boolean on = hasChain;
 
         this.end.setVisible(on);
         this.targetBone.setVisible(on);
+        this.weightRow.setVisible(on);
         this.gravityRow.setVisible(on);
         this.relativeGravity.setVisible(on);
         this.gravityRotationLabel.setVisible(on);
@@ -353,6 +360,7 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
 
         this.end.setEnabled(active);
         this.targetBone.setEnabled(active);
+        this.weight.setEnabled(active);
         this.gravity.setEnabled(active);
         this.relativeGravity.setEnabled(active);
         this.relativeGravityRotateX.setEnabled(active);
@@ -369,6 +377,7 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
 
         this.end.setLabel(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_END.format(end.isEmpty() ? "-" : end));
         this.targetBone.setLabel(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_TARGET.format(target.isEmpty() ? "-" : target));
+        this.weight.setValue(control.weight);
         this.gravity.setValue(control.gravity);
         this.relativeGravity.setValue(bone != null && bone.physicsRelativeGravity.get());
         this.relativeGravityRotateX.setValue(bone == null ? 0D : bone.physicsGravityRotateX.get());
