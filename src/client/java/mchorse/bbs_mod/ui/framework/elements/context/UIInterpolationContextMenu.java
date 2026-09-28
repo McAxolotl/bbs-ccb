@@ -12,6 +12,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.InterpolationUtils;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
@@ -34,7 +35,7 @@ public class UIInterpolationContextMenu extends UIContextMenu
     private static final int PADDING = 10;
     private static final int MARGIN = 5;
     private static final int GRAPH_HEIGHT = 80;
-    private static final int ARGUMENTS_HEIGHT = 45;
+    private static final int ARGUMENTS_HEIGHT = 32 + UIConstants.MARGIN;
 
     public UIElement grid;
     public UITrackpad v1;
@@ -134,6 +135,7 @@ public class UIInterpolationContextMenu extends UIContextMenu
             Window.setClipboard(data, "_CopyInterpolation");
         });
         this.copy.tooltip(UIKeys.INTERPOLATIONS_CONTEXT_COPY);
+        this.copy.wh(16, 16);
 
         this.paste = new UIIcon(Icons.PASTE, (b) ->
         {
@@ -152,6 +154,7 @@ public class UIInterpolationContextMenu extends UIContextMenu
             }
         });
         this.paste.tooltip(UIKeys.INTERPOLATIONS_CONTEXT_PASTE);
+        this.paste.wh(16, 16);
 
         this.grid = new UIElement();
         this.grid.relative(this).xy(PADDING, gridY).w(w).h(h).grid(0).items(6);
@@ -170,7 +173,7 @@ public class UIInterpolationContextMenu extends UIContextMenu
             this.setupKeybind(value, icon);
         }
 
-        UIElement vs = UI.column(UI.row(this.v1, this.v2, this.copy), UI.row(this.v3, this.v4, this.paste));
+        UIElement vs = UI.column(UIConstants.MARGIN, UI.row(this.v1, this.v2, this.copy), UI.row(this.v3, this.v4, this.paste));
 
         vs.relative(this).xy(PADDING, PADDING + GRAPH_HEIGHT + MARGIN).w(w);
 
