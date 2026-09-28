@@ -6,6 +6,7 @@ import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.FormBone;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
+import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
@@ -85,6 +86,12 @@ public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S exten
 
     protected UIElement binding(String id, IKey label, IKey tooltip)
     {
+        /* External targets belong to film channels, not form animation states. */
+        if (!(this.editor instanceof UIFilmKeyframes))
+        {
+            return null;
+        }
+
         return this.input(UIAnchorBinding.section(label, tooltip,
             () -> this.displayControl(this.selected).binding(id),
             edit -> this.edit(control ->

@@ -41,7 +41,6 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
 import mchorse.bbs_mod.ui.utils.UIIKControlFields;
 
 public class UIModelIKFormPanel extends UIBoneListFormPanel
@@ -258,9 +257,7 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
             this.poleRow,
             this.chainLengthRow,
             this.chainPreview,
-            this.weightRow,
-            this.binding("target", UIKeys.FORMS_EDITORS_MODEL_IK_TARGET_LABEL, UIKeys.FORMS_EDITORS_MODEL_IK_TARGET),
-            this.binding("pole", UIKeys.FORMS_EDITORS_MODEL_IK_POLE_TARGET_LABEL, UIKeys.FORMS_EDITORS_MODEL_IK_POLE_TARGET)
+            this.weightRow
         );
 
         this.advancedSection = this.section(UIKeys.FORMS_EDITORS_MODEL_IK_ADVANCED, "ik.advanced", false);
@@ -476,18 +473,6 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
 
     /* Value access: the panel holds no data of its own — every read and write
      * goes to the form's bone properties, and undo picks the writes up itself. */
-
-    /** The selected bone's properties, or null when it was never touched. */
-    private UIElement binding(String id, IKey label, IKey tooltip)
-    {
-        return UIAnchorBinding.section(label, tooltip, () -> this.currentControl().binding(id),
-            edit -> this.editControl(control ->
-            {
-                var anchor = control.binding(id).copy();
-                edit.accept(anchor);
-                control.bindings.put(id, anchor);
-            }));
-    }
 
     private IKControl currentControl()
     {

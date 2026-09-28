@@ -29,10 +29,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
-import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.IValueListener;
-import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
 import mchorse.bbs_mod.ui.utils.UIPhysicsControlFields;
 
 public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
@@ -216,14 +214,6 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
             this.enabled,
             this.end,
             this.targetBone,
-            UIAnchorBinding.section(UIKeys.FORMS_EDITORS_MODEL_IK_TARGET_LABEL, UIKeys.FORMS_EDITORS_MODEL_IK_TARGET,
-                () -> this.readBone(bone -> bone.physics.get().binding("target"), new Anchor()),
-                edit -> this.editControl(control ->
-                {
-                    var anchor = control.binding("target").copy();
-                    edit.accept(anchor);
-                    control.bindings.put("target", anchor);
-                })),
             this.weightRow,
             this.gravityRow,
             this.relativeGravity,
