@@ -90,13 +90,12 @@ public class UIFilmController extends UIElement implements GizmoViewport
 
     private void renderSplineOverlay(UIContext context)
     {
+        mchorse.bbs_mod.ui.utils.SplineEditorUtils.viewportHover(this.panel.replayEditor.keyframeEditor, null);
         if (!this.splineOverlay.begin()) return;
         IEntity entity = this.getCurrentEntity();
         if (entity == null || entity.getForm() == null || this.isCovered() || this.isRecording()) return;
         var camera = this.panel.getCamera();
         float transition = this.getCurrentTransition();
-        String selected = mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(this.panel.replayEditor.keyframeEditor);
-        var selectedPoint = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(entity.getForm(), selected);
         for (var entry : this.panel.replayEditor.replaysList.bodyParts.getList())
         {
             if (!(entry.getForm() instanceof mchorse.bbs_mod.forms.forms.ModelForm model)) continue;
@@ -109,9 +108,13 @@ public class UIFilmController extends UIElement implements GizmoViewport
                     camera.position.x, camera.position.y, camera.position.z, transition, point);
                 if (parent == null) continue;
                 this.splineOverlay.draw(context, new Matrix4f(camera.view).mul(parent), camera.projection, this.panel.preview.getViewport(),
-                    point.chain(), selectedPoint != null && selectedPoint.chain() == point.chain() ? selectedPoint.point().getId() : null);
+                    point.chain(), mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPoints(this.panel.replayEditor.keyframeEditor, point.chain()),
+                    mchorse.bbs_mod.ui.utils.SplineEditorUtils.hoveredPoint(this.panel.replayEditor.keyframeEditor, context, point.chain()));
             }
         }
+        this.splineOverlay.finish(context, this.panel.preview.getViewport());
+        mchorse.bbs_mod.ui.utils.SplineEditorUtils.viewportHover(this.panel.replayEditor.keyframeEditor, this.panel.preview.getViewport().isInside(context)
+            ? this.splineOverlay.pick(context.mouseX, context.mouseY) : null);
     }
     private static final List<Function<UIFilmController, FilmEditorTool>> TOOL_FACTORIES = new ArrayList<>();
     private final List<FilmEditorTool> addonTools = new ArrayList<>();

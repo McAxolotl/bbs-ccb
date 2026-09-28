@@ -17,8 +17,11 @@ import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UISplineKeyframeFactory;
 import mchorse.bbs_mod.utils.Axis;
+import mchorse.bbs_mod.ui.framework.UIContext;
+import java.util.Set;
 
 /** Point addresses and frames shared by all three editors. No synthetic bone names. */
 public class SplineEditorUtils
@@ -27,6 +30,27 @@ public class SplineEditorUtils
         java.util.EnumSet.of(Gizmo.Op.MOVE, Gizmo.Op.SCREEN), java.util.EnumSet.noneOf(Axis.class));
 
     public record Point(ModelForm form, SplineIK chain, SplinePoint point, TrackId track) {}
+
+    public static Set<String> selectedPoints(UIKeyframeEditor editor, SplineIK chain)
+    {
+        if (editor == null) return Set.of();
+        if (editor.editor instanceof UISplineKeyframeFactory spline) return spline.selectedPoints(chain);
+        TrackId id = TrackId.parse(selectedPath(editor));
+        if (!isPoint(id)) return Set.of();
+        String[] parts = id.subject().split("/");
+        return FormUtils.getPath(FormUtils.getForm(chain)).equals(id.formPath()) && chain.getId().equals(parts[1]) ? Set.of(parts[3]) : Set.of();
+    }
+
+    public static String hoveredPoint(UIKeyframeEditor editor, UIContext context, SplineIK chain)
+    {
+        return editor != null && editor.editor instanceof UISplineKeyframeFactory spline ? spline.hoveredPoint(context, chain) : "";
+    }
+
+    public static void viewportHover(UIKeyframeEditor editor, SplineOverlay.Hit hit)
+    {
+        if (editor != null && editor.editor instanceof UISplineKeyframeFactory spline)
+            spline.viewportHover(hit == null ? null : hit.chain(), hit == null ? "" : hit.point().getId());
+    }
 
     public static String selectedPath(UIKeyframeEditor editor)
     {
@@ -126,5 +150,19 @@ public class SplineEditorUtils
         if (point == null) return null;
         Matrix4f parent = parentMatrix(root, entity, transition, point.form, point.chain);
         return parent == null ? null : parent.translate(point.form.splineIK.get().get(point.chain.getId()).point(point.point.getId()).translate);
+    }
+
+    /** Root pivot in the same parent frame as the authored control points. */
+    public static Vector3f rootPosition(Form root, IEntity entity, float transition, ModelForm form, SplineIK chain)
+    {
+        Matrix4f parent = parentMatrix(root, entity, transition, form, chain);
+        if (parent == null || Math.abs(parent.determinant()) < 1E-8F) return null;
+        String bone = ModelSplineRuntime.getRoot(form, chain);
+        String path = FormUtils.getPath(form);
+        Matrix4f matrix = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition)
+            .get(path.isEmpty() ? bone : path + "/" + bone).matrix();
+        if (matrix == null) return null;
+        Vector3f position = parent.invert().transformPosition(matrix.getTranslation(new Vector3f()));
+        return position.isFinite() ? position : null;
     }
 }

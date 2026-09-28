@@ -76,10 +76,9 @@ public class UIAnimationStateEditor extends UIElement
 
     public void renderSplineOverlay(UIContext context)
     {
+        SplineEditorUtils.viewportHover(this.keyframeEditor, null);
         if (!this.splineOverlay.begin()) return;
         if (this.state == null || this.root == null || !this.isVisible()) return;
-        String selected = SplineEditorUtils.selectedPath(this.keyframeEditor);
-        var selectedPoint = SplineEditorUtils.resolve(this.root, selected);
         var renderer = this.editor.renderer;
         var camera = renderer.camera;
         Matrix4f view = new Matrix4f(camera.view).translate((float) -camera.position.x, (float) -camera.position.y, (float) -camera.position.z);
@@ -91,9 +90,13 @@ public class UIAnimationStateEditor extends UIElement
                 Matrix4f parent = SplineEditorUtils.parentMatrix(this.root, renderer.getTargetEntity(), context.getTransition(), model, chain);
                 if (parent == null) continue;
                 this.splineOverlay.draw(context, new Matrix4f(view).mul(renderer.toSceneMatrix(parent)), camera.projection,
-                    renderer.area, chain, selectedPoint != null && selectedPoint.chain() == chain ? selectedPoint.point().getId() : null);
+                    renderer.area, chain, SplineEditorUtils.selectedPoints(this.keyframeEditor, chain),
+                    SplineEditorUtils.hoveredPoint(this.keyframeEditor, context, chain));
             }
         }
+        this.splineOverlay.finish(context, renderer.area);
+        SplineEditorUtils.viewportHover(this.keyframeEditor, renderer.area.isInside(context)
+            ? this.splineOverlay.pick(context.mouseX, context.mouseY) : null);
     }
 
     public boolean pickSplinePoint(UIContext context)

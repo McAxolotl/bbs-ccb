@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spline IK — создание точек</title>
+  <style>
+    :root { --bg:#080b0f; --panel:#1d2229; --field:#11161c; --line:#343b46; --text:#f7f7f7; --muted:#aeb5c0; --accent:#ed1b61; --accent-dark:#8e103a; --blue:#7ac5ff; --grid:#202631; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font:14px/1.35 Consolas, "Lucida Console", monospace; }
+    button, select { font:inherit; color:inherit; }
+    button { cursor:pointer; }
+    .shell { width:min(1180px, calc(100vw - 32px)); margin:28px auto; border:1px solid #2b323d; background:var(--panel); box-shadow:0 18px 50px #0008; }
+    header { min-height:54px; display:flex; flex-wrap:wrap; align-items:center; padding:10px 18px; border-bottom:1px solid var(--line); gap:8px 12px; }
+    h1 { margin:0; font-size:18px; font-weight:normal; letter-spacing:-.4px; }
+    .badge { padding:3px 7px; color:#ff9fc0; border:1px solid #74314c; background:#2b1520; font-size:11px; }
+    .workspace { display:grid; grid-template-columns:minmax(0, 1fr) 272px; min-height:585px; }
+    .editor { min-width:0; padding:16px; border-right:1px solid var(--line); }
+    .toolbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin-bottom:13px; }
+    .tool { height:32px; padding:0 10px; border:1px solid #3a424e; background:#161c23; }
+    .tool:not(:disabled):hover, .tool.active { border-color:#c7144f; background:#421827; }
+    .tool:disabled { opacity:.42; cursor:default; }
+    .tool.primary { border:0; border-bottom:3px solid var(--accent-dark); background:var(--accent); }
+    .tool.primary:hover { background:#c91752; }
+    .spacer { flex:1; min-width:8px; }
+    label.plane { color:var(--muted); white-space:nowrap; }
+    select { margin-left:5px; height:30px; max-width:151px; border:1px solid #3a424e; background:var(--field); padding:0 6px; }
+    .viewport { position:relative; height:476px; overflow:hidden; border:1px solid #333b46; background:var(--field); }
+    svg { width:100%; height:100%; display:block; touch-action:none; user-select:none; }
+    .viewport:focus { outline:2px solid var(--accent); outline-offset:2px; }
+    .axis { position:absolute; right:14px; bottom:12px; color:#677180; font-size:12px; pointer-events:none; }
+    .axis b { color:var(--accent); font-weight:normal; }
+    .hint { min-height:53px; padding:16px 12px 9px; margin-top:12px; border-left:3px solid var(--accent); background:#151a21; color:#d9dde3; }
+    .hint strong { color:#fff; font-weight:normal; }
+    aside { padding:16px; background:#1a1f26; }
+    h2 { margin:0 0 8px; color:#cbd1da; font-size:13px; font-weight:normal; text-transform:uppercase; letter-spacing:.45px; }
+    .meta { margin:0 0 16px; color:var(--muted); font-size:12px; }
+    .point-list { margin:0; padding:0; list-style:none; border-top:1px solid var(--line); }
+    .point { display:grid; grid-template-columns:25px 1fr auto; gap:7px; align-items:center; min-height:43px; padding:0 5px; border-bottom:1px solid var(--line); color:#c7cdd5; background:transparent; cursor:pointer; }
+    .point:hover { background:#252c35; }
+    .point.selected { border-left:3px solid var(--accent); padding-left:2px; background:#35202a; color:#fff; }
+    .point .number { color:var(--muted); font-size:12px; }
+    .point small { color:#89929f; font-size:11px; }
+    .empty { padding:12px 4px; color:#8d96a3; line-height:1.55; }
+    .key { display:inline-block; min-width:21px; padding:1px 4px; border:1px solid #59616c; background:#11161c; color:#d8dde5; text-align:center; font-size:11px; }
+    .legend { margin-top:18px; padding-top:13px; border-top:1px solid var(--line); color:#929ba8; font-size:12px; line-height:1.7; }
+    .note { margin-top:15px; color:#7f8996; font-size:11px; line-height:1.5; }
+    .curve { fill:none; stroke:#e7edf4; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+    .curve-hit { fill:none; stroke:transparent; stroke-width:20; cursor:crosshair; }
+    .point-node { fill:#151a20; stroke:#f2f5f7; stroke-width:2; cursor:grab; }
+    .point-node.selected { fill:var(--accent); stroke:#fff; }
+    .point-node.endpoint { stroke:var(--blue); }
+    .point-label { fill:#bac3ce; font-size:13px; pointer-events:none; }
+    .origin { fill:#15212b; stroke:var(--blue); stroke-width:1.5; }
+    .origin-line { stroke:#456071; stroke-width:1; stroke-dasharray:4 5; }
+    .ghost { fill:#ed1b6140; stroke:var(--accent); stroke-width:2; stroke-dasharray:4 3; pointer-events:none; }
+    .preview-path { fill:none; stroke:var(--accent); stroke-width:2; stroke-dasharray:5 5; pointer-events:none; }
+    .preview-dot { fill:var(--accent); stroke:white; stroke-width:2; pointer-events:none; }
+    .empty-scene { fill:#77818e; font-size:16px; text-anchor:middle; pointer-events:none; }
+    .empty-sub { fill:#596371; font-size:12px; text-anchor:middle; pointer-events:none; }
+    @media (max-width:780px) { .shell { width:calc(100vw - 18px); margin:9px auto; } .workspace { grid-template-columns:1fr; } aside { border-top:1px solid var(--line); } .editor { border-right:0; } .viewport { height:390px; } .spacer { display:none; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <h1>Spline IK · точки кривой</h1>
+      <span class="badge">ИНТЕРАКТИВНЫЙ МАКЕТ</span>
+    </header>
+    <section class="workspace">
+      <section class="editor" aria-label="Сцена Spline IK">
+        <div class="toolbar">
+          <button class="tool primary" id="first">+ Первая точка</button>
+          <button class="tool" id="continue" disabled>Продолжить край</button>
+          <button class="tool" id="insert" disabled>Вставить на кривую</button>
+          <button class="tool" id="draw" disabled>Расставить кликами</button>
+          <span class="spacer"></span>
+          <label class="plane">Плоскость
+            <select id="plane" aria-label="Рабочая плоскость"><option>Горизонтальная</option><option>К камере</option></select>
+          </label>
+          <button class="tool" id="undo" disabled>↶ Undo</button>
+        </div>
+        <div class="viewport" id="viewport" tabindex="0" aria-label="Рабочая область: щелчок создаёт или выбирает точки">
+          <svg id="scene" viewBox="0 0 880 476" role="img" aria-label="Кривая и точки Spline IK">
+            <defs><pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M 32 0 L 0 0 0 32" fill="none" stroke="#202631" stroke-width="1"/></pattern></defs>
+            <rect width="880" height="476" fill="url(#grid)"/>
+            <g id="scene-content"></g>
+          </svg>
+          <div class="axis"><b>Y</b> вверх · X вправо</div>
+        </div>
+        <div class="hint" id="hint"></div>
+      </section>
+      <aside>
+        <h2>Цепочка</h2>
+        <p class="meta" id="chain-meta">Пустая · 0 точек</p>
+        <h2>Точки</h2>
+        <ol class="point-list" id="point-list"></ol>
+        <div class="legend"><span class="key">Esc</span> отменить активное создание<br><span class="key">Enter</span> завершить расстановку<br>Точку можно выделить и перетащить.</div>
+        <p class="note" id="plane-note">Учебная 2D-проекция: «Горизонтальная» задаёт понятную рабочую плоскость. Глубина здесь не редактируется.</p>
+      </aside>
+    </section>
+  </main>
+  <script>
+    (() => {
+      const $ = id => document.getElementById(id);
+      const scene = $('scene'), content = $('scene-content'), viewport = $('viewport');
+      const buttons = { first:$('first'), continue:$('continue'), insert:$('insert'), draw:$('draw'), undo:$('undo') };
+      let points = [], selected = null, mode = null, pointer = null, preview = null, undo = [], dragging = null, drawStart = null;
+      const origin = { x:132, y:284 };
+      const clone = source => source.map(p => ({ x:p.x, y:p.y }));
+      const esc = value => String(value).replace(/[&<>\"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c]);
+      function remember(snapshot) { undo.push({ points:clone(snapshot.points), selected:snapshot.selected }); if (undo.length > 30) undo.shift(); }
+      function pushUndo() { remember({ points, selected }); }
+      function endMode() { mode = null; pointer = null; preview = null; drawStart = null; }
+      function finishDraw() {
+        if (drawStart && JSON.stringify(points) !== JSON.stringify(drawStart.points)) remember(drawStart);
+        endMode();
+      }
+      function begin(next) {
+        if (next === 'continue' && !points.length) return;
+        if (next === 'insert' && points.length < 2) return;
+        if (next === 'draw' && !points.length) return;
+        if (mode === 'draw') finishDraw();
+        mode = next; pointer = null; preview = null;
+        if (next === 'draw') drawStart = { points:clone(points), selected };
+        viewport.focus(); render();
+      }
+      function coord(event) { const p=scene.createSVGPoint(); p.x=event.clientX; p.y=event.clientY; return p.matrixTransform(scene.getScreenCTM().inverse()); }
+      function clamp(p) { return { x:Math.max(18, Math.min(862, p.x)), y:Math.max(18, Math.min(458, p.y)) }; }
+      function samples() {
+        if (points.length < 2) return [];
+        const result=[];
+        for (let i=0; i<points.length-1; i++) {
+          const p0=points[i-1] || points[i], p1=points[i], p2=points[i+1], p3=points[i+2] || p2;
+          for (let step=0; step<=22; step++) {
+            const t=step/22, t2=t*t, t3=t2*t;
+            result.push({ x:.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3), y:.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3), after:i });
+          }
+        }
+        return result;
+      }
+      function pathData(sampled) { return sampled.length ? 'M '+sampled.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ') : ''; }
+      function nearestOnCurve(p) {
+        const all=samples(); if (all.length < 2) return null;
+        let best=null;
+        for (let i=1;i<all.length;i++) {
+          const a=all[i-1], b=all[i], dx=b.x-a.x, dy=b.y-a.y, len=dx*dx+dy*dy || 1;
+          const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/len));
+          const q={ x:a.x+dx*t, y:a.y+dy*t, after:a.after };
+          const d=(p.x-q.x)**2+(p.y-q.y)**2;
+          if (!best || d<best.d) best={...q,d};
+        }
+        return best;
+      }
+      function ghostPoint() { return pointer && (mode==='continue' || mode==='draw') ? pointer : null; }
+      function activeEnd() { return selected === 0 && points.length > 1 ? 0 : points.length-1; }
+      function render() {
+        const sampled=samples(), path=pathData(sampled), ghost=ghostPoint();
+        const curve = path ? `<path class="curve" d="${path}"/><path class="curve-hit" d="${path}"/>` : '';
+        const originMark = `<line class="origin-line" x1="${origin.x}" y1="${origin.y}" x2="${origin.x+62}" y2="${origin.y}"/><rect class="origin" x="${origin.x-5}" y="${origin.y-5}" width="10" height="10"/><text class="point-label" x="${origin.x-42}" y="${origin.y-13}">начало цепочки</text>`;
+        const nodes=points.map((p,i) => `<g data-point="${i}"><circle class="point-node ${i===selected?'selected':''} ${(i===0||i===points.length-1)?'endpoint':''}" cx="${p.x}" cy="${p.y}" r="8"/><text class="point-label" x="${p.x+12}" y="${p.y-11}">${i+1}</text></g>`).join('');
+        let overlay='';
+        if (!points.length) overlay=`<text class="empty-scene" x="440" y="215">Цепочка пока пуста</text><text class="empty-sub" x="440" y="241">Начните с явной точки у начала цепочки</text>`;
+        if (ghost) {
+          const from=mode==='continue' ? points[activeEnd()] : points[points.length-1];
+          overlay += from ? `<path class="preview-path" d="M ${from.x} ${from.y} L ${ghost.x} ${ghost.y}"/>` : '';
+          overlay += `<circle class="ghost" cx="${ghost.x}" cy="${ghost.y}" r="9"/>`;
+        }
+        if (mode==='insert' && preview) overlay += `<circle class="preview-dot" cx="${preview.x}" cy="${preview.y}" r="7"/><text class="point-label" x="${preview.x+12}" y="${preview.y-11}">вставить</text>`;
+        content.innerHTML=originMark+curve+nodes+overlay;
+        $('chain-meta').textContent=points.length ? `Активна · ${points.length} ${points.length===1?'точка':points.length<5?'точки':'точек'}` : 'Пустая · 0 точек';
+        $('point-list').innerHTML=points.length ? points.map((p,i)=>`<li class="point ${i===selected?'selected':''}" data-list-point="${i}"><span class="number">${i+1}</span><span>${i===0?'Начало':i===points.length-1?'Конец':'Точка'}</span><small>${Math.round(p.x)}, ${Math.round(p.y)}</small></li>`).join('') : '<li class="empty">Нажмите «Первая точка», чтобы обозначить начало. Новая цепочка остаётся пустой до этого действия.</li>';
+        buttons.first.disabled=points.length>0;
+        buttons.continue.disabled=!points.length;
+        buttons.insert.disabled=points.length<2;
+        buttons.draw.disabled=!points.length;
+        buttons.undo.disabled=!undo.length;
+        Object.entries(buttons).forEach(([name,el])=>el.classList.toggle('active', name===mode));
+        const hints={
+          null: points.length ? 'Выберите точку и перетаскивайте её. Для нового изгиба используйте <strong>«Продолжить край»</strong> или <strong>«Вставить на кривую»</strong>.' : 'Цепочка создаётся пустой. Нажмите <strong>«+ Первая точка»</strong>, чтобы явно поставить начало у маркера.',
+          continue: 'Подведите курсор к нужному месту: полупрозрачная точка показывает продолжение от крайней выбранной стороны. Щелчок подтверждает, <strong>Esc</strong> отменяет.',
+          insert: 'Наведите на видимый участок кривой. Розовая точка показывает место вставки между соседними точками. Щелчок подтверждает, <strong>Esc</strong> отменяет.',
+          draw: 'Расставляйте точки щелчками на выбранной плоскости. <strong>Enter</strong> завершает серию, <strong>Esc</strong> отменяет её целиком.'
+        };
+        $('hint').innerHTML=hints[mode || 'null'];
+      }
+      function select(i) { selected=i; render(); }
+      buttons.first.addEventListener('click', () => { if (!points.length) { pushUndo(); points=[{...origin}]; selected=0; render(); } });
+      buttons.continue.addEventListener('click', () => begin(mode==='continue'?null:'continue'));
+      buttons.insert.addEventListener('click', () => begin(mode==='insert'?null:'insert'));
+      buttons.draw.addEventListener('click', () => { if (mode==='draw') { finishDraw(); render(); } else begin('draw'); });
+      buttons.undo.addEventListener('click', () => { const previous=undo.pop(); if (!previous) return; points=clone(previous.points); selected=previous.selected; endMode(); render(); });
+      $('plane').addEventListener('change', event => { $('plane-note').textContent=event.target.value==='Горизонтальная' ? 'Учебная 2D-проекция: «Горизонтальная» задаёт понятную рабочую плоскость. Глубина здесь не редактируется.' : 'Учебная 2D-проекция: «К камере» удобно показывает работу во фронтальном виде. Глубина здесь не редактируется.'; });
+      scene.addEventListener('pointermove', event => { const p=clamp(coord(event)); if (dragging!==null) { points[dragging]=p; selected=dragging; render(); return; } if (mode==='insert') { const near=nearestOnCurve(p); preview=near && near.d<900 ? near : null; } else if (mode==='continue'||mode==='draw') pointer=p; render(); });
+      scene.addEventListener('pointerdown', event => {
+        const node=event.target.closest('[data-point]');
+        if (node && !mode) { dragging=Number(node.dataset.point); selected=dragging; pushUndo(); scene.setPointerCapture(event.pointerId); render(); return; }
+        const p=clamp(coord(event));
+        if (mode==='continue') { pushUndo(); const prepend=selected===0 && points.length>1; if(prepend) points.unshift(p); else points.push(p); selected=prepend?0:points.length-1; pointer=p; render(); }
+        else if (mode==='insert' && preview) { pushUndo(); points.splice(preview.after+1,0,{x:preview.x,y:preview.y}); selected=preview.after+1; endMode(); render(); }
+        else if (mode==='draw') { points.push(p); selected=points.length-1; pointer=p; render(); }
+      });
+      scene.addEventListener('pointerup', event => { if (dragging!==null) { dragging=null; try { scene.releasePointerCapture(event.pointerId); } catch (_) {} render(); } });
+      $('point-list').addEventListener('click', event => { const row=event.target.closest('[data-list-point]'); if(row) select(Number(row.dataset.listPoint)); });
+      window.addEventListener('keydown', event => {
+        if (event.key==='Escape' && mode) { if (mode==='draw' && drawStart) { points=clone(drawStart.points); selected=drawStart.selected; } endMode(); render(); event.preventDefault(); }
+        if (event.key==='Enter' && mode) { if (mode==='draw') finishDraw(); else endMode(); render(); event.preventDefault(); }
+        if ((event.ctrlKey||event.metaKey) && event.key.toLowerCase()==='z' && undo.length) { buttons.undo.click(); event.preventDefault(); }
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>
