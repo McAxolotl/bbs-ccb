@@ -77,7 +77,8 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
             UIKeys.FORMS_EDITORS_MODEL_PHYSICS_CONTEXT_PASTE,
             UIKeys.FORMS_EDITORS_MODEL_PHYSICS_CONTEXT_RESET,
             UIKeys.FORMS_EDITORS_MODEL_PHYSICS_CONTEXT_SAVE,
-            UIKeys.FORMS_EDITORS_MODEL_PHYSICS_CONTEXT_NAME
+            UIKeys.FORMS_EDITORS_MODEL_PHYSICS_CONTEXT_NAME,
+            this::toPresetData, this::applyPresetData
         );
 
         this.debug = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_DEBUG, (b) -> BBSSettings.physicsDebug.enabled.set(b.getValue()));
@@ -480,13 +481,11 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
         return out;
     }
 
-    @Override
     protected MapType toPresetData()
     {
         return this.form == null ? new MapType() : BonePhysicsIO.write(this.form.bones, this.form.wind);
     }
 
-    @Override
     protected void applyPresetData(MapType map)
     {
         if (this.form == null)

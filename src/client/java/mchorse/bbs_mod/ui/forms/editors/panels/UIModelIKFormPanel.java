@@ -108,7 +108,8 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
             UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_PASTE,
             UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_RESET,
             UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_SAVE,
-            UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_NAME
+            UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_NAME,
+            this::toPresetData, this::applyPresetData
         );
 
         this.debug = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_IK_DEBUG, (b) -> BBSSettings.ikDebug.enabled.set(b.getValue()));
@@ -810,13 +811,11 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
         return ModelIKRuntime.isCyclicTarget(this.modelInstance.model, this.selectedBone, chainLength, bone);
     }
 
-    @Override
     protected MapType toPresetData()
     {
         return this.form == null ? new MapType() : BoneIKIO.write(this.form.bones);
     }
 
-    @Override
     protected void applyPresetData(MapType map)
     {
         if (this.form == null)

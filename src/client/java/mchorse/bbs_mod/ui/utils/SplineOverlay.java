@@ -51,7 +51,7 @@ public class SplineOverlay
         Matrix4f matrix = new Matrix4f(projection).mul(parentModelView);
         List<Vector3f> positions = new ArrayList<>();
         for (SplinePoint point : chain.points.getAllTyped()) positions.add(new Vector3f(point.position.get().translate));
-        if (positions.size() < 2) return;
+        if (positions.isEmpty()) return;
         int color = chain.enabled.get() ? 0xFF63D9E8 : 0xFF929AA6;
         context.batcher.clip(viewport, context);
         Vector3f previous = null;
