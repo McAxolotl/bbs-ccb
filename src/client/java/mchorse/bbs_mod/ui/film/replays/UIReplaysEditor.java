@@ -714,16 +714,6 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
                 if (this.replay.form.get() instanceof ModelForm modelForm)
                 {
                     ModelInstance instance = ModelFormRenderer.getModel(modelForm);
-                    List<String> controllers = ModelIKRuntime.getControllers(instance);
-                    if (!controllers.isEmpty())
-                    {
-                        menu.action(Icons.CLOSE, UIKeys.FILM_REPLAY_CONTEXT_CLEAR_IK, () ->
-                        {
-                            UIReplaysEditorUtils.clearIKTracks(this.replay, modelForm);
-                            this.updateChannelsList();
-                        });
-                    }
-
                     Map<String, List<String>> chains = instance == null
                         ? Collections.emptyMap()
                         : ModelIKRuntime.getChains(instance.model, modelForm);

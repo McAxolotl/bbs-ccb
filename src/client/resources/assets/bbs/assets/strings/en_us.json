@@ -980,7 +980,6 @@
 	"bbs.ui.film.replay.context.add": "Add a replay here",
 	"bbs.ui.film.replay.context.animation_to_keyframes": "Animation to pose keyframes...",
 	"bbs.ui.film.replay.context.poses_to_limbs": "Poses to limbs",
-	"bbs.ui.film.replay.context.clear_ik": "Clear IK tracks",
 	"bbs.ui.film.replay.context.bake_ik": "Bake IK into keyframes...",
 	"bbs.ui.film.replay.context.move_here": "Move replay here",
 	"bbs.ui.film.replay.filter_sheets": "Filter tracks...",

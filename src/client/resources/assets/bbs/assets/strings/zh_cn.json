@@ -874,7 +874,6 @@
     "bbs.ui.film.replay.context.add": "在此处添加回放",
     "bbs.ui.film.replay.context.animation_to_keyframes": "动画转为姿势关键帧...",
     "bbs.ui.film.replay.context.bake_ik": "将 IK 烘焙为关键帧...",
-    "bbs.ui.film.replay.context.clear_ik": "清除 IK 轨迹",
     "bbs.ui.film.replay.context.move_here": "将回放移动到此处",
     "bbs.ui.film.replay.context.poses_to_limbs": "拆分姿势关键帧",
     "bbs.ui.film.replay.orbit.camera": "镜头",

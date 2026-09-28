@@ -1248,38 +1248,6 @@ public class UIReplaysEditorUtils
         return true;
     }
 
-    public static void clearIKTracks(Replay replay, ModelForm modelForm)
-    {
-        if (replay == null || modelForm == null)
-        {
-            return;
-        }
-
-        ModelInstance model = ModelFormRenderer.getModel(modelForm);
-
-        if (model == null)
-        {
-            return;
-        }
-
-        List<String> controllers = ModelIKRuntime.getControllers(model);
-        List<String> poleControllers = ModelIKRuntime.getPoleControllers(model);
-        String path = FormUtils.getPath(modelForm);
-
-        BaseValue.edit(replay.properties, (props) ->
-        {
-            for (String controller : controllers)
-            {
-                props.remove(TrackId.ikTarget(path, controller));
-            }
-
-            for (String controller : poleControllers)
-            {
-                props.remove(TrackId.poleTarget(path, controller));
-            }
-        });
-    }
-
     /* Offer bone hierarchy options */
 
     /** Leaf bone pick for {@link #pickFormWithOffers}; {@code insert}
