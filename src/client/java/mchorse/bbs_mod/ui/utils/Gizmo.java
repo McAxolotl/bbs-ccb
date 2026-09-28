@@ -108,6 +108,10 @@ public class Gizmo
 
     public final static Gizmo INSTANCE = new Gizmo();
 
+    /** Display-only axis signs. Never applied to the frame used by transform gestures. */
+    private final Vector3f facingSigns = new Vector3f(1F);
+    private static final float FLIP_THRESHOLD = 0.12F;
+
     private int index;
     private int mouseX;
     private int mouseY;
@@ -1076,10 +1080,38 @@ public class Gizmo
         stack.peek().getNormalMatrix().set(basis);
     }
 
+    /** The placement basis is orthonormal here, including mirrored local frames.
+     * Dotting its columns with the view-space direction to the camera gives the
+     * camera direction in gizmo space without changing the drag's logical axes. */
+    private void updateFacingSigns()
+    {
+        Matrix4f matrix = this.lastRenderMatrix;
+        Vector3f toCamera = matrix.getTranslation(new Vector3f()).negate();
+
+        if (!toCamera.isFinite() || toCamera.lengthSquared() < 1.0E-12F)
+        {
+            return;
+        }
+
+        toCamera.normalize();
+        this.facingSigns.x = facingSign(this.facingSigns.x,
+            toCamera.x * matrix.m00() + toCamera.y * matrix.m01() + toCamera.z * matrix.m02());
+        this.facingSigns.y = facingSign(this.facingSigns.y,
+            toCamera.x * matrix.m10() + toCamera.y * matrix.m11() + toCamera.z * matrix.m12());
+        this.facingSigns.z = facingSign(this.facingSigns.z,
+            toCamera.x * matrix.m20() + toCamera.y * matrix.m21() + toCamera.z * matrix.m22());
+    }
+
+    private static float facingSign(float previous, float dot)
+    {
+        return dot > FLIP_THRESHOLD ? 1F : dot < -FLIP_THRESHOLD ? -1F : previous;
+    }
+
     private void captureRenderMatrix(MatrixStack stack)
     {
         this.lastRenderMatrix.set(stack.peek().getPositionMatrix());
         this.hasLastRenderMatrix = true;
+        this.updateFacingSigns();
     }
 
     /**
@@ -1262,8 +1294,37 @@ public class Gizmo
      * bargain as {@link #collectRings}: one description of where every handle sits, so the
      * drawn gizmo and its pick hitboxes cannot drift apart.
      */
-    private void collectHandles(Layout layout, HandleSink sink)
+    private void collectHandles(Layout layout, HandleSink output)
     {
+        /* Move geometry and its pick bounds flip together, instantly. Sort the
+         * reflected bounds to preserve box winding. Scale keeps its original
+         * positive handles and rotation keeps its camera-facing visible arcs. */
+        HandleSink sink = new HandleSink()
+        {
+            @Override
+            public void box(Handle handle, float x1, float y1, float z1, float x2, float y2, float z2, int color)
+            {
+                if (handle.op == Op.MOVE)
+                {
+                    Vector3f signs = Gizmo.this.facingSigns;
+                    x1 *= signs.x;
+                    x2 *= signs.x;
+                    y1 *= signs.y;
+                    y2 *= signs.y;
+                    z1 *= signs.z;
+                    z2 *= signs.z;
+                }
+
+                output.box(handle, Math.min(x1, x2), Math.min(y1, y2), Math.min(z1, z2),
+                    Math.max(x1, x2), Math.max(y1, y2), Math.max(z1, z2), color);
+            }
+
+            @Override
+            public void centreMask(float half)
+            {
+                output.centreMask(half);
+            }
+        };
         Handle active = layout.active;
         boolean showMove = layout.showMove;
         boolean showScale = layout.showScale;
