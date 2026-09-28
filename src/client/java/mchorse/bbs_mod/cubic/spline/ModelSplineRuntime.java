@@ -47,7 +47,8 @@ public final class ModelSplineRuntime
 
         for (SplineIK spline : form.splines.getAllTyped())
         {
-            if (!spline.enabled.get() || !Float.isFinite(spline.influence.get()) || spline.influence.get() <= 0F) continue;
+            SplineControl control = form.splineIK.get().get(spline.getId());
+            if (!spline.enabled.get() || !Float.isFinite(control.influence) || control.influence <= 0F) continue;
 
             List<ModelGroup> chain = chain(model, spline.root.get(), spline.tip.get());
             if (validate(model, form, chain) != null || chain.stream().anyMatch(bone -> occupied.contains(bone.id))) continue;
@@ -59,7 +60,7 @@ public final class ModelSplineRuntime
             Vector3f offset = root.offset;
             if (movesModel) localFrame(before, root);
 
-            if (!solve(chain, spline, true)) continue;
+            if (!solve(chain, spline, control, true)) continue;
             for (ModelGroup bone : chain) occupied.add(bone.id);
             if (movesModel)
             {
@@ -96,10 +97,11 @@ public final class ModelSplineRuntime
         Set<String> occupied = new HashSet<>();
         for (SplineIK spline : form.splines.getAllTyped())
         {
-            if (!spline.enabled.get() || !Float.isFinite(spline.influence.get()) || spline.influence.get() <= 0F) continue;
+            SplineControl control = form.splineIK.get().get(spline.getId());
+            if (!spline.enabled.get() || !Float.isFinite(control.influence) || control.influence <= 0F) continue;
             List<ModelGroup> chain = chain(model, spline.root.get(), spline.tip.get());
             if (validate(model, form, chain) != null || chain.stream().anyMatch(group -> occupied.contains(group.id))) continue;
-            if (!solve(chain, spline, false)) continue;
+            if (!solve(chain, spline, control, false)) continue;
             for (ModelGroup group : chain) occupied.add(group.id);
         }
         return occupied.contains(bone);
@@ -120,8 +122,9 @@ public final class ModelSplineRuntime
         Set<String> ids = new HashSet<>(getChain(form, selected.root.get(), selected.tip.get()));
         for (SplineIK spline : form.splines.getAllTyped())
         {
+            SplineControl control = form.splineIK.get().get(spline.getId());
             if (spline == selected) break;
-            if (spline.enabled.get() && spline.influence.get() > 0F && !Collections.disjoint(ids, getChain(form, spline.root.get(), spline.tip.get()))) return "spline_conflict";
+            if (spline.enabled.get() && control.influence > 0F && !Collections.disjoint(ids, getChain(form, spline.root.get(), spline.tip.get()))) return "spline_conflict";
         }
         return null;
     }
@@ -146,14 +149,14 @@ public final class ModelSplineRuntime
         for (Map.Entry<String, List<String>> ik : ModelIKRuntime.getChains(model, form).entrySet())
         {
             FormBone bone = form.bones.getBone(ik.getKey());
-            if (bone != null && bone.ik.get().enabled && bone.ik.get().weight > 0F && !Collections.disjoint(ids, ik.getValue())) return "ik_conflict";
+            if (bone != null && form.ik.get().get(ik.getKey()).enabled && form.ik.get().get(ik.getKey()).weight > 0F && !Collections.disjoint(ids, ik.getValue())) return "ik_conflict";
         }
 
         for (BaseValue value : form.bones.getAll())
         {
             if (!(value instanceof FormBone bone)) continue;
             if (ids.contains(bone.getId()) && bone.constraints.get().isActive()) return "limits_conflict";
-            if (!bone.hasPhysicsChain() || !bone.physics.get().enabled || bone.physics.get().weight <= 0F) continue;
+            if (!bone.hasPhysicsChain() || !form.physics.get().get(bone.getId()).enabled || form.physics.get().get(bone.getId()).weight <= 0F) continue;
             for (ModelGroup physics : chain(model, bone.getId(), bone.physicsEnd.get())) if (ids.contains(physics.id)) return "physics_conflict";
         }
 
@@ -262,10 +265,10 @@ public final class ModelSplineRuntime
         return result;
     }
 
-    private static boolean solve(List<ModelGroup> chain, SplineIK spline, boolean apply)
+    private static boolean solve(List<ModelGroup> chain, SplineIK spline, SplineControl control, boolean apply)
     {
         List<Vector3f> controls = new ArrayList<>();
-        for (SplinePoint point : spline.points.getAllTyped()) controls.add(new Vector3f(point.position.get().translate));
+        for (SplinePoint point : spline.points.getAllTyped()) controls.add(new Vector3f(control.point(point.getId()).translate));
         int count = chain.size();
         Vector3f[] fkPositions = new Vector3f[count];
         Vector3f[] fkTangents = new Vector3f[count];
@@ -284,8 +287,8 @@ public final class ModelSplineRuntime
             if (i > 0) lengths[i - 1] = fkPositions[i].distance(fkPositions[i - 1]);
         }
 
-        SplineIKSolver.Result result = SplineIKSolver.solve(controls, lengths, spline.fit.get(), spline.progress.get() / 100F);
-        if (result == null || !Float.isFinite(spline.twist.get())) return false;
+        SplineIKSolver.Result result = SplineIKSolver.solve(controls, lengths, spline.fit.get(), control.progress / 100F);
+        if (result == null || !Float.isFinite(control.twist)) return false;
 
         for (int i = 0; i < count - 1; i++) fkTangents[i] = new Vector3f(fkPositions[i + 1]).sub(fkPositions[i]).normalize();
         /* No artificial child is needed: the terminal's axis and length come from the final
@@ -296,8 +299,8 @@ public final class ModelSplineRuntime
 
         Vector3f fkNormal = SplineIKSolver.perpendicular(fkTangents[0]);
         Vector3f normal = SplineIKSolver.transport(fkNormal, fkTangents[0], result.tangents()[0]);
-        float weight = Math.min(1F, spline.influence.get());
-        float twist = (float) Math.toRadians(spline.twist.get());
+        float weight = Math.min(1F, control.influence);
+        float twist = (float) Math.toRadians(control.twist);
         Quaternionf[] orientations = new Quaternionf[count];
         Vector3f[] offsets = new Vector3f[count];
         matrix.identity();

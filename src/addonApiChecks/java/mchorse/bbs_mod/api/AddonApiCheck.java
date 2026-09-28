@@ -95,7 +95,8 @@ public final class AddonApiCheck implements net.fabricmc.loader.api.entrypoint.P
         try { event.register(custom, (track, owned) -> true); }
         catch (IllegalArgumentException expected) { duplicate = true; }
         require(duplicate, "duplicate category rejected");
-        for (int i = 0; i < 5; i++)
+        int extraCategories = 11 - mchorse.bbs_mod.api.client.editor.TrackCategories.values().size();
+        for (int i = 0; i < extraCategories; i++)
             event.register(new mchorse.bbs_mod.api.client.editor.TrackCategory("check:extra_" + i,
                 custom.icon, custom.label, custom.tooltip), (track, owned) -> false);
         mchorse.bbs_mod.api.client.editor.TrackCategories.finishRegistration();

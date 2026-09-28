@@ -27,7 +27,7 @@ public class ParticleForm extends Form
     {
         super();
 
-        this.effect.invisible();
+        this.effect.animatable(false).invisible();
 
         this.add(this.effect);
         this.add(this.paused);

@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.film.replays.tracks;
 
 import mchorse.bbs_mod.film.replays.tracks.behaviours.BoneConstraintTrack;
-import mchorse.bbs_mod.film.replays.tracks.behaviours.ControlsTrack;
+import mchorse.bbs_mod.film.replays.tracks.compatibility.LegacyControlsTrack;
 import mchorse.bbs_mod.film.replays.tracks.behaviours.BoneTrack;
 import mchorse.bbs_mod.film.replays.tracks.behaviours.MaterialPropTrack;
 import mchorse.bbs_mod.film.replays.tracks.behaviours.MaterialTextureTrack;
@@ -28,9 +28,9 @@ public class TrackBehaviours
         REGISTRY.put(TrackKind.MATERIAL_TEXTURE, new MaterialTextureTrack());
         REGISTRY.put(TrackKind.MATERIAL_PROP, new MaterialPropTrack());
         REGISTRY.put(TrackKind.IK_TARGET, new TargetTrack(TrackKind.IK_TARGET));
-        REGISTRY.put(TrackKind.IK_CONTROLS, new ControlsTrack(TrackKind.IK_CONTROLS));
-        REGISTRY.put(TrackKind.PHYSICS_CONTROLS, new ControlsTrack(TrackKind.PHYSICS_CONTROLS));
-        REGISTRY.put(TrackKind.WIND_CONTROLS, new ControlsTrack(TrackKind.WIND_CONTROLS));
+        REGISTRY.put(TrackKind.IK_CONTROLS, new LegacyControlsTrack(TrackKind.IK_CONTROLS));
+        REGISTRY.put(TrackKind.PHYSICS_CONTROLS, new LegacyControlsTrack(TrackKind.PHYSICS_CONTROLS));
+        REGISTRY.put(TrackKind.WIND_CONTROLS, new LegacyControlsTrack(TrackKind.WIND_CONTROLS));
         REGISTRY.put(TrackKind.POLE_TARGET, new TargetTrack(TrackKind.POLE_TARGET));
         REGISTRY.put(TrackKind.PHYSICS_TARGET, new TargetTrack(TrackKind.PHYSICS_TARGET));
     }

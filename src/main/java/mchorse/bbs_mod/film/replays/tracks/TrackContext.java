@@ -20,7 +20,7 @@ import mchorse.bbs_mod.forms.forms.Form;
  */
 public record TrackContext(Form root, float transition, AnchorResolver anchors, boolean solvers)
 {
-    /** A pass over a form's own values — properties, bones, materials — with no solver tracks. */
+    /** Form values, including solver state, without external targets or legacy solver overrides. */
     public static TrackContext of(Form root)
     {
         return new TrackContext(root, 0F, null, false);

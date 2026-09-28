@@ -19,15 +19,14 @@ import java.util.function.Supplier;
  * {@code FormProperties} just to ask), each knowing a slightly different subset.</p>
  *
  * @param id       address of the track
- * @param channel  its keyframes, taken from the replay's tracks (made on the spot if absent)
+ * @param channel  existing keyframes, or null until an editable row/channel is requested
  * @param owner    form the track belongs to
  * @param title    what a timeline calls it
  * @param icon     icon a timeline draws next to it
  * @param color    colour a timeline draws it in, before the user's own override
  * @param property the value behind the track: a real form property, or a stand-in carrying the type
  *                 and starting value for the kinds that have no property of their own (bones,
- *                 materials). Null for the solver tracks, whose value is a container the editor
- *                 builds by hand.
+ *                 materials). Legacy target/control tracks can have no backing property.
  * @param seed     value a brand-new keyframe starts at, when it must not simply be the empty value.
  *                 Null means the empty value (or the property's) is right.
  * @param parent   track this one folds under — a bone under the bone it hangs off, a material's

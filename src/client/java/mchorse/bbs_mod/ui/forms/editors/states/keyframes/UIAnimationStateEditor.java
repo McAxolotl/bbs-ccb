@@ -67,17 +67,19 @@ import java.util.Map;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
+import mchorse.bbs_mod.ui.utils.SplineOverlay;
 
 public class UIAnimationStateEditor extends UIElement
 {
-    private final mchorse.bbs_mod.ui.utils.SplineOverlay splineOverlay = new mchorse.bbs_mod.ui.utils.SplineOverlay();
+    private final SplineOverlay splineOverlay = new SplineOverlay();
 
     public void renderSplineOverlay(UIContext context)
     {
         if (!this.splineOverlay.begin()) return;
         if (this.state == null || this.root == null || !this.isVisible()) return;
-        String selected = mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(this.keyframeEditor);
-        var selectedPoint = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(this.root, selected);
+        String selected = SplineEditorUtils.selectedPath(this.keyframeEditor);
+        var selectedPoint = SplineEditorUtils.resolve(this.root, selected);
         var renderer = this.editor.renderer;
         var camera = renderer.camera;
         Matrix4f view = new Matrix4f(camera.view).translate((float) -camera.position.x, (float) -camera.position.y, (float) -camera.position.z);
@@ -86,7 +88,7 @@ public class UIAnimationStateEditor extends UIElement
             if (!(entry.getForm() instanceof ModelForm model)) continue;
             for (var chain : model.splines.getAllTyped())
             {
-                Matrix4f parent = mchorse.bbs_mod.ui.utils.SplineEditorUtils.parentMatrix(this.root, renderer.getTargetEntity(), context.getTransition(), model, chain);
+                Matrix4f parent = SplineEditorUtils.parentMatrix(this.root, renderer.getTargetEntity(), context.getTransition(), model, chain);
                 if (parent == null) continue;
                 this.splineOverlay.draw(context, new Matrix4f(view).mul(renderer.toSceneMatrix(parent)), camera.projection,
                     renderer.area, chain, selectedPoint != null && selectedPoint.chain() == chain ? selectedPoint.point().getId() : null);
@@ -100,11 +102,13 @@ public class UIAnimationStateEditor extends UIElement
         var hit = this.splineOverlay.pick(context.mouseX, context.mouseY);
         if (hit == null) return false;
         String path = FormUtils.getPropertyPath(hit.point().position);
+        String compound = SplineEditorUtils.compoundPath(path);
         for (TrackSearchEntry entry : UIReplaysEditorUtils.formSearchEntries(this.root, this.bodyParts, true))
         {
-            if (!entry.key().equals(path)) continue;
+            if (!entry.key().equals(compound)) continue;
             this.revealTrack(entry, false);
-            UIReplaysEditorUtils.pickPropertyTrack(this.keyframeEditor, this.editor, path, context.mouseButton == 1);
+            UIReplaysEditorUtils.pickPropertyTrack(this.keyframeEditor, this.editor, compound, context.mouseButton == 1);
+            SplineEditorUtils.selectPoint(this.keyframeEditor, path);
             return true;
         }
         return false;
@@ -327,7 +331,7 @@ public class UIAnimationStateEditor extends UIElement
         }
         if (!this.visibleCategories.contains(this.category)) this.category = TrackCategory.FORM;
 
-        UIReplaysEditorUtils.buildSheets(catalog, sheets);
+        UIReplaysEditorUtils.buildSheets(catalog, sheets, this.state.properties);
 
         this.keys.clear();
 
@@ -617,11 +621,11 @@ public class UIAnimationStateEditor extends UIElement
         {
             float tick = this.editor.getSamplingTick();
 
-            var point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(this.root, mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(this.keyframeEditor));
+            var point = SplineEditorUtils.resolve(this.root, SplineEditorUtils.selectedPath(this.keyframeEditor));
             if (point != null)
             {
                 this.editor.applyStateForSampling(tick);
-                Matrix4f parent = mchorse.bbs_mod.ui.utils.SplineEditorUtils.parentMatrix(this.root, this.editor.renderer.getTargetEntity(), transition, point.form(), point.chain());
+                Matrix4f parent = SplineEditorUtils.parentMatrix(this.root, this.editor.renderer.getTargetEntity(), transition, point.form(), point.chain());
                 if (parent == null) return null;
                 parent = this.editor.renderer.toSceneMatrix(parent);
                 if (Math.abs(parent.determinant()) < 1E-8F) return null;
@@ -726,10 +730,10 @@ public class UIAnimationStateEditor extends UIElement
 
     private Matrix4f getOriginInternal(float transition, boolean forceMatrix)
     {
-        var point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(this.root, mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(this.keyframeEditor));
+        var point = SplineEditorUtils.resolve(this.root, SplineEditorUtils.selectedPath(this.keyframeEditor));
         if (point != null)
         {
-            Matrix4f matrix = mchorse.bbs_mod.ui.utils.SplineEditorUtils.pointMatrix(this.root, this.editor.renderer.getTargetEntity(), transition, point);
+            Matrix4f matrix = SplineEditorUtils.pointMatrix(this.root, this.editor.renderer.getTargetEntity(), transition, point);
             return matrix == null ? Matrices.EMPTY_4F : matrix;
         }
         if (this.keyframeEditor == null)
@@ -757,10 +761,10 @@ public class UIAnimationStateEditor extends UIElement
     /** One of the bone's two frames: its own ({@code ownFrame}) or its parent's. */
     private Matrix4f getOriginFlavour(float transition, boolean ownFrame)
     {
-        var point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(this.root, mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(this.keyframeEditor));
+        var point = SplineEditorUtils.resolve(this.root, SplineEditorUtils.selectedPath(this.keyframeEditor));
         if (point != null)
         {
-            Matrix4f matrix = mchorse.bbs_mod.ui.utils.SplineEditorUtils.pointMatrix(this.root, this.editor.renderer.getTargetEntity(), transition, point);
+            Matrix4f matrix = SplineEditorUtils.pointMatrix(this.root, this.editor.renderer.getTargetEntity(), transition, point);
             return matrix == null ? Matrices.EMPTY_4F : matrix;
         }
         if (this.keyframeEditor == null)

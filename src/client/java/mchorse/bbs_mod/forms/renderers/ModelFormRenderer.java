@@ -1262,7 +1262,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (anchor == null || anchor.isEmpty())
         {
-            if (this.form.splines.getAllTyped().stream().anyMatch(spline -> spline.enabled.get() && spline.moveModel.get() && spline.influence.get() > 0F))
+            if (this.form.splines.getAllTyped().stream().anyMatch(spline -> spline.enabled.get() && spline.moveModel.get() && this.form.splineIK.get().get(spline.getId()).influence > 0F))
             {
                 this.ensureAnimator(transition);
                 Vector3f movedOrigin = this.sampleBoneOrigin(entity, transition, null, false);

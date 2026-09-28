@@ -15,7 +15,7 @@ public class ValueBonePhysics extends BaseValueBasic<PhysicsControl>
     @Override
     public BaseType toData()
     {
-        return this.value.toData();
+        return this.getOriginalValue().toData();
     }
 
     @Override
@@ -28,7 +28,7 @@ public class ValueBonePhysics extends BaseValueBasic<PhysicsControl>
             control.fromData(map);
         }
 
-        this.value = control;
+        this.setOriginalValue(control);
     }
 
     @Override

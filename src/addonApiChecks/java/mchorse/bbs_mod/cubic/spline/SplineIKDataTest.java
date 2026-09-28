@@ -62,7 +62,7 @@ public class SplineIKDataTest
         check(FormUtils.getProperty(form, path) == second.position, "Resolver finds point");
         check(FormUtils.getForm(second.position) == form, "Nested property reports owner form");
         check(FormUtils.getProperty(form, path + "/invalid") == null, "Malformed paths do not match a prefix");
-        check(FormUtils.collectPropertyPaths(form).contains(path), "Property collection includes animatable points");
+        check(FormUtils.collectPropertyPaths(form).contains("spline_ik") && !FormUtils.collectPropertyPaths(form).contains(path), "Only the compound spline property is offered");
         check(!spline.name.isVisible() && second.position.isVisible(), "Only supported settings offer tracks");
 
         BaseType saved = DataStorageUtils.readFromBytes(DataStorageUtils.writeToBytes(form.toData()));
@@ -111,11 +111,11 @@ public class SplineIKDataTest
         check(film.getOrCreate(form, TrackId.parse(FormUtils.getPropertyPath(spline.moveModel))) == null,
             "Whole-model motion is a static setting, not an animatable track");
         TrackId progressId = TrackId.parse(FormUtils.getPropertyPath(spline.progress));
-        KeyframeChannel<Float> progress = film.getOrCreate(form, progressId);
+        KeyframeChannel<Float> progress = film.register(progressId, KeyframeFactories.FLOAT);
         check(progress != null && progress.getFactory() == KeyframeFactories.FLOAT, "Progress creates an ordinary float property track");
         progress.insert(0, -50F);
         progress.insert(10, 150F);
-        KeyframeChannel<Transform> channel = film.getOrCreate(form, id);
+        KeyframeChannel<Transform> channel = film.register(id, KeyframeFactories.TRANSFORM);
         check(channel != null && channel.getFactory() == KeyframeFactories.TRANSFORM, "Nested point creates its ordinary transform track");
         channel.insert(0, transform(0));
         channel.insert(10, transform(10));
@@ -145,8 +145,8 @@ public class SplineIKDataTest
 
         TrackId influenceId = TrackId.parse(FormUtils.getPropertyPath(spline.influence));
         TrackId twistId = TrackId.parse(FormUtils.getPropertyPath(spline.twist));
-        KeyframeChannel<Float> influence = film.getOrCreate(form, influenceId);
-        KeyframeChannel<Float> twist = film.getOrCreate(form, twistId);
+        KeyframeChannel<Float> influence = film.register(influenceId, KeyframeFactories.FLOAT);
+        KeyframeChannel<Float> twist = film.register(twistId, KeyframeFactories.FLOAT);
         influence.insert(0, 0F);
         influence.insert(10, 1F);
         twist.insert(0, 0F);
@@ -173,7 +173,7 @@ public class SplineIKDataTest
         check(FormUtils.getProperty(outer, nestedPath) == second.position, "Nested form point resolves from outer root");
         check(TrackId.parse(nestedPath).formPath().equals(part.getId()), "Track separates owning body part from spline subject");
         FormProperties nested = new FormProperties("properties");
-        check(nested.getOrCreate(outer, nestedPath) != null, "Nested form point can create a channel");
+        check(nested.getOrCreate(outer, TrackId.property(part.getId(), "spline_ik")) != null, "Nested form offers compound spline channel");
 
         if (args.length > 0 && args[0].equals("client"))
         {

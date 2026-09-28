@@ -266,7 +266,7 @@ public class UIKeyframeSheet
 
         if (segment != null)
         {
-            value = segment.createInterpolated();
+            value = segment.createInterpolated(this.property == null ? null : (T) this.property.getOriginalValue());
             template = segment.a;
         }
         else if (this.property != null)
@@ -294,6 +294,13 @@ public class UIKeyframeSheet
         }
 
         return keyframe;
+    }
+
+    /** Sample in the same authored-default context as playback. Read-only: no channel/key creation. */
+    public Object sample(float tick)
+    {
+        KeyframeSegment segment = this.channel.find(tick);
+        return segment == null ? null : segment.createInterpolated(this.property == null ? null : this.property.getOriginalValue());
     }
 
     public List<Integer> sort()

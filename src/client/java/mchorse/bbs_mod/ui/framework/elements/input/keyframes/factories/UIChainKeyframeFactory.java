@@ -18,11 +18,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.input.UINumericInput;
+import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
 
 /**
  * Editor for a solver keyframe track: pick a chain by the bone that names it and keyframe that
- * chain's scalars, layered over the form's own config at playback. The owning form is read from
- * the sheet, because a solver track is not a form property.
+ * chain's state. The owning form supplies topology and defaults; the key stores animated state.
  */
 public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S extends ChainControls<C, S>> extends UIKeyframeFactory<S>
 {
@@ -78,6 +81,18 @@ public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S exten
         this.scroll.add(column.expand());
 
         this.display();
+    }
+
+    protected UIElement binding(String id, IKey label, IKey tooltip)
+    {
+        return this.input(UIAnchorBinding.section(label, tooltip,
+            () -> this.displayControl(this.selected).binding(id),
+            edit -> this.edit(control ->
+            {
+                var anchor = control.binding(id).copy();
+                edit.accept(anchor);
+                control.bindings.put(id, anchor);
+            })));
     }
 
     /** Whether this bone names a chain of the kind this editor keyframes. */
@@ -145,7 +160,7 @@ public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S exten
     /** The values to show: the keyframe's own control if it already has one, otherwise the form's config (so fields don't jump to defaults before the first edit). */
     private C displayControl(String bone)
     {
-        S controls = this.keyframe.getValue();
+        S controls = this.getDisplayValue();
 
         if (controls != null && controls.controls.containsKey(bone))
         {
@@ -183,5 +198,14 @@ public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S exten
 
             selected.postNotify();
         });
+    }
+
+    @Override
+    public void render(UIContext context)
+    {
+        boolean busy = this.inputs.stream().anyMatch(input ->
+            input instanceof UINumericInput<?> number && number.isUserEditing());
+        if (!busy) this.display();
+        super.render(context);
     }
 }

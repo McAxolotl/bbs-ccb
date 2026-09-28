@@ -39,6 +39,10 @@ public class Anchor implements IMapSerializable
     public Anchor previous;
     public float x;
 
+    /** Runtime solver-state blend, kept separate from the keyframe's own target transition. */
+    public transient Anchor blendSource;
+    public transient float blendWeight = 1F;
+
     public Anchor()
     {}
 

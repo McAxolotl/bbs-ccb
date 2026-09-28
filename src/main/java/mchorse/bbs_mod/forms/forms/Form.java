@@ -137,16 +137,16 @@ public abstract class Form extends ValueGroup
         super("");
 
         this.disabledTracks.invisible();
-        this.trackName.invisible();
-        this.name.invisible();
-        this.uiScale.invisible();
-        this.shaderShadow.invisible();
-        this.additiveColor.invisible();
+        this.trackName.animatable(false).invisible();
+        this.name.animatable(false).invisible();
+        this.uiScale.animatable(false).invisible();
+        this.shaderShadow.animatable(false).invisible();
+        this.additiveColor.animatable(false).invisible();
 
         /* Not animated: one-off authoring switches, like the hitbox or the hotkey. */
-        this.pickable.invisible();
-        this.renderLayer.invisible();
-        this.renderLast.invisible();
+        this.pickable.animatable(false).invisible();
+        this.renderLayer.animatable(false).invisible();
+        this.renderLast.animatable(false).invisible();
 
         this.add(this.visible);
         this.add(this.pickable);
@@ -167,11 +167,11 @@ public abstract class Form extends ValueGroup
         this.add(this.shaderShadow);
         this.add(this.additiveColor);
 
-        this.hitbox.invisible();
-        this.hitboxWidth.invisible();
-        this.hitboxHeight.invisible();
-        this.hitboxSneakMultiplier.invisible();
-        this.hitboxEyeHeight.invisible();
+        this.hitbox.animatable(false).invisible();
+        this.hitboxWidth.animatable(false).invisible();
+        this.hitboxHeight.animatable(false).invisible();
+        this.hitboxSneakMultiplier.animatable(false).invisible();
+        this.hitboxEyeHeight.animatable(false).invisible();
 
         this.add(this.hitbox);
         this.add(this.hitboxWidth);
@@ -179,15 +179,15 @@ public abstract class Form extends ValueGroup
         this.add(this.hitboxSneakMultiplier);
         this.add(this.hitboxEyeHeight);
 
-        this.hp.invisible();
-        this.speed.invisible();
-        this.stepHeight.invisible();
+        this.hp.animatable(false).invisible();
+        this.speed.animatable(false).invisible();
+        this.stepHeight.animatable(false).invisible();
 
         this.add(this.hp);
         this.add(this.speed);
         this.add(this.stepHeight);
 
-        this.hotkey.invisible();
+        this.hotkey.animatable(false).invisible();
 
         this.add(this.hotkey);
 

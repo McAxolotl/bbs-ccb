@@ -28,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import mchorse.bbs_mod.settings.values.base.BaseKeyframeFactoryValue;
 
 public class FormUtils
 {
@@ -326,11 +327,7 @@ public class FormUtils
 
         for (BaseValue property : form.getAll())
         {
-            if (property instanceof ValueSplineIKs)
-            {
-                collectValuePaths(property, properties, prefix);
-            }
-            else if (property.isVisible())
+            if (property instanceof BaseKeyframeFactoryValue<?> animated && animated.isAnimatable())
             {
                 properties.add(StringUtils.combinePaths(prefix, property.getId()));
             }
@@ -341,28 +338,6 @@ public class FormUtils
             String newPrefix = StringUtils.combinePaths(prefix, part.getId());
 
             collectPropertyPaths(part.getForm(), properties, newPrefix);
-        }
-    }
-
-    private static void collectValuePaths(BaseValue value, List<String> properties, String prefix)
-    {
-        if (!value.isVisible())
-        {
-            return;
-        }
-
-        String path = StringUtils.combinePaths(prefix, value.getId());
-
-        if (value instanceof BaseValueBasic)
-        {
-            properties.add(path);
-        }
-        else if (value instanceof BaseValueGroup group)
-        {
-            for (BaseValue child : group.getAll())
-            {
-                collectValuePaths(child, properties, path);
-            }
         }
     }
 

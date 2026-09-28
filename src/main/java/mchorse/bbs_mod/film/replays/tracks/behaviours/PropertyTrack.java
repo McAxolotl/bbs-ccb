@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.film.replays.tracks.behaviours;
 
 import mchorse.bbs_mod.film.replays.tracks.TrackBehaviour;
-import mchorse.bbs_mod.film.replays.tracks.TrackBlend;
 import mchorse.bbs_mod.film.replays.tracks.TrackContext;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -31,7 +30,10 @@ public class PropertyTrack implements TrackBehaviour
 
         if (segment != null)
         {
-            property.setRuntimeValue(TrackBlend.value(channel, property.get(), segment, blend));
+            Object sampled = segment.createInterpolated(property.getOriginalValue());
+            Object current = property.get();
+            var factory = channel.getFactory();
+            property.setRuntimeValue(blend >= 1F ? sampled : factory.blend(current, sampled, blend));
         }
         else if (blend >= 1F)
         {

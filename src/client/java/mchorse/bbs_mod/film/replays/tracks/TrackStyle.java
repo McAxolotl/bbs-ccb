@@ -62,6 +62,10 @@ public class TrackStyle
     {
         setupColors();
         setupIcons();
+        register("ik", Icons.IK, Colors.WHITE);
+        register("physics", Icons.PHYSICS, 0x9d6cff);
+        register("wind", Icons.PARTICLE, Colors.ORANGE);
+        register("spline_ik", Icons.GRAPH, Colors.BLUE);
     }
 
     /**

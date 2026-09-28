@@ -40,6 +40,8 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
+import mchorse.bbs_mod.ui.utils.UIIKControlFields;
 
 public class UIModelIKFormPanel extends UIBoneListFormPanel
 {
@@ -204,17 +206,10 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
         this.poleTarget.tooltip(UIKeys.FORMS_EDITORS_MODEL_IK_POLE_TARGET);
         this.resetBone(this.poleTarget, (bone) -> bone.ikPoleTarget);
 
-        this.poleAngle = new UISliderTrackpad((v) -> this.editControl((c) -> c.poleAngle = v.floatValue()));
-        this.poleAngle.angle180();
-        this.poleAngle.tooltip(UIKeys.FORMS_EDITORS_MODEL_IK_POLE_ANGLE);
-
-        this.softness = new UISliderTrackpad((v) -> this.editControl((c) -> c.softness = v.floatValue()));
-        this.softness.normalized();
-        this.softness.tooltip(UIKeys.FORMS_EDITORS_MODEL_IK_SOFTNESS);
-
-        this.weight = new UISliderTrackpad((v) -> this.editControl((c) -> c.weight = v.floatValue()));
-        this.weight.normalized();
-        this.weight.tooltip(UIKeys.FORMS_EDITORS_MODEL_IK_WEIGHT);
+        var controls = new UIIKControlFields(this::editControl);
+        this.poleAngle = controls.poleAngle;
+        this.softness = controls.softness;
+        this.weight = controls.weight;
 
         this.tipRotation = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_IK_TIP_ROTATION, (b) -> this.editBone((bone) -> bone.ikTipRotation.set(b.getValue())));
         this.stretch = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_IK_STRETCH, (b) -> this.editBone((bone) -> bone.ikStretch.set(b.getValue())));
@@ -252,7 +247,9 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
             this.poleRow,
             this.chainLengthRow,
             this.chainPreview,
-            this.weightRow
+            this.weightRow,
+            this.binding("target", UIKeys.FORMS_EDITORS_MODEL_IK_TARGET_LABEL, UIKeys.FORMS_EDITORS_MODEL_IK_TARGET),
+            this.binding("pole", UIKeys.FORMS_EDITORS_MODEL_IK_POLE_TARGET_LABEL, UIKeys.FORMS_EDITORS_MODEL_IK_POLE_TARGET)
         );
 
         this.advancedSection = this.section(UIKeys.FORMS_EDITORS_MODEL_IK_ADVANCED, "ik.advanced", false);
@@ -470,6 +467,17 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
      * goes to the form's bone properties, and undo picks the writes up itself. */
 
     /** The selected bone's properties, or null when it was never touched. */
+    private UIElement binding(String id, IKey label, IKey tooltip)
+    {
+        return UIAnchorBinding.section(label, tooltip, () -> this.currentControl().binding(id),
+            edit -> this.editControl(control ->
+            {
+                var anchor = control.binding(id).copy();
+                edit.accept(anchor);
+                control.bindings.put(id, anchor);
+            }));
+    }
+
     private IKControl currentControl()
     {
         FormBone bone = this.selectedFormBone();
@@ -496,10 +504,10 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
     {
         this.editBone((bone) ->
         {
-            IKControl control = bone.ik.get().copy();
+            IKControl control = this.form.ik.getOriginalValue().get(bone.getId()).copy();
 
             edit.accept(control);
-            bone.ik.set(control);
+            BaseValue.edit(this.form.ik, value -> value.getOriginalValue().controls.put(bone.getId(), control));
         });
     }
 

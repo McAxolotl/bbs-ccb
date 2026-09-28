@@ -72,11 +72,17 @@ public abstract class ValueStableList <T extends BaseValue> extends ValueList<T>
     @Override
     public BaseType toData()
     {
+        return this.toData(BaseValue::toData);
+    }
+
+    /** Serialize element representations without losing their stable identities. */
+    public BaseType toData(java.util.function.Function<BaseValue, BaseType> serialize)
+    {
         ListType list = new ListType();
 
         for (T value : this.getAllTyped())
         {
-            BaseType data = value.toData();
+            BaseType data = serialize.apply(value);
 
             if (data.isMap())
             {

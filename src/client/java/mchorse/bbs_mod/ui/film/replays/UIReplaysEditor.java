@@ -91,6 +91,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import mchorse.bbs_mod.ui.utils.GizmoInteraction;
+import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
 
 public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 {
@@ -124,7 +126,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
      * The gizmo target for the replay's own placement in the world. It has no fields on
      * screen — the record is edited by dragging the actor, not by typing — but it is a
      * child all the same, so it can reach the UI context; its gesture is driven by
-     * {@link mchorse.bbs_mod.ui.utils.GizmoInteraction#update} rather than by a render.
+     * {@link GizmoInteraction#update} rather than by a render.
      * It outlives the keyframe editor, which is rebuilt on every replay and category
      * switch, so a running drag survives whatever the selection does underneath it.
      */
@@ -588,7 +590,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
         /* Replay channels remain accessible alongside any selected part's own properties. */
         this.collectCuratedSheets(sheets);
-        UIReplaysEditorUtils.buildSheets(catalog, sheets);
+        UIReplaysEditorUtils.buildSheets(catalog, sheets, this.replay.properties);
 
         for (TrackCategory category : TrackCategories.values())
         {
@@ -1089,12 +1091,14 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
     public boolean pickSplinePoint(String path, UIContext context)
     {
         if (this.replay == null) return false;
+        String compound = SplineEditorUtils.compoundPath(path);
         for (TrackSearchEntry entry : UIReplaysEditorUtils.formSearchEntries(this.replay.form.get(), this.replaysList.bodyParts, false))
         {
-            if (!entry.key().equals(path)) continue;
+            if (!entry.key().equals(compound)) continue;
             this.filmPanel.showPanel(this);
             this.revealTrack(entry, false);
-            UIReplaysEditorUtils.pickPropertyTrack(this.keyframeEditor, this.filmPanel, path, context.mouseButton == 1);
+            UIReplaysEditorUtils.pickPropertyTrack(this.keyframeEditor, this.filmPanel, compound, context.mouseButton == 1);
+            SplineEditorUtils.selectPoint(this.keyframeEditor, path);
             return true;
         }
         return false;

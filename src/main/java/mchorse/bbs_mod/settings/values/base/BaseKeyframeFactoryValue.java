@@ -6,6 +6,19 @@ import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 public class BaseKeyframeFactoryValue<T> extends BaseValueBasic<T>
 {
     private final IKeyframeFactory<T> factory;
+    private boolean animatable = true;
+
+    /** Explicit animation capability, independent of whether an ordinary field is visible. */
+    public BaseKeyframeFactoryValue<T> animatable(boolean enabled)
+    {
+        this.animatable = enabled;
+        return this;
+    }
+
+    public boolean isAnimatable()
+    {
+        return this.animatable && !this.isBound();
+    }
 
     public BaseKeyframeFactoryValue(String id, IKeyframeFactory<T> factory, T value)
     {
@@ -40,7 +53,7 @@ public class BaseKeyframeFactoryValue<T> extends BaseValueBasic<T>
     {
         if (obj instanceof BaseKeyframeFactoryValue<?> property && property.factory == this.factory)
         {
-            return this.factory.compare(this.value, property.value);
+            return this.factory.compare(this.getOriginalValue(), property.getOriginalValue());
         }
 
         return super.equals(obj);
@@ -49,12 +62,12 @@ public class BaseKeyframeFactoryValue<T> extends BaseValueBasic<T>
     @Override
     public BaseType toData()
     {
-        return this.factory.toData(this.value);
+        return this.factory.toData(this.getOriginalValue());
     }
 
     @Override
     public void fromData(BaseType data)
     {
-        this.value = this.factory.fromData(data);
+        this.setOriginalValue(this.factory.fromData(data));
     }
 }

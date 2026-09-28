@@ -43,7 +43,7 @@ public class ValueFloat extends BaseValueNumber<Float>
     @Override
     public BaseType toData()
     {
-        return new FloatType(this.value);
+        return new FloatType(this.getOriginalValue());
     }
 
     @Override
@@ -51,14 +51,14 @@ public class ValueFloat extends BaseValueNumber<Float>
     {
         if (data.isNumeric())
         {
-            this.value = data.asNumeric().floatValue();
+            this.setOriginalValue(data.asNumeric().floatValue());
         }
     }
 
     @Override
     public String toString()
     {
-        return Float.toString(this.value);
+        return Float.toString(this.getOriginalValue());
     }
 
     @Override

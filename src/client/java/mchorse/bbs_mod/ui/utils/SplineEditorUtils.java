@@ -16,22 +16,42 @@ import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import org.joml.Matrix4f;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UISplineKeyframeFactory;
+import mchorse.bbs_mod.utils.Axis;
 
 /** Point addresses and frames shared by all three editors. No synthetic bone names. */
 public class SplineEditorUtils
 {
     public static final Gizmo.HandleMask HANDLES = Gizmo.HandleMask.of(
-        java.util.EnumSet.of(Gizmo.Op.MOVE, Gizmo.Op.SCREEN), java.util.EnumSet.noneOf(mchorse.bbs_mod.utils.Axis.class));
+        java.util.EnumSet.of(Gizmo.Op.MOVE, Gizmo.Op.SCREEN), java.util.EnumSet.noneOf(Axis.class));
 
     public record Point(ModelForm form, SplineIK chain, SplinePoint point, TrackId track) {}
 
     public static String selectedPath(UIKeyframeEditor editor)
     {
         if (editor == null || editor.editor == null) return null;
+        if (editor.editor instanceof UISplineKeyframeFactory spline)
+            return spline.pointPath();
         var sheet = editor.getSheet(editor.editor.getKeyframe());
         if (sheet == null) return null;
         TrackId id = TrackId.parse(sheet.id);
         return isPoint(id) ? sheet.id : null;
+    }
+
+    public static String compoundPath(String pointPath)
+    {
+        TrackId id = TrackId.parse(pointPath);
+        return isPoint(id) ? TrackId.property(id.formPath(), "spline_ik").toKey() : pointPath;
+    }
+
+    public static void selectPoint(UIKeyframeEditor editor, String pointPath)
+    {
+        TrackId id = TrackId.parse(pointPath);
+        if (isPoint(id) && editor.editor instanceof UISplineKeyframeFactory spline)
+        {
+            String[] parts = id.subject().split("/");
+            spline.select(parts[1], parts[3]);
+        }
     }
 
     public static boolean isPoint(TrackId id)
@@ -104,6 +124,6 @@ public class SplineEditorUtils
     {
         if (point == null) return null;
         Matrix4f parent = parentMatrix(root, entity, transition, point.form, point.chain);
-        return parent == null ? null : parent.translate(point.point.position.get().translate);
+        return parent == null ? null : parent.translate(point.form.splineIK.get().get(point.chain.getId()).point(point.point.getId()).translate);
     }
 }

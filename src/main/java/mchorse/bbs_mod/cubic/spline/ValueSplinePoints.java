@@ -6,6 +6,19 @@ import mchorse.bbs_mod.settings.values.core.ValueStableList;
 /** Point identity is independent of its position along the curve. */
 public class ValueSplinePoints extends ValueStableList<SplinePoint>
 {
+    @Override
+    public void add(SplinePoint point)
+    {
+        super.add(point);
+        if (this.getParent() instanceof SplineIK spline) spline.bindPoint(point);
+    }
+
+    @Override
+    public void add(int index, SplinePoint point)
+    {
+        super.add(index, point);
+        if (this.getParent() instanceof SplineIK spline) spline.bindPoint(point);
+    }
     public ValueSplinePoints(String id)
     {
         super(id);

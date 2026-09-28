@@ -40,8 +40,10 @@ public class AnchorKeyframeFactory implements IKeyframeFactory<Anchor>
     {
         Anchor anchor = value.copy();
 
-        anchor.previous = value.previous == null ? null : value.previous.copy();
+        anchor.previous = value.previous == null ? null : this.copy(value.previous);
         anchor.x = value.x;
+        anchor.blendSource = value.blendSource == null ? null : this.copy(value.blendSource);
+        anchor.blendWeight = value.blendWeight;
 
         return anchor;
     }

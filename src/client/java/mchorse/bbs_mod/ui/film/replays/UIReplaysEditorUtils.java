@@ -75,6 +75,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UISplineKeyframeFactory;
+import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
 
 public class UIReplaysEditorUtils
 {
@@ -261,29 +263,20 @@ public class UIReplaysEditorUtils
      * their parent row. The catalog decides what exists and where it sits; this only builds widgets,
      * which is why both timelines — a replay's and an animation state's — go through it.
      */
-    public static void buildSheets(List<TrackDescriptor> catalog, List<UIKeyframeSheet> sheets)
+    public static void buildSheets(List<TrackDescriptor> catalog, List<UIKeyframeSheet> sheets, FormProperties properties)
     {
         Map<TrackId, UIKeyframeSheet> rows = new HashMap<>();
-        Map<String, UIKeyframeSheet.Section> splineSections = new HashMap<>();
 
         for (TrackDescriptor track : catalog)
         {
-            UIKeyframeSheet sheet = new UIKeyframeSheet(track);
-
-            if (track.kind() == TrackKind.PROPERTY && track.owner() instanceof ModelForm model
-                && track.id().subject().startsWith("splines/"))
+            /* Creating an editable row needs a channel. Catalog/search enumeration does not. */
+            if (track.channel() == null)
             {
-                String[] parts = track.id().subject().split("/", 3);
-                SplineIK spline = parts.length == 3 ? model.splines.get(parts[1]) : null;
-
-                if (spline != null)
-                {
-                    String sectionId = "spline_section/" + TrackId.property(track.id().formPath(), "splines/" + spline.getId()).toKey();
-
-                    sheet.section = splineSections.computeIfAbsent(sectionId, key -> new UIKeyframeSheet.Section(
-                        key, IKey.constant("spline_ik/" + spline.root.get()), Icons.CURVES, Colors.CYAN));
-                }
+                KeyframeChannel channel = properties.getOrCreate(FormUtils.getRoot(track.owner()), track.id());
+                if (channel == null) continue;
+                track = new TrackDescriptor(track.id(), channel, track.owner(), track.title(), track.icon(), track.color(), track.property(), track.seed(), track.parent());
             }
+            UIKeyframeSheet sheet = new UIKeyframeSheet(track);
 
             rows.put(track.id(), sheet);
             sheets.add(sheet);
@@ -293,7 +286,7 @@ public class UIReplaysEditorUtils
         {
             if (track.parent() != null)
             {
-                rows.get(track.id()).setParent(rows.get(track.parent()));
+                if (rows.containsKey(track.id())) rows.get(track.id()).setParent(rows.get(track.parent()));
             }
         }
     }
@@ -373,7 +366,11 @@ public class UIReplaysEditorUtils
             return null;
         }
 
-        if (editor.editor instanceof UITransformKeyframeFactory transformKeyframeFactory)
+        if (editor.editor instanceof UISplineKeyframeFactory spline)
+        {
+            return spline.pointPath() == null ? null : spline.transform;
+        }
+        else if (editor.editor instanceof UITransformKeyframeFactory transformKeyframeFactory)
         {
             return transformKeyframeFactory.transform;
         }
@@ -582,10 +579,10 @@ public class UIReplaysEditorUtils
             return drag;
         }
 
-        String splinePath = mchorse.bbs_mod.ui.utils.SplineEditorUtils.selectedPath(keyframeEditor);
+        String splinePath = SplineEditorUtils.selectedPath(keyframeEditor);
         if (splinePath != null && entity != null)
         {
-            var point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(entity.getForm(), splinePath);
+            var point = SplineEditorUtils.resolve(entity.getForm(), splinePath);
             Matrix4f parent = FilmMatrices.getSplineParentCompositeMatrix(panel.getController().getEntities(), entity,
                 panel.replayEditor.getReplay(), camera.position.x, camera.position.y, camera.position.z, transition, point);
             if (parent == null || Math.abs(parent.determinant()) < 1E-8F) return null;

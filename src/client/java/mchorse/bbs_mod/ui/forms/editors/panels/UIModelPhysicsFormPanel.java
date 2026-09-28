@@ -29,6 +29,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import mchorse.bbs_mod.forms.forms.utils.Anchor;
+import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
+import mchorse.bbs_mod.ui.utils.UIPhysicsControlFields;
 
 public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
 {
@@ -106,9 +110,8 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
             this.updateFields();
         });
 
-        this.gravity = new UISliderTrackpad((v) -> this.editControl((c) -> c.gravity = v.floatValue()));
-        this.gravity.onlyNumbers().values(0.1D, 0.01D, 0.5D).increment(0.25D).limit(0D, 10D);
-        this.gravity.tooltip(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_GRAVITY);
+        var controls = new UIPhysicsControlFields(this::editControl);
+        this.gravity = controls.gravity;
 
         this.relativeGravity = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_RELATIVE_GRAVITY, (b) -> this.editBone((bone) -> bone.physicsRelativeGravity.set(b.getValue())));
 
@@ -116,13 +119,8 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
         this.relativeGravityRotateY = axisTrackpad((v) -> this.editBone((bone) -> bone.physicsGravityRotateY.set(v.floatValue())), Colors.GREEN, axis.format(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_RELATIVE_GRAVITY_ROTATION, UIKeys.GENERAL_Y));
         this.relativeGravityRotateZ = axisTrackpad((v) -> this.editBone((bone) -> bone.physicsGravityRotateZ.set(v.floatValue())), Colors.BLUE, axis.format(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_RELATIVE_GRAVITY_ROTATION, UIKeys.GENERAL_Z));
 
-        this.stiffness = new UISliderTrackpad((v) -> this.editControl((c) -> c.stiffness = v.floatValue()));
-        this.stiffness.normalized();
-        this.stiffness.tooltip(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_STIFFNESS);
-
-        this.damping = new UISliderTrackpad((v) -> this.editControl((c) -> c.damping = v.floatValue()));
-        this.damping.normalized();
-        this.damping.tooltip(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_DAMPING);
+        this.stiffness = controls.stiffness;
+        this.damping = controls.damping;
 
         this.iterations = new UITrackpad((v) -> this.editBone((bone) -> bone.physicsIterations.set(v.intValue())));
         this.iterations.onlyNumbers().integer().values(1D).increment(1D).limit(1D, 20D, true);
@@ -214,6 +212,14 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
             this.enabled,
             this.end,
             this.targetBone,
+            UIAnchorBinding.section(UIKeys.FORMS_EDITORS_MODEL_IK_TARGET_LABEL, UIKeys.FORMS_EDITORS_MODEL_IK_TARGET,
+                () -> this.readBone(bone -> bone.physics.get().binding("target"), new Anchor()),
+                edit -> this.editControl(control ->
+                {
+                    var anchor = control.binding("target").copy();
+                    edit.accept(anchor);
+                    control.bindings.put("target", anchor);
+                })),
             this.gravityRow,
             this.relativeGravity,
             this.gravityRotationLabel,
@@ -296,10 +302,10 @@ public class UIModelPhysicsFormPanel extends UIBoneListFormPanel
     {
         this.editBone((bone) ->
         {
-            PhysicsControl control = bone.physics.get().copy();
+            PhysicsControl control = this.form.physics.getOriginalValue().get(bone.getId()).copy();
 
             edit.accept(control);
-            bone.physics.set(control);
+            BaseValue.edit(this.form.physics, value -> value.getOriginalValue().controls.put(bone.getId(), control));
         });
     }
 

@@ -30,6 +30,19 @@ import org.joml.Vector3f;
 
 import java.util.HashMap;
 import java.util.Map;
+import mchorse.bbs_mod.cubic.ik.IKControl;
+import mchorse.bbs_mod.cubic.ik.IKControls;
+import mchorse.bbs_mod.cubic.jem.CemStatus;
+import mchorse.bbs_mod.cubic.physics.PhysicsControl;
+import mchorse.bbs_mod.cubic.physics.PhysicsControls;
+import mchorse.bbs_mod.cubic.spline.SplineControl;
+import mchorse.bbs_mod.cubic.spline.SplineControls;
+import mchorse.bbs_mod.settings.values.core.ValueChainControls;
+import mchorse.bbs_mod.settings.values.core.ValueGroup;
+import mchorse.bbs_mod.settings.values.core.ValueStableList;
+import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 public class ModelForm extends Form implements IPosedForm
 {
@@ -47,14 +60,20 @@ public class ModelForm extends Form implements IPosedForm
     public final ValueShapeKeys shapeKeys = new ValueShapeKeys("shape_keys", new ShapeKeys());
     public final ValueBoolean boneTracks = new ValueBoolean("bone_tracks", true);
     public final ValueBones bones = new ValueBones("bones");
+    public final ValueChainControls<IKControl, IKControls> ik =
+        new ValueChainControls<>("ik", KeyframeFactories.IK);
+    public final ValueChainControls<PhysicsControl, PhysicsControls> physics =
+        new ValueChainControls<>("physics", KeyframeFactories.PHYSICS);
     public final ValueSplineIKs splines = new ValueSplineIKs("splines");
+    public final ValueChainControls<SplineControl, SplineControls> splineIK =
+        new ValueChainControls<>("spline_ik", KeyframeFactories.SPLINE);
 
     /** The global wind of the form's physics — one compound animatable property, not bound to a bone. */
     public final ValueWindControl wind = new ValueWindControl("wind", new WindControl());
 
     /**
      * The entity states an OptiFine CEM model asks about and a form cannot know — see
-     * {@link mchorse.bbs_mod.cubic.jem.CemStatus}.
+     * {@link CemStatus}.
      * Every one of them lies over what the entity says, so their defaults change nothing, and they only
      * appear in the editor for a model that carries a CEM program.
      */
@@ -116,13 +135,18 @@ public class ModelForm extends Form implements IPosedForm
         this.materials.invisible();
         this.add(this.materials);
         this.add(this.shapeKeys);
-        this.boneTracks.invisible();
+        this.boneTracks.animatable(false).invisible();
         this.add(this.boneTracks);
 
         this.bones.invisible();
         this.add(this.bones);
+        this.bones.bind(this);
+        this.add(this.ik);
+        this.add(this.physics);
         this.add(this.splines);
+        this.add(this.splineIK);
         this.wind.invisible();
+        this.wind.animatable(true);
         this.add(this.wind);
 
         /* Visible, so each is a track of its own: a cat that sits down mid-take is a keyframe like
@@ -159,6 +183,9 @@ public class ModelForm extends Form implements IPosedForm
     @Override
     public void fromData(BaseType data)
     {
+        this.ik.fromData(new MapType());
+        this.physics.fromData(new MapType());
+        this.splineIK.fromData(new MapType());
         super.fromData(data);
 
         /* Forms saved before the bones group kept the constraints and the IK setup as opaque
@@ -170,16 +197,36 @@ public class ModelForm extends Form implements IPosedForm
                 BoneConstraintsIO.read(map.getMap("constraints"), this.bones, false);
             }
 
-            if (map.has("ik", BaseType.TYPE_MAP))
+            if (map.has("ik", BaseType.TYPE_MAP) && !map.getMap("ik").has("ik"))
             {
                 BoneIKIO.read(map.getMap("ik"), this.bones, false);
             }
 
-            if (map.has("physics", BaseType.TYPE_MAP))
+            if (map.has("physics", BaseType.TYPE_MAP) && !map.getMap("physics").has("physics"))
             {
                 BonePhysicsIO.read(map.getMap("physics"), this.bones, this.wind, false);
             }
+
+            /* Canonical state wins over legacy per-bone payloads regardless of map order. */
+            if (map.getMap("ik").has("ik")) this.ik.fromData(map.getMap("ik"));
+            if (map.getMap("physics").has("physics")) this.physics.fromData(map.getMap("physics"));
+            if (map.has("spline_ik")) this.splineIK.fromData(map.getMap("spline_ik"));
         }
+    }
+
+    @Override
+    protected BaseType serializeChild(BaseValue value)
+    {
+        return value == this.bones || value == this.splines ? rigData(value) : super.serializeChild(value);
+    }
+
+    /** Form saves contain rig structure; standalone snapshots still include editable field values. */
+    private static BaseType rigData(BaseValue value)
+    {
+        if (value instanceof BaseValueBasic<?> field && field.isBound()) return null;
+        if (value instanceof ValueGroup group) return group.toData(ModelForm::rigData);
+        if (value instanceof ValueStableList<?> list) return list.toData(ModelForm::rigData);
+        return value.toData();
     }
 
     @Override

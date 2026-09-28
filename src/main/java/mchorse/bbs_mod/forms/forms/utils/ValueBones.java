@@ -6,6 +6,7 @@ import mchorse.bbs_mod.settings.values.base.BaseValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 
 import java.util.Map;
+import mchorse.bbs_mod.forms.forms.ModelForm;
 
 /**
  * Dynamic map of a model form's touched bones (bone name &rarr; {@link FormBone}). Mirrors
@@ -16,6 +17,21 @@ import java.util.Map;
  */
 public class ValueBones extends ValueGroup
 {
+    private ModelForm owner;
+
+    public void bind(ModelForm owner)
+    {
+        this.owner = owner;
+        for (BaseValue value : this.getAll())
+            if (value instanceof FormBone bone) bone.bind(owner);
+    }
+
+    @Override
+    public void add(BaseValue value)
+    {
+        super.add(value);
+        if (this.owner != null && value instanceof FormBone bone) bone.bind(this.owner);
+    }
     public ValueBones(String id)
     {
         super(id);

@@ -26,6 +26,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UISplineKeyframeFactory;
 
 public class UIKeyframeEditor extends UITimelinePanel
 {
@@ -251,7 +252,11 @@ public class UIKeyframeEditor extends UITimelinePanel
     {
         UIKeyframeFactory editor = this.editor;
 
-        if (editor instanceof UIPoseKeyframeFactory pose)
+        if (editor instanceof UISplineKeyframeFactory spline)
+        {
+            return spline.transform.getSpace();
+        }
+        else if (editor instanceof UIPoseKeyframeFactory pose)
         {
             return pose.poseEditor.transform.getSpace();
         }

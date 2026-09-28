@@ -49,6 +49,7 @@ import org.joml.Vector3f;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import mchorse.bbs_mod.ui.utils.UISplineControlFields;
 
 /** Spline controls are form values: fields, gestures, undo and animation share their identity. */
 public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormEditorTool
@@ -111,13 +112,15 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         this.enabled = new UIToggle(key("enabled"), b -> this.setChainEnabled(b.getValue()));
         this.fit = new UIToggle(key("fit"), b -> { if (this.chain() != null) this.chain().fit.set(b.getValue()); });
         this.fit.tooltip(key("fit_tooltip"));
-        this.influence = new UISliderTrackpad(v -> { if (this.chain() != null) this.chain().influence.set(v.floatValue()); });
-        this.influence.normalized();
-        this.progress = new UITrackpad(v -> { if (this.chain() != null) this.chain().progress.set(v.floatValue()); });
-        this.progress.tooltip(key("progress_tooltip"));
+        var controls = new UISplineControlFields(edit ->
+        {
+            if (this.chain() != null) BaseValue.edit(this.form.splineIK, value -> edit.accept(this.chain().original()));
+        });
+        this.influence = controls.influence;
+        this.progress = controls.progress;
         this.moveModel = new UIToggle(key("move_model"), b -> { if (this.chain() != null) this.chain().moveModel.set(b.getValue()); });
         this.moveModel.tooltip(key("move_model_tooltip"));
-        this.twist = new UITrackpad(v -> { if (this.chain() != null) this.chain().twist.set(v.floatValue()); });
+        this.twist = controls.twist;
         this.position = new UIPropTransform();
         this.position.noScale().setRotationVisible(false);
         this.position.callbacks(
@@ -188,7 +191,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         if (chain == null) return;
         ListType positions = new ListType();
         for (SplinePoint point : chain.points.getAllTyped())
-            positions.add(DataStorageUtils.vector3fToData(point.position.get().translate));
+            positions.add(DataStorageUtils.vector3fToData(point.position.getOriginalValue().translate));
         MapType data = new MapType();
         data.put("points", positions);
         Window.setClipboard(data, POINTS_CLIPBOARD);
@@ -223,13 +226,13 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         if (chain == null || chain.points.getAllTyped().size() < 3) return;
         this.endPointEdit();
         List<SplinePoint> points = chain.points.getAllTyped();
-        Vector3f first = new Vector3f(points.get(0).position.get().translate);
-        Vector3f last = new Vector3f(points.get(points.size() - 1).position.get().translate);
+        Vector3f first = new Vector3f(points.get(0).position.getOriginalValue().translate);
+        Vector3f last = new Vector3f(points.get(points.size() - 1).position.getOriginalValue().translate);
         BaseValue.edit(chain.points, IValueListener.FLAG_UNMERGEABLE, list ->
         {
             /* Only interior positions change; both endpoints and every point ID stay intact. */
             for (int i = 1; i < points.size() - 1; i++)
-                points.get(i).position.get().translate.set(first).lerp(last, i / (float) (points.size() - 1));
+                points.get(i).position.getOriginalValue().translate.set(first).lerp(last, i / (float) (points.size() - 1));
         });
         this.updateFields();
     }
@@ -367,7 +370,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         this.points.h(this.pointListHeight());
         this.removePoint.setEnabled(this.point() != null);
         this.position.setVisible(on && this.point() != null);
-        this.position.setTransform(!on || this.point() == null ? null : this.point().position.get());
+        this.position.setTransform(!on || this.point() == null ? null : this.point().position.getOriginalValue());
         this.options.resize();
     }
 
@@ -413,7 +416,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         List<SplinePoint> points = chain.points.getAllTyped();
         while (points.size() < positions.size()) chain.points.add(new SplinePoint(""));
         while (points.size() > positions.size()) points.remove(points.size() - 1);
-        for (int i = 0; i < positions.size(); i++) points.get(i).position.get().translate.set(positions.get(i));
+        for (int i = 0; i < positions.size(); i++) points.get(i).position.getOriginalValue().translate.set(positions.get(i));
     }
 
     private void addPoint()
@@ -426,9 +429,9 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
         SplinePoint point = new SplinePoint("");
         if (!points.isEmpty())
         {
-            point.position.get().translate.set(points.get(Math.max(0, index - 1)).position.get().translate);
-            if (index < points.size()) point.position.get().translate.lerp(points.get(index).position.get().translate, 0.5F);
-            else if (points.size() > 1) point.position.get().translate.mul(2).sub(points.get(points.size() - 2).position.get().translate);
+            point.position.getOriginalValue().translate.set(points.get(Math.max(0, index - 1)).position.getOriginalValue().translate);
+            if (index < points.size()) point.position.getOriginalValue().translate.lerp(points.get(index).position.getOriginalValue().translate, 0.5F);
+            else if (points.size() > 1) point.position.getOriginalValue().translate.mul(2).sub(points.get(points.size() - 2).position.getOriginalValue().translate);
         }
         BaseValue.edit(chain.points, list -> list.add(index, point));
         this.select(this.chainId, point.getId());
@@ -485,7 +488,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
     {
         if (this.getGizmoTransform() == null || this.editor.editor == null) return null;
         Matrix4f parent = SplineEditorUtils.parentMatrix(FormUtils.getRoot(this.form), this.editor.editor.renderer.getTargetEntity(), transition, this.form, this.chain());
-        return parent == null ? null : parent.translate(this.point().position.get().translate);
+        return parent == null ? null : parent.translate(this.point().position.getOriginalValue().translate);
     }
 
     @Override
@@ -499,7 +502,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements FormE
             this.options.resize();
         }
         SplinePoint point = this.point();
-        if (point != null && this.chain().enabled.get() && !this.position.isUserEditing()) this.position.setTransform(point.position.get());
+        if (point != null && this.chain().enabled.get() && !this.position.isUserEditing()) this.position.setTransform(point.position.getOriginalValue());
         super.render(context);
     }
 }

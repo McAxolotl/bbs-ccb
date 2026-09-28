@@ -6,7 +6,6 @@ import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.ik.ModelIKRuntime;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.cubic.constraints.BoneConstraint;
-import mchorse.bbs_mod.cubic.ik.IKControls;
 import mchorse.bbs_mod.cubic.physics.PhysicsControls;
 import mchorse.bbs_mod.cubic.spline.SplineIK;
 import mchorse.bbs_mod.cubic.spline.SplinePoint;
@@ -84,6 +83,7 @@ public class TrackCatalog
         List<TrackDescriptor> tracks = new ArrayList<>();
 
         collect(root, root, "", properties, tracks);
+        LegacyTrackCatalog.append(root, properties, tracks);
 
         return tracks;
     }
@@ -172,9 +172,6 @@ public class TrackCatalog
         {
             materials(modelForm, model, path, properties, out);
             bones(modelForm, model == null ? null : model.model, model == null ? null : model.getDisabledBones(), path, properties, out);
-            ik(modelForm, model, path, properties, out);
-            splines(root, modelForm, path, properties, out);
-            physics(modelForm, path, properties, out);
         }
         else if (form instanceof MobForm mobForm)
         {
@@ -193,10 +190,10 @@ public class TrackCatalog
     }
 
 
-    /** The replay's channel for this track, made if absent; null when asked without a replay. */
+    /** An existing channel, or null. Enumerating tracks never creates animation data. */
     private static KeyframeChannel channel(FormProperties properties, TrackId id)
     {
-        return properties == null ? null : properties.getOrCreate(id);
+        return properties == null ? null : properties.get(id);
     }
 
     /* The form's own properties */
@@ -205,10 +202,6 @@ public class TrackCatalog
     {
         for (BaseValue value : form.getAll())
         {
-            if (!value.isVisible())
-            {
-                continue;
-            }
 
             String name = value.getId();
 
@@ -234,18 +227,14 @@ public class TrackCatalog
 
             /* Only a property that can hold keyframes is a track — the rest of a form's values are
              * static settings. Asked of the value itself, so it holds with or without a replay. */
-            if (!(value instanceof BaseKeyframeFactoryValue))
+            if (!(value instanceof BaseKeyframeFactoryValue<?> animated) || !animated.isAnimatable())
             {
                 continue;
             }
 
             TrackId id = TrackId.property(path, name);
-            KeyframeChannel channel = properties == null ? null : properties.getOrCreate(root, id);
+            KeyframeChannel channel = properties == null ? null : properties.get(id);
 
-            if (channel == null && properties != null)
-            {
-                continue;
-            }
 
             BaseValueBasic property = FormUtils.getProperty(root, id.toKey());
             TrackDescriptor track = new TrackDescriptor(id, channel, form, TrackStyle.label(id),
@@ -526,171 +515,4 @@ public class TrackCatalog
         return seed;
     }
 
-    /* IK */
-
-    private static void ik(ModelForm modelForm, ModelInstance model, String path, FormProperties properties, List<TrackDescriptor> out)
-    {
-        if (model == null)
-        {
-            return;
-        }
-
-        model.form = modelForm;
-
-        List<String> controllers = ModelIKRuntime.getControllers(model);
-
-        if (!controllers.isEmpty())
-        {
-            /* One controls track per form: a single track whose value holds the per-chain scalars
-             * (weight, softness, pole, enabled), driving the bones' own `ik` properties at playback.
-             * It has no form property behind it, so the chains are listed from the form itself. */
-            TrackId id = TrackId.ikControls(path);
-
-            out.add(new TrackDescriptor(id, channel(properties, id), modelForm,
-                IKey.constant("ik"), Icons.IK, Colors.YELLOW, null)
-                .seed(() -> ikControls(modelForm)));
-        }
-
-        for (String controller : controllers)
-        {
-            if (controller != null && !controller.isEmpty())
-            {
-                TrackId id = TrackId.ikTarget(path, controller);
-
-                out.add(target(modelForm, id, properties, "ik/" + controller, Colors.CYAN));
-            }
-        }
-
-        for (String controller : ModelIKRuntime.getPoleControllers(model))
-        {
-            if (controller != null && !controller.isEmpty())
-            {
-                TrackId id = TrackId.poleTarget(path, controller);
-
-                out.add(target(modelForm, id, properties, "pole/" + controller, Colors.ORANGE));
-            }
-        }
-    }
-
-    /** Ordinary property tracks also run in animation states, where solver override tracks do not. */
-    private static void splines(Form root, ModelForm form, String path, FormProperties properties, List<TrackDescriptor> out)
-    {
-        for (SplineIK spline : form.splines.getAllTyped())
-        {
-            String prefix = "splines/" + spline.getId() + "/";
-            TrackId influence = TrackId.property(path, prefix + "influence");
-
-            out.add(splineProperty(root, form, influence, properties, "spline_ik", Icons.CURVES, Colors.CYAN, spline.influence));
-            out.add(splineProperty(root, form, TrackId.property(path, prefix + "twist"), properties,
-                "twist", Icons.ORBIT, Colors.MAGENTA, spline.twist));
-            out.add(splineProperty(root, form, TrackId.property(path, prefix + "progress"), properties,
-                "progress", Icons.MOVE_TO, Colors.ORANGE, spline.progress));
-
-            int index = 1;
-
-            for (SplinePoint point : spline.points.getAllTyped())
-            {
-                TrackId id = TrackId.property(path, prefix + "points/" + point.getId() + "/position");
-
-                out.add(splineProperty(root, form, id, properties,
-                    SplinePoint.displayName(index++), Icons.MAIN_HANDLE, Colors.GREEN, point.position));
-            }
-        }
-    }
-
-    private static TrackDescriptor splineProperty(Form root, ModelForm form, TrackId id, FormProperties properties,
-        String title, Icon icon, int color, BaseValueBasic property)
-    {
-        return new TrackDescriptor(id, properties == null ? null : properties.getOrCreate(root, id), form,
-            IKey.constant(title), icon, color, property);
-    }
-
-    /* Physics */
-
-    private static void physics(ModelForm modelForm, String path, FormProperties properties, List<TrackDescriptor> out)
-    {
-        boolean hasChains = false;
-
-        for (BaseValue value : modelForm.bones.getAll())
-        {
-            if (value instanceof FormBone bone && bone.hasPhysicsChain())
-            {
-                hasChains = true;
-
-                break;
-            }
-        }
-
-        if (!hasChains)
-        {
-            return;
-        }
-
-        TrackId controls = TrackId.physicsControls(path);
-
-        out.add(new TrackDescriptor(controls, channel(properties, controls), modelForm,
-            IKey.constant("physics"), Icons.PHYSICS, Colors.GREEN, null)
-            .seed(() -> physicsControls(modelForm)));
-
-        /* The wind is global to the form, so — unlike the physics controls — it is not keyed by chain. */
-        TrackId wind = TrackId.windControls(path);
-
-        out.add(new TrackDescriptor(wind, channel(properties, wind), modelForm,
-            IKey.constant("wind"), Icons.ARROW_RIGHT, Colors.CYAN, null)
-            .seed(() -> modelForm.wind.get().copy()));
-
-        for (BaseValue value : modelForm.bones.getAll())
-        {
-            if (!(value instanceof FormBone bone) || !bone.hasPhysicsChain())
-            {
-                continue;
-            }
-
-            TrackId id = TrackId.physicsTarget(path, bone.getId());
-
-            out.add(target(modelForm, id, properties, "physics/" + bone.getId(), Colors.MAGENTA));
-        }
-    }
-
-    /**
-     * A fully populated IK-controls value seeded from the bones' own `ik` properties, so a fresh
-     * keyframe matches what the editor shows instead of an empty container that drifts to
-     * defaults. Also what the track reads as before its first keyframe (the IK bake keys off it).
-     */
-    public static IKControls ikControls(ModelForm modelForm)
-    {
-        IKControls controls = new IKControls();
-
-        for (BaseValue value : modelForm.bones.getAll())
-        {
-            if (value instanceof FormBone bone && bone.hasChain() && bone.ik.getOriginalValue().enabled)
-            {
-                controls.get(bone.getId()).copy(bone.ik.getOriginalValue());
-            }
-        }
-
-        return controls;
-    }
-
-    /** A physics-controls value seeded from the bones' own `physics` properties, one entry per chain root. */
-    private static PhysicsControls physicsControls(ModelForm modelForm)
-    {
-        PhysicsControls controls = new PhysicsControls();
-
-        for (BaseValue value : modelForm.bones.getAll())
-        {
-            if (value instanceof FormBone bone && bone.hasPhysicsChain())
-            {
-                controls.get(bone.getId()).copy(bone.physics.getOriginalValue());
-            }
-        }
-
-        return controls;
-    }
-
-    private static TrackDescriptor target(ModelForm modelForm, TrackId id, FormProperties properties, String title, int color)
-    {
-        return new TrackDescriptor(id, channel(properties, id), modelForm, IKey.constant(title),
-            id.is(TrackKind.PHYSICS_TARGET) ? Icons.PHYSICS : Icons.IK, color, null);
-    }
 }

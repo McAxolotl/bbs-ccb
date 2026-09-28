@@ -13,6 +13,7 @@ import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
+import mchorse.bbs_mod.forms.forms.ModelForm;
 
 /**
  * One bone of a model form, as a group of the bone's own properties (the pose is set to move in
@@ -28,6 +29,22 @@ import mchorse.bbs_mod.settings.values.numeric.ValueInt;
  */
 public class FormBone extends ValueGroup
 {
+    /** Compatibility field views; the form's compound properties own the payloads. */
+    public void bind(ModelForm form)
+    {
+        if (this.ik.isBound()) return;
+        form.ik.getOriginalValue().controls.putIfAbsent(this.getId(), this.ik.getOriginalValue());
+        form.physics.getOriginalValue().controls.putIfAbsent(this.getId(), this.physics.getOriginalValue());
+        this.ik.bind(form.ik,
+            () -> form.ik.getOriginalValue().get(this.getId()),
+            () -> form.ik.get().get(this.getId()),
+            value -> form.ik.getOriginalValue().controls.put(this.getId(), value));
+        this.physics.bind(form.physics,
+            () -> form.physics.getOriginalValue().get(this.getId()),
+            () -> form.physics.get().get(this.getId()),
+            value -> form.physics.getOriginalValue().controls.put(this.getId(), value));
+    }
+
     public final ValueBoneConstraint constraints = new ValueBoneConstraint("constraints", new BoneConstraint());
 
     /* The IK chain this bone is the tip of. The addresses and modes are the chain's structure;

@@ -53,7 +53,7 @@ public final class ModelIKRuntime
         {
             FormBone bone = form.bones.getBone(chain.tip());
 
-            controls.put(chain.tip(), bone == null ? IKControl.DEFAULT : bone.ik.get());
+            controls.put(chain.tip(), form.ik.get().get(chain.tip()));
         }
 
         ModelIKApplier.apply(model, chains, compiled.bones(), controllerTargets, poleTargets, form.ikTargetWeights, form.poleTargetWeights, controls);

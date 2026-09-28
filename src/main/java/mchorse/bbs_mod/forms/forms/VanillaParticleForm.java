@@ -29,7 +29,7 @@ public class VanillaParticleForm extends Form
     {
         super();
 
-        this.local.invisible();
+        this.local.animatable(false).invisible();
 
         this.add(this.settings);
         this.add(this.paused);

@@ -12,8 +12,6 @@ public final class TrackCategory
     public static final TrackCategory REPLAY = builtin("replay", Icons.PLAYER);
     public static final TrackCategory FORM = builtin("form", Icons.BLOCK);
     public static final TrackCategory POSE = builtin("pose", Icons.POSE);
-    public static final TrackCategory IK = builtin("ik", Icons.IK);
-    public static final TrackCategory PHYSICS = builtin("physics", Icons.PHYSICS);
 
     public final String id;
     public final Icon icon;

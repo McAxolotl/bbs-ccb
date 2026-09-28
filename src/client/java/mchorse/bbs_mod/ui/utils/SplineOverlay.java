@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.utils;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.spline.SplineCurve;
+import mchorse.bbs_mod.cubic.spline.SplineControl;
 import mchorse.bbs_mod.cubic.spline.SplineIK;
 import mchorse.bbs_mod.cubic.spline.SplinePoint;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -48,9 +49,10 @@ public class SplineOverlay
     /** Called in the ordinary GUI pass, after the viewport restores its projection. */
     public void draw(UIContext context, Matrix4f parentModelView, Matrix4f projection, Area viewport, SplineIK chain, String selectedPointId)
     {
+        SplineControl control = chain.state();
         Matrix4f matrix = new Matrix4f(projection).mul(parentModelView);
         List<Vector3f> positions = new ArrayList<>();
-        for (SplinePoint point : chain.points.getAllTyped()) positions.add(new Vector3f(point.position.get().translate));
+        for (SplinePoint point : chain.points.getAllTyped()) positions.add(new Vector3f(control.point(point.getId()).translate));
         if (positions.isEmpty()) return;
         int color = chain.enabled.get() ? 0xFF63D9E8 : 0xFF929AA6;
         context.batcher.clip(viewport, context);
@@ -63,7 +65,7 @@ public class SplineOverlay
         }
         for (SplinePoint point : chain.points.getAllTyped())
         {
-            Vector3f p = project(matrix, viewport, point.position.get().translate);
+            Vector3f p = project(matrix, viewport, control.point(point.getId()).translate);
             if (p == null || !viewport.isInside((int) p.x, (int) p.y)) continue;
             boolean selected = point.getId().equals(selectedPointId);
             float radius = selected ? 5 : 4;
