@@ -11,6 +11,7 @@ import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.camera.CameraUtils;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -34,6 +35,8 @@ import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.events.UIRemovedEvent;
+import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragEndEvent;
+import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragStartEvent;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.drag.TransformSpace;
@@ -41,6 +44,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.framework.elements.utils.UISplitter;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIUndoKeys;
 import mchorse.bbs_mod.ui.model_blocks.camera.ImmersiveModelBlockCameraController;
 import mchorse.bbs_mod.ui.model_blocks.camera.OrbitModelBlockCameraController;
 import mchorse.bbs_mod.ui.utils.Area;
@@ -60,6 +64,7 @@ import mchorse.bbs_mod.utils.PlayerUtils;
 import mchorse.bbs_mod.utils.RayTracing;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Transform;
+import mchorse.bbs_mod.utils.undo.UndoManager;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.GlUniform;
@@ -139,6 +144,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
     private final mchorse.bbs_mod.camera.Camera gizmoCamera = new mchorse.bbs_mod.camera.Camera();
     private final Matrix4f gizmoProjection = new Matrix4f();
 
+    private final UndoManager<UIModelBlockPanel> undoManager = new UndoManager<>(100);
+    private MapType transformBefore;
+
     private ModelBlockEntity modelBlock;
     private ModelBlockEntity hovered;
     private Vector3f mouseDirection = new Vector3f();
@@ -172,10 +180,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
                 Vec3d hit = blockHitResult.getPos();
                 BlockPos pos = this.modelBlock.getPos();
 
-                this.modelBlock.getProperties().getTransform().translate.set(hit.x - pos.getX() - 0.5F, hit.y - pos.getY(), hit.z - pos.getZ() - 0.5F);
+                this.change(null, () -> this.modelBlock.getProperties().getTransform().translate.set(hit.x - pos.getX() - 0.5F, hit.y - pos.getY(), hit.z - pos.getZ() - 0.5F));
                 this.fillData();
             }
-        }).active(() -> this.modelBlock != null);
+        }).active(() -> this.modelBlock != null && this.canOrbit());
 
         this.modelBlocks = new UIModelBlockEntityList((l) -> this.fill(l.get(0), false));
         this.modelBlocks.context((menu) ->
@@ -195,6 +203,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
 
         this.pickEdit = new UINestedEdit((editing) ->
         {
+            this.finishTransform();
+            ModelBlockEntity editedBlock = this.modelBlock;
+            MapType before = (MapType) editedBlock.getProperties().toData().copy();
             UIFormPalette palette = UIFormPalette.open(this, editing, this.modelBlock.getProperties().getForm(), (f) ->
             {
                 this.pickEdit.setForm(f);
@@ -223,6 +234,8 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
             });
             palette.getEvents().register(UIRemovedEvent.class, (e) ->
             {
+                this.recordChange(editedBlock, before, null);
+                this.fillData();
                 this.scrollView.setVisible(true);
                 this.draggable.setVisible(true);
             });
@@ -239,35 +252,40 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
         });
         this.pickEdit.keybinds();
 
-        this.enabled = new UIToggle(UIKeys.CAMERA_PANELS_ENABLED, (b) -> this.modelBlock.getProperties().setEnabled(b.getValue()));
-        this.shadow = new UIToggle(UIKeys.MODEL_BLOCKS_SHADOW, (b) -> this.modelBlock.getProperties().setShadow(b.getValue()));
+        this.enabled = new UIToggle(UIKeys.CAMERA_PANELS_ENABLED, (b) -> this.change(null, () -> this.modelBlock.getProperties().setEnabled(b.getValue())));
+        this.shadow = new UIToggle(UIKeys.MODEL_BLOCKS_SHADOW, (b) -> this.change(null, () -> this.modelBlock.getProperties().setShadow(b.getValue())));
         this.global = new UIToggle(UIKeys.MODEL_BLOCKS_GLOBAL, (b) ->
         {
-            this.modelBlock.getProperties().setGlobal(b.getValue());
+            this.change(null, () -> this.modelBlock.getProperties().setGlobal(b.getValue()));
             MinecraftClient.getInstance().worldRenderer.reload();
         });
-        this.lookAt = new UIToggle(UIKeys.CAMERA_PANELS_LOOK_AT, (b) -> this.modelBlock.getProperties().setLookAt(b.getValue()));
+        this.lookAt = new UIToggle(UIKeys.CAMERA_PANELS_LOOK_AT, (b) -> this.change(null, () -> this.modelBlock.getProperties().setLookAt(b.getValue())));
 
         this.transform = new UIPropTransform();
         this.transform.enableHotkeys();
+        this.transform.callbacks(
+            () -> this.transformBefore = (MapType) this.modelBlock.getProperties().toData().copy(),
+            () -> this.recordChange(this.modelBlock, this.transformBefore, "transform"),
+            this.undoManager::markLastUndoNoMerging
+        );
         this.transform.hotkeyDrag(this::buildGizmoDrag);
 
         /* Body: the block's physical side (hitbox, solidity, light, sound). */
         this.hitboxMode = new UICirculate((b) ->
         {
-            this.getBody().setHitboxMode(ModelBody.HitboxMode.values()[b.getValue()]);
+            this.change(null, () -> this.getBody().setHitboxMode(ModelBody.HitboxMode.values()[b.getValue()]));
             this.updateHitboxManualVisibility();
         });
         this.hitboxMode.addLabel(UIKeys.MODEL_BLOCKS_BODY_HITBOX_CUBE);
         this.hitboxMode.addLabel(UIKeys.MODEL_BLOCKS_BODY_HITBOX_FORM);
         this.hitboxMode.addLabel(UIKeys.MODEL_BLOCKS_BODY_HITBOX_MANUAL);
 
-        this.hitboxMinX = new UITrackpad((v) -> this.getBody().getHitboxMin().x = v.floatValue());
-        this.hitboxMinY = new UITrackpad((v) -> this.getBody().getHitboxMin().y = v.floatValue());
-        this.hitboxMinZ = new UITrackpad((v) -> this.getBody().getHitboxMin().z = v.floatValue());
-        this.hitboxMaxX = new UITrackpad((v) -> this.getBody().getHitboxMax().x = v.floatValue());
-        this.hitboxMaxY = new UITrackpad((v) -> this.getBody().getHitboxMax().y = v.floatValue());
-        this.hitboxMaxZ = new UITrackpad((v) -> this.getBody().getHitboxMax().z = v.floatValue());
+        this.hitboxMinX = new UITrackpad((v) -> this.change("hitboxMinx", () -> this.getBody().getHitboxMin().x = v.floatValue()));
+        this.hitboxMinY = new UITrackpad((v) -> this.change("hitboxMiny", () -> this.getBody().getHitboxMin().y = v.floatValue()));
+        this.hitboxMinZ = new UITrackpad((v) -> this.change("hitboxMinz", () -> this.getBody().getHitboxMin().z = v.floatValue()));
+        this.hitboxMaxX = new UITrackpad((v) -> this.change("hitboxMaxx", () -> this.getBody().getHitboxMax().x = v.floatValue()));
+        this.hitboxMaxY = new UITrackpad((v) -> this.change("hitboxMaxy", () -> this.getBody().getHitboxMax().y = v.floatValue()));
+        this.hitboxMaxZ = new UITrackpad((v) -> this.change("hitboxMaxz", () -> this.getBody().getHitboxMax().z = v.floatValue()));
 
         this.hitboxManual = UI.column(
             UI.label(UIKeys.MODEL_BLOCKS_BODY_HITBOX_MIN),
@@ -277,15 +295,15 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
         );
         this.hitboxManual.setVisible(false);
 
-        this.solid = new UIToggle(UIKeys.MODEL_BLOCKS_BODY_SOLID, (b) -> this.getBody().setSolid(b.getValue()));
-        this.cameraCollision = new UIToggle(UIKeys.MODEL_BLOCKS_BODY_CAMERA, (b) -> this.getBody().setCameraCollision(b.getValue()));
+        this.solid = new UIToggle(UIKeys.MODEL_BLOCKS_BODY_SOLID, (b) -> this.change(null, () -> this.getBody().setSolid(b.getValue())));
+        this.cameraCollision = new UIToggle(UIKeys.MODEL_BLOCKS_BODY_CAMERA, (b) -> this.change(null, () -> this.getBody().setCameraCollision(b.getValue())));
 
         /* The server steps break progress from its own copy of the body, so
          * hardness saves right away — otherwise it would still break instantly
          * until the panel saves. */
         this.hardness = new UITrackpad((v) ->
         {
-            this.getBody().setHardness(v.floatValue());
+            this.change("hardness", () -> this.getBody().setHardness(v.floatValue()));
             this.save(this.modelBlock);
         });
         this.hardness.limit(0).tooltip(UIKeys.MODEL_BLOCKS_BODY_HARDNESS_TOOLTIP);
@@ -295,14 +313,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
          * saves on switching blocks or closing. */
         this.lightLevel = new UITrackpad((v) ->
         {
-            this.getBody().setLightLevel(v.intValue());
+            this.change("light", () -> this.getBody().setLightLevel(v.intValue()));
             this.save(this.modelBlock);
         });
         this.lightLevel.limit(0, 15, true);
 
         this.sound = new UICirculate((b) ->
         {
-            this.getBody().setSound(ModelBlockSound.values()[b.getValue()]);
+            this.change(null, () -> this.getBody().setSound(ModelBlockSound.values()[b.getValue()]));
             this.save(this.modelBlock);
         });
         this.sound.addLabel(UIKeys.MODEL_BLOCKS_BODY_SOUND_STONE);
@@ -344,7 +362,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
         for (int i = 0; i < EQUIPMENT_SLOTS.length; i++)
         {
             EquipmentSlot slot = EQUIPMENT_SLOTS[i];
-            UIItemStack stackUI = new UIItemStack((stack) -> this.getEquipment().set(slot, stack));
+            UIItemStack stackUI = new UIItemStack((stack) -> this.change(null, () -> this.getEquipment().set(slot, stack)));
 
             stackUI.placeholder(slotIcons[i]).tooltip(slotTooltips[i]);
             this.equipmentSlots.put(slot, stackUI);
@@ -375,6 +393,13 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
         this.scrollView.relative(this).x(1F).anchorX(1F).w(this.draggable.getValue()).minW(120).h(1F);
         this.draggable.relative(this.scrollView).x(0F).y(0.5F).w(6).h(40).anchor(0.5F, 0.5F);
 
+        for (UITrackpad field : new UITrackpad[]{this.hitboxMinX, this.hitboxMinY, this.hitboxMinZ,
+            this.hitboxMaxX, this.hitboxMaxY, this.hitboxMaxZ, this.hardness, this.lightLevel})
+        {
+            field.getEvents().register(UITrackpadDragStartEvent.class, (e) -> this.undoManager.markLastUndoNoMerging());
+            field.getEvents().register(UITrackpadDragEndEvent.class, (e) -> this.undoManager.markLastUndoNoMerging());
+        }
+
         this.fill(null, false);
 
         this.keys().register(Keys.MODEL_BLOCKS_TELEPORT, this::teleport);
@@ -385,11 +410,76 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
         }).strict().active(() -> this.modelBlock != null);
 
         this.add(this.scrollView, this.draggable);
+        this.add(new UIUndoKeys(() -> this.walkHistory(false), () -> this.walkHistory(true)).full(this));
 
         this.onOpen(this::refreshBlocks);
         this.onAppear(this::enterEditing);
         this.onDisappear(this::leaveEditing);
         this.onClose(this::saveTouchedBlocks);
+    }
+
+    private void change(String key, Runnable change)
+    {
+        MapType before = (MapType) this.modelBlock.getProperties().toData().copy();
+
+        change.run();
+        this.recordChange(this.modelBlock, before, key);
+    }
+
+    private void recordChange(ModelBlockEntity block, MapType before, String key)
+    {
+        MapType after = block.getProperties().toData();
+
+        if (before != null && !before.equals(after))
+        {
+            this.undoManager.pushUndo(new ModelBlockEditUndo(block, before, after, key));
+            this.toSave.add(block);
+        }
+    }
+
+    private void finishTransform()
+    {
+        if (this.transform.isEditing())
+        {
+            this.transform.getGesture().accept();
+        }
+
+        this.gizmo.stop();
+        this.undoManager.markLastUndoNoMerging();
+    }
+
+    private void walkHistory(boolean redo)
+    {
+        if (!this.canOrbit())
+        {
+            return;
+        }
+
+        this.finishTransform();
+
+        if (redo ? this.undoManager.redo(this) : this.undoManager.undo(this))
+        {
+            this.undoManager.markLastUndoNoMerging();
+        }
+    }
+
+    void restoreBlock(ModelBlockEntity block, MapType data)
+    {
+        if (block.isRemoved() || block.getWorld() != MinecraftClient.getInstance().world)
+        {
+            return;
+        }
+
+        boolean global = block.getProperties().isGlobal();
+
+        block.getProperties().fromData((MapType) data.copy());
+        this.fill(block, true);
+        this.save(block);
+
+        if (global != block.getProperties().isGlobal())
+        {
+            MinecraftClient.getInstance().worldRenderer.reload();
+        }
     }
 
     private void refreshBlocks()
@@ -418,7 +508,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
     private void leaveEditing()
     {
         this.keyDude.removeFromParent();
-        this.gizmo.stop();
+        this.finishTransform();
 
         this.orbit.enabled = false;
         BBSModClient.getCameraController().remove(this.orbit);
@@ -726,6 +816,11 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
 
     public void fill(ModelBlockEntity modelBlock, boolean select)
     {
+        if (this.modelBlock != modelBlock)
+        {
+            this.finishTransform();
+        }
+
         if (modelBlock != null)
         {
             this.toSave.add(modelBlock);
