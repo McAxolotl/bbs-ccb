@@ -100,8 +100,7 @@ public class UISplinePointsEditor extends UIElement
         this.pointId = ids.isEmpty() ? ""
             : anchor != null && ids.contains(anchor) ? anchor : ids.get(ids.size() - 1);
         this.refreshPosition();
-        this.resize();
-        if (this.getParent() != null) this.getParent().resize();
+        this.invalidateLayout();
     }
     private void refreshPosition()
     {
@@ -120,7 +119,7 @@ public class UISplinePointsEditor extends UIElement
         this.points.setCurrent(new ArrayList<>(this.selected));
         this.points.h(Math.max(1, Math.min(6, ids.size())) * this.points.rowHeight());
         this.refreshPosition();
-        this.resize();
+        this.invalidateLayout();
     }
     private void edit(Consumer<ValueSplinePoints> edit)
     {
@@ -129,7 +128,6 @@ public class UISplinePointsEditor extends UIElement
         this.endEdit();
         BaseValue.edit(source.points(), IValueListener.FLAG_UNMERGEABLE, edit);
         this.refresh();
-        if (this.getParent() != null) this.getParent().resize();
     }
     private int index() { return this.points.getList().indexOf(this.pointId); }
     private void menu(ContextMenuManager menu)
