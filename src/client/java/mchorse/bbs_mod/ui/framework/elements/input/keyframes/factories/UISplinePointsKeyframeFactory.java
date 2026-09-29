@@ -1,5 +1,8 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
+import mchorse.bbs_mod.l10n.L10n;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
+import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.cubic.spline.*;
 import mchorse.bbs_mod.forms.forms.SplineForm;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
@@ -53,9 +56,34 @@ public class UISplinePointsKeyframeFactory extends UIKeyframeFactory<SplinePosit
                 return value.point(UISplinePointsKeyframeFactory.this.points.pointId());
             }
         };
-        this.points = new UISplinePointsEditor(() -> this.form, id -> this.resolved(this.getDisplayValue()).point(id), transform, Vector3f::new, false);
+        this.points = new UISplinePointsEditor(() -> this.form, id -> this.resolved(this.getDisplayValue()).point(id), transform, Vector3f::new)
+        {
+            @Override protected void editStructure(Consumer<ValueSplinePoints> edit)
+            {
+                editor.editForm(UISplinePointsKeyframeFactory.this.form, () -> edit.accept(UISplinePointsKeyframeFactory.this.form.points));
+            }
+            @Override protected void editPositions(Consumer<SplinePositions> edit)
+            {
+                UIReplaysEditorUtils.forEachSelectedKeyframe(editor, keyframe, selected ->
+                {
+                    SplinePositions value = UISplinePointsKeyframeFactory.this.resolved((SplinePositions) selected.getValue());
+                    selected.preNotify(IValueListener.FLAG_UNMERGEABLE);
+                    edit.accept(value);
+                    ((SplinePositions) selected.getValue()).putAll(value);
+                    selected.postNotify();
+                });
+            }
+        };
         transform.enableHotkeys(() -> this.points.point() != null, op -> op == TransformOp.TRANSLATE);
         this.scroll.add(this.points);
+        if (this.form != null)
+        {
+            var closed = new UIToggle(
+                L10n.lang("bbs.ui.spline.closed"),
+                button -> editor.editForm(this.form, () -> this.form.closed.set(button.getValue())));
+            closed.setValue(this.form.closed.get());
+            this.scroll.add(closed);
+        }
         this.points.refresh();
         if (this.form != null && !this.form.points.getAllTyped().isEmpty()) this.points.select(this.form.points.getAllTyped().get(0).getId());
     }

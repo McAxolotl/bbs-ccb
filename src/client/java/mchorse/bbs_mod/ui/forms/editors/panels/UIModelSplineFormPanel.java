@@ -3,7 +3,6 @@ package mchorse.bbs_mod.ui.forms.editors.panels;
 import mchorse.bbs_mod.cubic.spline.SplineSource;
 import mchorse.bbs_mod.ui.utils.SplineFormTool;
 import mchorse.bbs_mod.ui.utils.UISplinePointsEditor;
-
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.spline.ModelSplineRuntime;
@@ -131,7 +130,7 @@ public class UIModelSplineFormPanel extends UIBoneListFormPanel implements Splin
         this.advanced.fields.add(this.moveModel, UI.labelRow(key("twist"), this.twist), this.fit);
         this.pointEditor = new UISplinePointsEditor(this::chain,
             id -> this.chain().points.get(id).position.getOriginalValue(), this.position,
-            () -> this.initialPointPosition(this.chain()), true);
+            () -> this.initialPointPosition(this.chain()));
         this.points = this.pointEditor.points;
         this.fields = UI.column(UIConstants.MARGIN,
             UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_IK_CHAIN_LENGTH, this.chainLength), this.chainPreview, this.status,

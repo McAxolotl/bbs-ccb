@@ -33,7 +33,7 @@ public class UISplineFormPanel extends UIFormPanel<SplineForm> implements Spline
         transform.callbacks(() -> this.form.curve.preNotify(), () -> this.form.curve.postNotify(),
             () -> this.form.curve.preNotify(IValueListener.FLAG_UNMERGEABLE));
         transform.hotkeyDrag(() -> this.editor.editor == null ? null : this.editor.editor.buildHotkeyDrag(transform));
-        this.points = new UISplinePointsEditor(() -> this.form, id -> this.form.curve.getOriginalValue().point(id), transform, Vector3f::new, true);
+        this.points = new UISplinePointsEditor(() -> this.form, id -> this.form.curve.getOriginalValue().point(id), transform, Vector3f::new);
         transform.enableHotkeys(() -> this.editor.view == this && this.points.point() != null, op -> op == TransformOp.TRANSLATE);
         this.closed = new UIToggle(L10n.lang("bbs.ui.spline.closed"), b -> this.form.closed.set(b.getValue()));
         this.options.add(this.points, this.closed);

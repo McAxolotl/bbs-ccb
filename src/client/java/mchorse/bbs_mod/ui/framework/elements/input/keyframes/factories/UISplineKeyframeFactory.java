@@ -88,7 +88,17 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls> i
             }
         };
         this.pointEditor = new UISplinePointsEditor(this::source,
-            id -> this.control(this.getDisplayValue()).point(id), this.transform, Vector3f::new, false);
+            id -> this.control(this.getDisplayValue()).point(id), this.transform, Vector3f::new)
+        {
+            @Override protected void editStructure(Consumer<ValueSplinePoints> edit)
+            {
+                editor.editForm(UISplineKeyframeFactory.this.form, () -> edit.accept(UISplineKeyframeFactory.this.source().points()));
+            }
+            @Override protected void editPositions(Consumer<SplinePositions> edit)
+            {
+                UISplineKeyframeFactory.this.edit(control -> edit.accept(control.points));
+            }
+        };
         this.points = this.pointEditor.points;
         this.transform.noScale().setRotationVisible(false);
         this.transform.enableHotkeys(() -> !this.pointEditor.pointId().isEmpty(), op -> op == TransformOp.TRANSLATE);

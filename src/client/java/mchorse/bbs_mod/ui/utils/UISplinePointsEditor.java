@@ -21,7 +21,7 @@ import java.util.*;
 import java.util.function.*;
 import static mchorse.bbs_mod.ui.forms.editors.panels.UIModelSplineFormPanel.key;
 
-/** Selection, coordinates and structural actions, shared by paths and IK. Keys disable topology edits. */
+/** Shared topology and coordinate tools for forms and their keyframes. */
 public class UISplinePointsEditor extends UIElement
 {
     private static final String CLIPBOARD = "_CopySplinePoints";
@@ -30,18 +30,16 @@ public class UISplinePointsEditor extends UIElement
     private final Supplier<SplineSource> source;
     private final Function<String, Transform> read;
     private final Supplier<Vector3f> initial;
-    private final boolean structure;
     private final Set<String> selected = new LinkedHashSet<>();
     private String pointId = "";
 
     public UISplinePointsEditor(Supplier<SplineSource> source, Function<String, Transform> read,
-        UIPropTransform position, Supplier<Vector3f> initial, boolean structure)
+        UIPropTransform position, Supplier<Vector3f> initial)
     {
         this.source = source;
         this.read = read;
         this.position = position;
         this.initial = initial;
-        this.structure = structure;
         this.points = new UISplinePointList(this::selectPoints)
         {
             @Override public UIContextMenu createContextMenu(UIContext context)
@@ -53,16 +51,13 @@ public class UISplinePointsEditor extends UIElement
             @Override protected boolean onDelete(List<String> items) { return UISplinePointsEditor.this.removeSelected(); }
         };
         this.column(UIConstants.MARGIN).vertical().stretch();
-        if (structure)
-        {
-            UIElement header = UI.row(UIConstants.MARGIN, 0, UIConstants.CONTROL_HEIGHT,
-                UI.label(key("points"), UIConstants.CONTROL_HEIGHT).labelAnchor(0, 0.5F),
-                new UIIcon(Icons.ADD, b -> this.addPoint()).wh(20, 20).tooltip(UIKeys.GENERAL_ADD),
-                new UIIcon(Icons.REMOVE, b -> this.removeSelected()).wh(20, 20).tooltip(UIKeys.GENERAL_REMOVE));
-            header.context(this::menu);
-            this.points.context(this::menu);
-            this.add(header);
-        }
+        UIElement header = UI.row(UIConstants.MARGIN, 0, UIConstants.CONTROL_HEIGHT,
+            UI.label(key("points"), UIConstants.CONTROL_HEIGHT).labelAnchor(0, 0.5F),
+            new UIIcon(Icons.ADD, b -> this.addPoint()).wh(20, 20).tooltip(UIKeys.GENERAL_ADD));
+        header.add(new UIIcon(Icons.REMOVE, b -> this.removeSelected()).wh(20, 20).tooltip(UIKeys.GENERAL_REMOVE));
+        header.context(this::menu);
+        this.points.context(this::menu);
+        this.add(header);
         this.position.noScale().setRotationVisible(false);
         this.add(this.points, this.position);
     }
@@ -121,12 +116,25 @@ public class UISplinePointsEditor extends UIElement
         this.refreshPosition();
         this.invalidateLayout();
     }
+    protected void editStructure(Consumer<ValueSplinePoints> edit)
+    {
+        BaseValue.edit(this.source.get().points(), IValueListener.FLAG_UNMERGEABLE, edit);
+    }
+    protected void editPositions(Consumer<SplinePositions> edit)
+    {
+        this.editStructure(list ->
+        {
+            SplinePositions positions = new SplinePositions();
+            for (SplinePoint point : list.getAllTyped()) positions.put(point.getId(), point.position.getOriginalValue());
+            edit.accept(positions);
+        });
+    }
     private void edit(Consumer<ValueSplinePoints> edit)
     {
         SplineSource source = this.source.get();
-        if (!this.structure || source == null) return;
+        if (source == null) return;
         this.endEdit();
-        BaseValue.edit(source.points(), IValueListener.FLAG_UNMERGEABLE, edit);
+        this.editStructure(edit);
         this.refresh();
     }
     private int index() { return this.points.getList().indexOf(this.pointId); }
@@ -149,16 +157,16 @@ public class UISplinePointsEditor extends UIElement
         if (source == null) return;
         List<SplinePoint> points = source.points().getAllTyped();
         int i = Math.max(0, this.index() + 1);
-        Vector3f position = points.isEmpty() ? this.initial.get() : new Vector3f(points.get(Math.max(0, i - 1)).position.getOriginalValue().translate);
+        Vector3f position = points.isEmpty() ? this.initial.get() : new Vector3f(this.read.apply(points.get(Math.max(0, i - 1)).getId()).translate);
         if (position == null) return;
-        if (i < points.size()) position.lerp(points.get(i).position.getOriginalValue().translate, 0.5F);
-        else if (points.size() > 1) position.mul(2).sub(points.get(points.size() - 2).position.getOriginalValue().translate);
+        if (i < points.size()) position.lerp(this.read.apply(points.get(i).getId()).translate, 0.5F);
+        else if (points.size() > 1) position.mul(2).sub(this.read.apply(points.get(points.size() - 2).getId()).translate);
         this.insert(i - 1, position);
     }
     public void insert(int after, Vector3f position)
     {
         SplineSource source = this.source.get();
-        if (source == null || !this.structure || !position.isFinite() || after < -1 || after >= source.points().getAllTyped().size()) return;
+        if (source == null || !position.isFinite() || after < -1 || after >= source.points().getAllTyped().size()) return;
         SplinePoint point = new SplinePoint("");
         point.position.getOriginalValue().translate.set(position);
         this.edit(list -> list.add(after + 1, point));
@@ -166,7 +174,7 @@ public class UISplinePointsEditor extends UIElement
     }
     public boolean removeSelected()
     {
-        if (!this.structure || this.source.get() == null || this.selected.isEmpty()) return false;
+        if (this.source.get() == null || this.selected.isEmpty()) return false;
         Set<String> ids = this.selected();
         this.edit(list -> list.getAllTyped().removeIf(point -> ids.contains(point.getId())));
         return true;
@@ -179,7 +187,7 @@ public class UISplinePointsEditor extends UIElement
     private void copy()
     {
         ListType positions = new ListType();
-        for (SplinePoint point : this.source.get().points().getAllTyped()) positions.add(DataStorageUtils.vector3fToData(point.position.getOriginalValue().translate));
+        for (SplinePoint point : this.source.get().points().getAllTyped()) positions.add(DataStorageUtils.vector3fToData(this.read.apply(point.getId()).translate));
         MapType data = new MapType();
         data.put("points", positions);
         Window.setClipboard(data, CLIPBOARD);
@@ -200,21 +208,32 @@ public class UISplinePointsEditor extends UIElement
         this.edit(list ->
         {
             List<SplinePoint> points = list.getAllTyped();
-            while (points.size() < positions.size()) list.add(new SplinePoint(""));
+            while (points.size() < positions.size())
+            {
+                SplinePoint point = new SplinePoint("");
+                point.position.getOriginalValue().translate.set(positions.get(points.size()));
+                list.add(point);
+            }
             while (points.size() > positions.size()) points.remove(points.size() - 1);
-            for (int i = 0; i < positions.size(); i++) points.get(i).position.getOriginalValue().translate.set(positions.get(i));
+            this.editPositions(value ->
+            {
+                for (int i = 0; i < positions.size(); i++) value.point(points.get(i).getId()).translate.set(positions.get(i));
+            });
         });
     }
     private void distribute()
     {
-        this.edit(list ->
+        if (this.source.get() == null) return;
+        this.endEdit();
+        List<SplinePoint> points = this.source.get().points().getAllTyped();
+        this.editPositions(value ->
         {
-            List<SplinePoint> points = list.getAllTyped();
             if (points.size() < 3) return;
-            Vector3f a = new Vector3f(points.get(0).position.getOriginalValue().translate);
-            Vector3f b = new Vector3f(points.get(points.size() - 1).position.getOriginalValue().translate);
-            for (int i = 1; i < points.size() - 1; i++) points.get(i).position.getOriginalValue().translate.set(a).lerp(b, i / (float) (points.size() - 1));
+            Vector3f a = new Vector3f(value.point(points.get(0).getId()).translate);
+            Vector3f b = new Vector3f(value.point(points.get(points.size() - 1).getId()).translate);
+            for (int i = 1; i < points.size() - 1; i++) value.point(points.get(i).getId()).translate.set(a).lerp(b, i / (float) (points.size() - 1));
         });
+        this.refreshPosition();
     }
     @Override public void render(UIContext context)
     {

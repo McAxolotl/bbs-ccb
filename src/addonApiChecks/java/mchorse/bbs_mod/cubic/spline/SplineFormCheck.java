@@ -359,14 +359,13 @@ public final class SplineFormCheck
         SplineForm runtime = new SplineForm();
         runtime.copy(form);
         check(factory.selectedPoints(runtime).size() == 2, "Viewport selection resolves runtime form copy by stable path");
-        check(!factory.pointEditor().removeSelected(), "Key editor cannot change topology");
         int[] notifications = new int[2];
         form.preCallback((value, flag) -> notifications[0]++);
         form.postCallback((value, flag) -> notifications[1]++);
         UISplinePointsEditor points = new UISplinePointsEditor(() -> form, id -> form.position(id), new UIDeltaPropTransform()
         {
             @Override protected void applyToSelection(java.util.function.Consumer<Transform> edit) {}
-        }, Vector3f::new, true);
+        }, Vector3f::new);
         points.refresh();
         points.insert(0, new Vector3f(1, 2, 3));
         check(notifications[0] == 1 && notifications[1] == 1, "Insertion is one before/after history transaction");

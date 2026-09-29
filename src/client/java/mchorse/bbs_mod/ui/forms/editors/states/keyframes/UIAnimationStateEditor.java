@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors.states.keyframes;
 
+import mchorse.bbs_mod.ui.utils.SplineKeyframeEditor;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.data.types.MapType;
@@ -95,6 +96,13 @@ public class UIAnimationStateEditor extends UIElement
             }
         }
         this.splineOverlay.finish(context, renderer.area);
+        if (Window.isCtrlPressed() && !context.isFocused()
+            && this.keyframeEditor.editor instanceof SplineKeyframeEditor spline
+            && !spline.pointEditor().position.isEditing())
+        {
+            var insertion = this.splineOverlay.insertionAt(context.mouseX, context.mouseY);
+            if (insertion != null && spline.sameSource(insertion.chain())) this.splineOverlay.drawInsertionPreview(context, renderer.area);
+        }
         SplineEditorUtils.viewportHover(this.keyframeEditor, renderer.area.isInside(context)
             ? this.splineOverlay.pick(context.mouseX, context.mouseY) : null);
     }
@@ -102,6 +110,17 @@ public class UIAnimationStateEditor extends UIElement
     public boolean pickSplinePoint(UIContext context)
     {
         if (this.state == null || (context.mouseButton != 0 && context.mouseButton != 1) || !this.editor.renderer.area.isInside(context)) return false;
+        if (context.mouseButton == 0 && Window.isCtrlPressed() && !context.isFocused()
+            && this.keyframeEditor.editor instanceof SplineKeyframeEditor spline
+            && !spline.pointEditor().position.isEditing())
+        {
+            var insertion = this.splineOverlay.insertionAt(context.mouseX, context.mouseY);
+            if (insertion != null && spline.sameSource(insertion.chain()))
+            {
+                spline.pointEditor().insert(insertion.after(), insertion.position());
+                return true;
+            }
+        }
         var hit = this.splineOverlay.pick(context.mouseX, context.mouseY);
         if (hit == null) return false;
         String path = FormUtils.getPropertyPath(hit.point().position);

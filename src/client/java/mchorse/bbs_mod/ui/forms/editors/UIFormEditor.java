@@ -1,12 +1,11 @@
 package mchorse.bbs_mod.ui.forms.editors;
 
+import mchorse.bbs_mod.ui.utils.SplineKeyframeEditor;
 import mchorse.bbs_mod.cubic.spline.SplineIK;
 import mchorse.bbs_mod.forms.forms.SplineForm;
 import mchorse.bbs_mod.ui.forms.editors.forms.UISplineForm;
 import mchorse.bbs_mod.ui.utils.SplineFormTool;
-
 import mchorse.bbs_mod.api.client.editor.FormEditorTool;
-
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
@@ -575,6 +574,10 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
     @Override
     protected boolean subKeyPressed(UIContext context)
     {
+        if (!context.isFocused() && context.isPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE)
+            && this.renderer.area.isInside(context) && this.statesEditor.isVisible()
+            && this.statesKeyframes.keyframeEditor.editor instanceof SplineKeyframeEditor spline)
+            return spline.pointEditor().removeSelected();
         if (!context.isFocused() && context.getKeyAction() == mchorse.bbs_mod.ui.utils.keys.KeyAction.PRESSED
             && context.getKeyCode() == org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE
             && this.renderer.area.isInside(context) && !this.statesEditor.isVisible()
