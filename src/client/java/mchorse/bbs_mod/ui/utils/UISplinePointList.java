@@ -16,7 +16,6 @@ public class UISplinePointList extends UIStringList
     {
         super(callback);
         this.background().multi();
-        this.tooltip(mchorse.bbs_mod.l10n.L10n.lang("bbs.ui.forms.editors.model.spline.points_tooltip"));
     }
 
     public String hoveredPoint(UIContext context)
@@ -30,9 +29,6 @@ public class UISplinePointList extends UIStringList
     {
         return SplinePoint.displayName(index + 1);
     }
-
-    @Override
-    protected int rowColor(String id) { return 0x5599FF; }
 
     @Override
     public void renderListElement(UIContext context, String id, int index, int x, int y, boolean hover, boolean selected)
