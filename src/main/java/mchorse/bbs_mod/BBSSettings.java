@@ -728,7 +728,7 @@ public class BBSSettings {
 		interfaceGlow = builder.getBoolean("interface_glow", true);
 
 		builder.category("scrollbars", Icons.VERTICAL);
-		scrollbarWidth = builder.getInt("width", 4, 2, 10).slider();
+		scrollbarWidth = builder.getInt("width", 4, 1, 10).slider();
 		scrollingSensitivity = builder.getFloat("sensitivity", 3F, 0F, 10F).slider();
 		scrollingSensitivityHorizontal = builder.getFloat("sensitivity_horizontal", 3F, 0F, 10F).slider();
 		scrollingSmoothness = builder.getBoolean("smoothness", true);

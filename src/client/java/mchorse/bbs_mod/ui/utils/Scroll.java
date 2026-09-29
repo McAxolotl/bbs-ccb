@@ -20,7 +20,7 @@ import java.util.function.IntSupplier;
 public class Scroll
 {
     private static Area temporary = new Area();
-    private static final long SCROLLBAR_HOVER_DELAY = 500_000_000L;
+    private static final long SCROLLBAR_HOVER_DELAY = 180_000_000L;
 
     /**
      * Size of an element/item in the scroll area
@@ -76,6 +76,7 @@ public class Scroll
     private BooleanSupplier smoothScrolling;
     private IntSupplier wheelScrollStep;
     private long scrollbarHoverStarted = -1L;
+    private long scrollbarLastHoverUpdate;
     private boolean scrollbarExpanded;
 
     public static final int HANDLE_COLOR = 0xff4d525a;
@@ -214,35 +215,46 @@ public class Scroll
         int width = this.getScrollbarWidth();
         int available = this.direction == ScrollDirection.VERTICAL ? this.area.w : this.area.h;
 
-        return Math.min(available, this.scrollbarExpanded ? width * 2 : width);
+        return Math.min(available, this.dragging || this.scrollbarExpanded ? Math.max(width, 10) : width);
     }
 
     private void updateScrollbarHover(int x, int y)
     {
-        if (this.scrollbar && this.hasScrollbar())
+        long now = System.nanoTime();
+        long elapsed = now - this.scrollbarLastHoverUpdate;
+
+        /* A panel which was not updated recently must not retain an old hover timer. */
+        if (elapsed > 250_000_000L)
         {
-            if (this.dragging && this.scrollbarExpanded)
-            {
-                return;
-            }
-
-            if (this.getScrollbarArea().isInside(x, y))
-            {
-                long now = System.nanoTime();
-
-                if (this.scrollbarHoverStarted == -1L)
-                {
-                    this.scrollbarHoverStarted = now;
-                }
-
-                this.scrollbarExpanded = now - this.scrollbarHoverStarted >= SCROLLBAR_HOVER_DELAY;
-
-                return;
-            }
+            this.scrollbarHoverStarted = -1L;
+            this.scrollbarExpanded = false;
         }
 
-        this.scrollbarHoverStarted = -1L;
-        this.scrollbarExpanded = false;
+        this.scrollbarLastHoverUpdate = now;
+
+        if (!this.scrollbar || !this.hasScrollbar())
+        {
+            this.scrollbarHoverStarted = -1L;
+            this.scrollbarExpanded = false;
+
+            return;
+        }
+
+        Area track = this.getScrollArea();
+        boolean hover = x >= track.x - 3 && x < track.ex() + 3
+            && y >= track.y - 3 && y < track.ey() + 3;
+
+        if (!hover)
+        {
+            this.scrollbarHoverStarted = -1L;
+        }
+        else if (this.scrollbarHoverStarted == -1L)
+        {
+            this.scrollbarHoverStarted = now;
+        }
+
+        this.scrollbarExpanded = this.dragging
+            || hover && now - this.scrollbarHoverStarted >= SCROLLBAR_HOVER_DELAY;
     }
 
     public void setSize(int items)
