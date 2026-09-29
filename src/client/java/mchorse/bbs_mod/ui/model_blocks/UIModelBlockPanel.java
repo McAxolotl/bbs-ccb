@@ -367,7 +367,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements GizmoViewport
 
         this.editor = UI.column(this.pickEdit, this.enabled, this.shadow, this.global, this.lookAt, this.transform);
 
-        this.scrollView = UI.scrollView(UIConstants.MARGIN, UIConstants.SCROLL_PADDING, this.modelBlocksSearch, this.editor, this.bodySection, this.equipmentSection);
+        this.scrollView = UI.scrollView(UIConstants.MARGIN, UIConstants.SCROLL_PADDING, new UIModelBlockDimensionBar(), this.modelBlocksSearch, this.editor, this.bodySection, this.equipmentSection);
         this.scrollView.scroll.cancelScrolling();
 
         /* The sidebar resizes like the form editor's options column: a draggable
