@@ -93,11 +93,16 @@ public class KeyframeSegment <T>
 
     public T createInterpolated()
     {
+        return this.createInterpolated(null);
+    }
+
+    public T createInterpolated(T defaults)
+    {
         IKeyframeFactory<T> factory = this.a.getFactory();
 
         if (this.isSame())
         {
-            return factory.copy(this.a.getValue());
+            return factory.copy(defaults == null ? this.a.getValue() : factory.withDefaults(this.a.getValue(), defaults));
         }
 
         double duration = IInterp.context.duration;
@@ -107,12 +112,18 @@ public class KeyframeSegment <T>
 
         try
         {
-            return factory.copy(factory.interpolate(this.preA, this.a, this.b, this.postB, this.a.getInterpolation(), this.getInterpolationProgress()));
+            return factory.copy(factory.interpolate(this.resolved(this.preA, defaults), this.resolved(this.a, defaults),
+                this.resolved(this.b, defaults), this.resolved(this.postB, defaults), this.a.getInterpolation(), this.getInterpolationProgress()));
         }
         finally
         {
             IInterp.context.segment(duration, startTick);
         }
+    }
+
+    private Keyframe<T> resolved(Keyframe<T> key, T defaults)
+    {
+        return defaults == null ? key : new Keyframe<>(key.getId(), key.getFactory(), key.getTick(), key.getFactory().withDefaults(key.getValue(), defaults));
     }
 
     public float getInterpolationProgress()

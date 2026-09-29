@@ -27,10 +27,10 @@ public class VideoForm extends BillboardForm
 
         /* The quad's own texture is dead here — the renderer takes the frame from
          * the decoder instead, so it must not offer a track that does nothing. */
-        this.texture.invisible();
+        this.texture.animatable(false).invisible();
 
         /* Looping is an authoring switch, like the render layer. */
-        this.loop.invisible();
+        this.loop.animatable(false).invisible();
 
         this.add(this.video);
         this.add(this.loop);

@@ -65,6 +65,39 @@ public class TargetTrack implements TrackBehaviour
             return;
         }
 
+        applyAnchor(context, anchor, track.subject(), this.positions(modelForm), this.weights(modelForm));
+    }
+
+    public static void applyAnchor(TrackContext context, Anchor anchor, String subject,
+        Map<String, Vector3f> positions, Map<String, Float> weights)
+    {
+        ResolvedTarget target = resolve(context, anchor);
+        if (target == null) return;
+        positions.computeIfAbsent(subject, (k) -> new Vector3f()).set(target.position());
+        weights.put(subject, target.weight());
+    }
+
+    private record ResolvedTarget(Vector3f position, float weight) {}
+
+    private static ResolvedTarget resolve(TrackContext context, Anchor anchor)
+    {
+        AnchorResolver anchors = context.anchors();
+        if (anchors == null) return null;
+        if (anchor.blendSource != null)
+        {
+            ResolvedTarget from = resolve(context, anchor.blendSource);
+            Anchor destination = KeyframeFactories.ANCHOR.copy(anchor);
+            destination.blendSource = null;
+            ResolvedTarget to = resolve(context, destination);
+            float a = from == null ? 0F : from.weight() * (1F - anchor.blendWeight);
+            float b = to == null ? 0F : to.weight() * anchor.blendWeight;
+            float weight = a + b;
+            if (weight <= 0F) return null;
+            Vector3f position = new Vector3f();
+            if (from != null) position.fma(a / weight, from.position());
+            if (to != null) position.fma(b / weight, to.position());
+            return new ResolvedTarget(position, weight);
+        }
         Anchor bound;
         float weight;
 
@@ -84,20 +117,19 @@ public class TargetTrack implements TrackBehaviour
             weight = 1F;
         }
 
-        if (weight <= 0F || bound.replay == Anchor.NO_ATTACHMENT)
+        if (weight <= 0F || !bound.hasTarget())
         {
-            return;
+            return null;
         }
 
         Vector3f position = anchors.resolve(bound, context.transition());
 
         if (position == null)
         {
-            return;
+            return null;
         }
 
-        this.positions(modelForm).computeIfAbsent(track.subject(), (k) -> new Vector3f()).set(position);
-        this.weights(modelForm).put(track.subject(), weight);
+        return new ResolvedTarget(position, weight);
     }
 
     @Override

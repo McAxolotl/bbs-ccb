@@ -3,11 +3,55 @@ package mchorse.bbs_mod.settings.values.base;
 import mchorse.bbs_mod.settings.values.IValueListener;
 
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public abstract class BaseValueBasic <T> extends BaseValue
 {
     protected T value;
     protected T runtimeValue;
+
+    private BaseValueBasic<?> storageOwner;
+    private Supplier<T> stored;
+    private Supplier<T> evaluated;
+    private Consumer<T> writeStored;
+
+    /** A field editor/API view into a compound value, with no second authored payload. */
+    public void bind(BaseValueBasic<?> owner, Supplier<T> stored, Supplier<T> evaluated, Consumer<T> write)
+    {
+        this.storageOwner = owner;
+        this.stored = stored;
+        this.evaluated = evaluated;
+        this.writeStored = write;
+        this.value = null;
+    }
+
+    public boolean isBound() { return this.storageOwner != null; }
+
+    public BaseValueBasic<?> animationProperty()
+    {
+        return this.storageOwner == null ? this : this.storageOwner.animationProperty();
+    }
+
+    protected void setOriginalValue(T value)
+    {
+        if (this.writeStored == null) this.value = value;
+        else this.writeStored.accept(value);
+    }
+
+    @Override
+    public void preNotify(int flag)
+    {
+        if (this.storageOwner == null) super.preNotify(flag);
+        else this.storageOwner.preNotify(flag);
+    }
+
+    @Override
+    public void postNotify(int flag)
+    {
+        if (this.storageOwner == null) super.postNotify(flag);
+        else this.storageOwner.postNotify(flag);
+    }
 
     /**
      * What the constructor declared, kept aside so {@link #reset()} has
@@ -73,7 +117,7 @@ public abstract class BaseValueBasic <T> extends BaseValue
     @Override
     public boolean isDefault()
     {
-        return this.compareValue(this.value, this.defaultValue);
+        return this.compareValue(this.getOriginalValue(), this.defaultValue);
     }
 
     public T get()
@@ -83,12 +127,12 @@ public abstract class BaseValueBasic <T> extends BaseValue
             return this.runtimeValue;
         }
 
-        return this.value;
+        return this.evaluated == null ? this.value : this.evaluated.get();
     }
 
     public T getOriginalValue()
     {
-        return this.value;
+        return this.stored == null ? this.value : this.stored.get();
     }
 
     public T getRuntimeValue()
@@ -104,7 +148,7 @@ public abstract class BaseValueBasic <T> extends BaseValue
     public void set(T value, int flag)
     {
         this.preNotify(flag);
-        this.value = value;
+        this.setOriginalValue(value);
         this.postNotify(flag);
     }
 
@@ -125,7 +169,7 @@ public abstract class BaseValueBasic <T> extends BaseValue
         {
             BaseValueBasic baseValue = (BaseValueBasic) obj;
 
-            return Objects.equals(this.value, baseValue.value);
+            return Objects.equals(this.getOriginalValue(), baseValue.getOriginalValue());
         }
 
         return false;

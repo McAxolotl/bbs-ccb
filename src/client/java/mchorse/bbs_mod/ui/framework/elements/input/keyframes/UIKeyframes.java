@@ -1,5 +1,8 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes;
 
+import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.forms.forms.Form;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,6 +55,12 @@ import mchorse.bbs_mod.utils.presets.PresetManager;
 
 public class UIKeyframes extends UITimelineCanvas
 {
+    /** Edit shared authored form data from a keyframe panel, through its owning editor. */
+    public void editForm(Form form, Runnable edit)
+    {
+        BaseValue.edit(form, IValueListener.FLAG_UNMERGEABLE, value -> edit.run());
+    }
+
     /* Editing states */
 
     private int dragging = -1;

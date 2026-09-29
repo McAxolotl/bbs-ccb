@@ -16,6 +16,7 @@ import mchorse.bbs_mod.camera.clips.ClipFactoryData;
 import mchorse.bbs_mod.camera.clips.misc.AudioClientClip;
 import mchorse.bbs_mod.camera.clips.misc.CurveClientClip;
 import mchorse.bbs_mod.camera.clips.misc.TrackerClientClip;
+import mchorse.bbs_mod.camera.clips.misc.SplineClientClip;
 import mchorse.bbs_mod.camera.clips.misc.VideoClientClip;
 import mchorse.bbs_mod.fonts.FontManager;
 import mchorse.bbs_mod.video.VideoManager;
@@ -656,6 +657,7 @@ public class BBSModClient implements ClientModInitializer
             .register(Link.bbs("audio"), AudioClientClip.class, new ClipFactoryData(Icons.SOUND, 0xffc825))
             .register(Link.bbs("video"), VideoClientClip.class, new ClipFactoryData(Icons.VIDEO_CAMERA, 0xd21f3c))
             .register(Link.bbs("tracker"), TrackerClientClip.class, new ClipFactoryData(Icons.USER, 0x4cedfc))
+            .register(Link.bbs("spline"), SplineClientClip.class, new ClipFactoryData(Icons.GRAPH, 0x5599ff))
             .register(Link.bbs("curve"), CurveClientClip.class, new ClipFactoryData(Icons.ARC, 0xff1493));
 
         /* The client-side registries, each followed by the event that lets addons add to it.

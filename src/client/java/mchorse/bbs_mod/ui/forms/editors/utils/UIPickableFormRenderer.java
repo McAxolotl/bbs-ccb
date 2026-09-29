@@ -211,7 +211,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoViewp
              * the F8 axes toggle is untouched here on purpose. */
             if (!UIBaseMenu.isHideGizmoHeld())
             {
-                Gizmo.INSTANCE.renderStencil(context.batcher.getContext().getMatrices());
+                Gizmo.INSTANCE.renderStencil(context.batcher.getContext().getMatrices(), this.formEditor.getGizmoHandleMask());
             }
 
             stack.pop();
@@ -256,7 +256,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoViewp
         if (UIBaseMenu.shouldRenderAxes())
         {
             RenderSystem.disableDepthTest();
-            Gizmo.INSTANCE.render(stack);
+            Gizmo.INSTANCE.render(stack, this.formEditor.getGizmoHandleMask());
             RenderSystem.enableDepthTest();
         }
 
@@ -292,6 +292,8 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoViewp
     public void render(UIContext context)
     {
         super.render(context);
+
+        this.formEditor.renderSplineOverlay(context);
 
         this.gizmo.renderSphereHighlight(context);
         this.gizmo.renderReadout(context);

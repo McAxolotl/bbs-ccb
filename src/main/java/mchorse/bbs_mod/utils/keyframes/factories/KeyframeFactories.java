@@ -14,6 +14,8 @@ public class KeyframeFactories
     public static final IKKeyframeFactory IK = new IKKeyframeFactory();
     public static final PhysicsKeyframeFactory PHYSICS = new PhysicsKeyframeFactory();
     public static final WindKeyframeFactory WIND = new WindKeyframeFactory();
+    public static final SplinePointsKeyframeFactory SPLINE_POINTS = new SplinePointsKeyframeFactory();
+    public static final SplineKeyframeFactory SPLINE = new SplineKeyframeFactory();
     public static final BooleanKeyframeFactory BOOLEAN = new BooleanKeyframeFactory();
     public static final StringKeyframeFactory STRING = new StringKeyframeFactory();
     public static final FloatKeyframeFactory FLOAT = new FloatKeyframeFactory();
@@ -54,6 +56,8 @@ public class KeyframeFactories
         FACTORIES.put("ik", IK);
         FACTORIES.put("physics", PHYSICS);
         FACTORIES.put("wind", WIND);
+        FACTORIES.put("spline_ik", SPLINE);
+        FACTORIES.put("spline_points", SPLINE_POINTS);
         FACTORIES.put("boolean", BOOLEAN);
         FACTORIES.put("string", STRING);
         FACTORIES.put("float", FLOAT);

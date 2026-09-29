@@ -11,6 +11,7 @@ import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.FormBone;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
@@ -40,6 +41,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import mchorse.bbs_mod.ui.utils.UIIKControlFields;
 
 public class UIModelIKFormPanel extends UIBoneListFormPanel
 {
@@ -108,7 +110,8 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
             UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_PASTE,
             UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_RESET,
             UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_SAVE,
-            UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_NAME
+            UIKeys.FORMS_EDITORS_MODEL_IK_CONTEXT_NAME,
+            this::toPresetData, this::applyPresetData
         );
 
         this.debug = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_IK_DEBUG, (b) -> BBSSettings.ikDebug.enabled.set(b.getValue()));
@@ -117,7 +120,17 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
 
         this.enabled = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_IK_ENABLED, (b) ->
         {
-            this.editControl((c) -> c.enabled = b.getValue());
+            if (b.getValue()) this.editControl(c -> c.enabled = true);
+            else
+            {
+                FormBone bone = this.selectedFormBone();
+                if (bone == null) return;
+                FormBone cleared = new FormBone(bone.getId());
+                cleared.fromData(bone.toData());
+                BoneIKIO.clearChain(cleared);
+                cleared.ik.getOriginalValue().enabled = false;
+                bone.copy(cleared, IValueListener.FLAG_UNMERGEABLE);
+            }
             this.updateFields();
         });
         this.enabled.h(UIConstants.CONTROL_HEIGHT);
@@ -203,17 +216,10 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
         this.poleTarget.tooltip(UIKeys.FORMS_EDITORS_MODEL_IK_POLE_TARGET);
         this.resetBone(this.poleTarget, (bone) -> bone.ikPoleTarget);
 
-        this.poleAngle = new UISliderTrackpad((v) -> this.editControl((c) -> c.poleAngle = v.floatValue()));
-        this.poleAngle.angle180();
-        this.poleAngle.tooltip(UIKeys.FORMS_EDITORS_MODEL_IK_POLE_ANGLE);
-
-        this.softness = new UISliderTrackpad((v) -> this.editControl((c) -> c.softness = v.floatValue()));
-        this.softness.normalized();
-        this.softness.tooltip(UIKeys.FORMS_EDITORS_MODEL_IK_SOFTNESS);
-
-        this.weight = new UISliderTrackpad((v) -> this.editControl((c) -> c.weight = v.floatValue()));
-        this.weight.normalized();
-        this.weight.tooltip(UIKeys.FORMS_EDITORS_MODEL_IK_WEIGHT);
+        var controls = new UIIKControlFields(this::editControl);
+        this.poleAngle = controls.poleAngle;
+        this.softness = controls.softness;
+        this.weight = controls.weight;
 
         this.tipRotation = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_IK_TIP_ROTATION, (b) -> this.editBone((bone) -> bone.ikTipRotation.set(b.getValue())));
         this.stretch = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_IK_STRETCH, (b) -> this.editBone((bone) -> bone.ikStretch.set(b.getValue())));
@@ -468,7 +474,6 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
     /* Value access: the panel holds no data of its own — every read and write
      * goes to the form's bone properties, and undo picks the writes up itself. */
 
-    /** The selected bone's properties, or null when it was never touched. */
     private IKControl currentControl()
     {
         FormBone bone = this.selectedFormBone();
@@ -495,10 +500,10 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
     {
         this.editBone((bone) ->
         {
-            IKControl control = bone.ik.get().copy();
+            IKControl control = this.form.ik.getOriginalValue().get(bone.getId()).copy();
 
             edit.accept(control);
-            bone.ik.set(control);
+            BaseValue.edit(this.form.ik, value -> value.getOriginalValue().controls.put(bone.getId(), control));
         });
     }
 
@@ -635,7 +640,7 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
 
         String targetLabel = formBone == null ? "" : formBone.ikTarget.get();
         boolean hasChain = formBone != null && formBone.hasChain();
-        boolean active = formBone != null && control.enabled;
+        boolean active = formBone != null && formBone.ik.getOriginalValue().enabled;
         boolean poleOn = formBone != null && control.pole;
         boolean canEdit = !this.selectedBone.isEmpty() && this.bones.isEnabled() && active;
         int chainLength = formBone == null ? 0 : formBone.ikChainLength.get();
@@ -810,13 +815,11 @@ public class UIModelIKFormPanel extends UIBoneListFormPanel
         return ModelIKRuntime.isCyclicTarget(this.modelInstance.model, this.selectedBone, chainLength, bone);
     }
 
-    @Override
     protected MapType toPresetData()
     {
         return this.form == null ? new MapType() : BoneIKIO.write(this.form.bones);
     }
 
-    @Override
     protected void applyPresetData(MapType map)
     {
         if (this.form == null)

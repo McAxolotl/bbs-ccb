@@ -139,7 +139,8 @@ public class FilmStencilPicker
         }
         else if (context.mouseButton == 0)
         {
-            Pair<Form, String> pair = this.stencil.getPicked();
+            Form spline = this.controller.pickSplineForm(context);
+            Pair<Form, String> pair = spline == null ? this.stencil.getPicked() : new Pair<>(spline, "");
 
             if (pair != null && pair.a != null)
             {
@@ -258,7 +259,6 @@ public class FilmStencilPicker
             context.batcher.textCard(label, context.mouseX + 12, context.mouseY + 8);
         }
     }
-
 
     private void renderStencil(WorldRenderContext renderContext, UIContext context, boolean altPressed)
     {

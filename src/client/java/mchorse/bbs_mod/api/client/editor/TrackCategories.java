@@ -17,7 +17,7 @@ public final class TrackCategories
 {
     private record Entry(TrackCategory category, BiPredicate<TrackId, Boolean> matches) {}
     private static final List<TrackCategory> categories = new ArrayList<>(List.of(
-        TrackCategory.REPLAY, TrackCategory.FORM, TrackCategory.POSE, TrackCategory.IK, TrackCategory.PHYSICS));
+        TrackCategory.REPLAY, TrackCategory.FORM, TrackCategory.POSE));
     private static final List<Entry> addons = new ArrayList<>();
     private static final List<KeyCombo> shortcuts = new ArrayList<>();
     private static boolean frozen;
@@ -52,13 +52,16 @@ public final class TrackCategories
 
         if (kind != null)
         {
+            if (kind == TrackKind.PROPERTY && (track.subject().startsWith("splines/")
+                || Set.of("ik", "physics", "spline_ik", "wind").contains(track.subject())))
+            {
+                return TrackCategory.POSE;
+            }
+
             switch (kind)
             {
-                case IK_CONTROLS, IK_TARGET, POLE_TARGET:
-                    return TrackCategory.IK;
-                case PHYSICS_CONTROLS, PHYSICS_TARGET, WIND_CONTROLS:
-                    return TrackCategory.PHYSICS;
-                case BONE, BONE_CONSTRAINT:
+                case IK_CONTROLS, IK_TARGET, POLE_TARGET, PHYSICS_CONTROLS, PHYSICS_TARGET,
+                    WIND_CONTROLS, BONE, BONE_CONSTRAINT:
                     return TrackCategory.POSE;
                 case MATERIAL_TEXTURE, MATERIAL_PROP:
                     return TrackCategory.FORM;

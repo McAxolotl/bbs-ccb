@@ -4,11 +4,6 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.AnchorRebase;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.FormUtils;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
-import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.utils.StringUtils;
-import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
@@ -19,8 +14,6 @@ import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.controller.ReplayContextAction;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIconToggles;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -28,6 +21,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.bones.UIBonePickerContextMenu;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.pose.Transform;
@@ -39,10 +33,7 @@ import java.util.function.Consumer;
 
 public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
 {
-    private UIButton actor;
-    private UIButton attachment;
     private UIToggle keepTransform;
-    private UIIconToggles inherit;
     public UIPropTransform transform;
 
     /**
@@ -112,75 +103,15 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
     {
         super(keyframe, editor);
 
-        this.actor = new UIButton(UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ACTOR, (b) -> this.displayActors());
-        this.attachment = new UIButton(UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ATTACHMENT, (b) ->
-        {
-            this.getPanel().getController().picker.cancelTargetPick();
-            displayAttachments(this.getPanel(), this.keyframe.getValue().replay, this.keyframe.getValue().attachment, this::setAttachment);
-        });
-        /* Which components of the target's frame the form rides, as one strip: the same three icons
-         * the gizmo and the body part editor use for the same three ideas. The anchor's flags are
-         * plain fields rather than values, so the cells are bound by getter and setter. */
         this.keepTransform = new UIToggle(UIKeys.GENERIC_KEYFRAMES_ANCHOR_KEEP_TRANSFORM, BBSSettings.anchorKeepTransform.get(), (b) -> BBSSettings.anchorKeepTransform.set(b.getValue()));
         this.keepTransform.tooltip(UIKeys.GENERIC_KEYFRAMES_ANCHOR_KEEP_TRANSFORM_TOOLTIP);
-        this.inherit = new UIIconToggles(null)
-            .add(Icons.ALL_DIRECTIONS, UIKeys.INHERIT_POSITION, () -> this.keyframe.getValue().inheritPosition, (v) -> this.retarget((anchor) -> anchor.inheritPosition = v))
-            .add(Icons.ORBIT, UIKeys.INHERIT_ROTATION, () -> this.keyframe.getValue().inheritRotation, (v) -> this.retarget((anchor) -> anchor.inheritRotation = v))
-            .add(Icons.SCALE, UIKeys.INHERIT_SCALE, () -> this.keyframe.getValue().inheritScale, (v) -> this.retarget((anchor) -> anchor.inheritScale = v));
         this.transform = new UIAnchorTransforms(this);
         this.transform.enableHotkeys();
         this.transform.setTransform(keyframe.getValue().transform);
 
-        UIIcon pickActor = new UIIcon(Icons.EYEDROPPER, (b) -> this.pickTarget(b, false));
-        UIIcon pickAttachment = new UIIcon(Icons.EYEDROPPER, (b) -> this.pickTarget(b, true));
-
-        pickActor.wh(16, 16);
-        pickAttachment.wh(16, 16);
-        pickActor.highlight(() -> this.getPanel() != null && this.getPanel().getController().picker.isPickingTarget(pickActor), Direction.BOTTOM);
-        pickAttachment.highlight(() -> this.getPanel() != null && this.getPanel().getController().picker.isPickingTarget(pickAttachment), Direction.BOTTOM);
-        pickActor.tooltip(UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ACTOR);
-        pickAttachment.tooltip(UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ATTACHMENT);
-        this.scroll.add(UI.row(this.actor, pickActor), UI.row(this.attachment, pickAttachment), this.keepTransform, this.inherit.labelRow(UIKeys.INHERIT_TITLE), this.transform);
-    }
-
-    private void pickTarget(UIIcon owner, boolean bone)
-    {
-        UIFilmPanel panel = this.getPanel();
-        Replay replay = panel == null ? null : panel.replayEditor.getReplay();
-
-        if (replay == null)
-        {
-            return;
-        }
-
-        panel.getController().picker.toggleTargetPick(owner, replay.getId(), (actor, pair) ->
-        {
-            String attachment = bone ? StringUtils.combinePaths(FormUtils.getPath(pair.a), pair.b) : Anchor.NO_ATTACHMENT;
-
-            this.retarget((anchor) ->
-            {
-                anchor.replay = actor;
-                anchor.attachment = attachment;
-            });
-        });
-    }
-
-    private void displayActors()
-    {
-        UIFilmPanel panel = this.getPanel();
-
-        panel.getController().picker.cancelTargetPick();
-        displayActors(this.getContext(), panel.getController().getEntities(), this.keyframe.getValue().replay, this::setActor);
-    }
-
-    private void setActor(String actor)
-    {
-        this.retarget((anchor) -> anchor.replay = actor);
-    }
-
-    private void setAttachment(String attachment)
-    {
-        this.retarget((anchor) -> anchor.attachment = attachment);
+        this.scroll.add(new UIAnchorBinding(
+            () -> this.keyframe.getValue(), this::retarget, change -> UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe,
+                selected -> BaseValue.edit(selected, value -> change.accept((Anchor) value.getValue()))), this.transform, this.keepTransform));
     }
 
     /**

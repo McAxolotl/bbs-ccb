@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms;
 
 import com.mojang.logging.LogUtils;
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.cubic.spline.ValueSplineIKs;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
@@ -13,6 +14,7 @@ import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.states.AnimationState;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
+import mchorse.bbs_mod.settings.values.base.BaseValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
@@ -26,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import mchorse.bbs_mod.settings.values.base.BaseKeyframeFactoryValue;
 
 public class FormUtils
 {
@@ -190,9 +193,16 @@ public class FormUtils
 
     public static Form getForm(BaseValue property)
     {
-        if (property.getParent() instanceof Form form)
+        BaseValue parent = property.getParent();
+
+        while (parent != null)
         {
-            return form;
+            if (parent instanceof Form form)
+            {
+                return form;
+            }
+
+            parent = parent.getParent();
         }
 
         return null;
@@ -253,13 +263,20 @@ public class FormUtils
 
     /* Form properties utils */
 
-    /** The property address: its owner form path with the property id as the last segment. */
+    /** The property address: its owner form path followed by the property's nested value path. */
     public static String getPropertyPath(BaseValue property)
     {
         List<String> path = new ArrayList<>();
 
-        path.add(property.getId());
-        appendPartPath(getForm(property), path);
+        BaseValue value = property;
+
+        while (value != null && !(value instanceof Form))
+        {
+            path.add(value.getId());
+            value = value.getParent();
+        }
+
+        appendPartPath(value instanceof Form form ? form : null, path);
         Collections.reverse(path);
 
         return String.join(PATH_SEPARATOR, path);
@@ -310,7 +327,7 @@ public class FormUtils
 
         for (BaseValue property : form.getAll())
         {
-            if (property.isVisible())
+            if (property instanceof BaseKeyframeFactoryValue<?> animated && animated.isAnimatable())
             {
                 properties.add(StringUtils.combinePaths(prefix, property.getId()));
             }
@@ -326,7 +343,7 @@ public class FormUtils
 
     /**
      * Resolve a property path — the stable ids of the body parts leading to the owning form,
-     * followed by the property's id. A segment that is neither a property nor a part of the
+     * followed by the property's nested value path. A segment that is neither a property nor a part of the
      * current form ends the walk: the path is orphaned (its part was removed or the channel was
      * authored against another form) and resolves to nothing.
      */
@@ -337,26 +354,35 @@ public class FormUtils
             return null;
         }
 
+        BaseValue value = form;
+
         for (String segment : splitPath(path))
         {
-            BaseValueBasic property = form.getBasic(segment);
-
-            if (property != null)
+            if (value instanceof Form owner)
             {
-                return property;
+                BaseValue child = owner.get(segment);
+
+                if (child != null)
+                {
+                    value = child;
+                    continue;
+                }
+
+                BodyPart part = owner.parts.get(segment) instanceof BodyPart bodyPart ? bodyPart : null;
+
+                value = part == null ? null : part.getForm();
             }
-
-            BodyPart part = form.parts.get(segment) instanceof BodyPart bodyPart ? bodyPart : null;
-
-            if (part == null || part.getForm() == null)
+            else if (value instanceof BaseValueGroup group)
+            {
+                value = group.get(segment);
+            }
+            else
             {
                 return null;
             }
-
-            form = part.getForm();
         }
 
-        return null;
+        return value instanceof BaseValueBasic basic ? basic : null;
     }
 
     /**

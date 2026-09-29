@@ -8,11 +8,11 @@ import mchorse.bbs_mod.ui.framework.elements.input.UISliderTrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 import java.util.function.Consumer;
+import mchorse.bbs_mod.ui.framework.UIContext;
 
 /**
  * Editor for the {@code wind} keyframe track: keyframe the global wind (strength, direction, and the
@@ -56,13 +56,13 @@ public class UIWindKeyframeFactory extends UIKeyframeFactory<WindControl>
         this.local.tooltip(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_LOCAL_TOOLTIP);
 
         this.scroll.add(UI.column(
-            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_STRENGTH, this.strength).marginTop(UIConstants.SECTION_GAP),
-            UI.label(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_DIRECTION).marginTop(UIConstants.SECTION_GAP),
+            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_STRENGTH, this.strength),
+            UI.label(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_DIRECTION),
             UI.row(this.x, this.y, this.z),
-            this.local.marginTop(UIConstants.SECTION_GAP),
-            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_TURBULENCE, this.turbulence).marginTop(UIConstants.SECTION_GAP),
-            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_TURBULENCE_SPEED, this.turbulenceSpeed).marginTop(UIConstants.SECTION_GAP),
-            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_TURBULENCE_SCALE, this.turbulenceScale).marginTop(UIConstants.SECTION_GAP)
+            this.local,
+            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_TURBULENCE, this.turbulence),
+            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_TURBULENCE_SPEED, this.turbulenceSpeed),
+            UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_PHYSICS_WIND_TURBULENCE_SCALE, this.turbulenceScale)
         ));
 
         this.display();
@@ -70,7 +70,7 @@ public class UIWindKeyframeFactory extends UIKeyframeFactory<WindControl>
 
     private void display()
     {
-        WindControl control = this.keyframe.getValue();
+        WindControl control = this.getDisplayValue();
 
         if (control == null)
         {
@@ -125,5 +125,14 @@ public class UIWindKeyframeFactory extends UIKeyframeFactory<WindControl>
         trackpad.textbox.setColor(color);
 
         return trackpad;
+    }
+
+    @Override
+    public void render(UIContext context)
+    {
+        if (!this.strength.isUserEditing() && !this.x.isUserEditing() && !this.y.isUserEditing()
+            && !this.z.isUserEditing() && !this.turbulence.isUserEditing()
+            && !this.turbulenceSpeed.isUserEditing() && !this.turbulenceScale.isUserEditing()) this.display();
+        super.render(context);
     }
 }

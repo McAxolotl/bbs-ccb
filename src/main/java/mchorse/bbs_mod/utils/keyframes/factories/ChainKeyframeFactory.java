@@ -48,6 +48,37 @@ public abstract class ChainKeyframeFactory <C extends ChainControl<C>, S extends
     }
 
     @Override
+    public S withDefaults(S value, S defaults)
+    {
+        S result = defaults.copy();
+        result.overlayMetadata(value);
+        value.controls.forEach((id, control) -> result.controls.put(id,
+            defaults.controls.containsKey(id) ? control.withDefaults(defaults.controls.get(id)) : control.copy()));
+        return result;
+    }
+
+    @Override
+    public S blend(S current, S sampled, float amount)
+    {
+        S result = this.copy(this.interpolate(current, current, sampled, sampled, Interpolations.LINEAR, amount));
+        for (String key : result.controls.keySet())
+        {
+            C from = this.read(current, key);
+            C to = this.read(sampled, key);
+            Set<String> bindings = new HashSet<>(from.bindings.keySet());
+            bindings.addAll(to.bindings.keySet());
+            for (String id : bindings)
+            {
+                var anchor = KeyframeFactories.ANCHOR.copy(to.binding(id));
+                anchor.blendSource = KeyframeFactories.ANCHOR.copy(from.binding(id));
+                anchor.blendWeight = amount;
+                result.get(key).bindings.put(id, anchor);
+            }
+        }
+        return result;
+    }
+
+    @Override
     public S interpolate(Keyframe<S> preA, Keyframe<S> a, Keyframe<S> b, Keyframe<S> postB, IInterp interpolation, float x)
     {
         if (interpolation.has(Interpolations.AUTO) || interpolation.has(Interpolations.AUTO_CLAMPED))
@@ -67,7 +98,7 @@ public abstract class ChainKeyframeFactory <C extends ChainControl<C>, S extends
 
             for (String key : this.keys)
             {
-                this.interpolated.get(key).autoLerp(preAp.get(key), ap.get(key), bp.get(key), postBp.get(key), pt, at, bt, qt, clamped, x);
+                this.interpolated.get(key).autoLerp(this.read(preAp, key), this.read(ap, key), this.read(bp, key), this.read(postBp, key), pt, at, bt, qt, clamped, x);
             }
 
             return this.interpolated;
@@ -83,7 +114,7 @@ public abstract class ChainKeyframeFactory <C extends ChainControl<C>, S extends
 
         for (String key : this.keys)
         {
-            this.interpolated.get(key).lerp(preA.get(key), a.get(key), b.get(key), postB.get(key), interpolation, x);
+            this.interpolated.get(key).lerp(this.read(preA, key), this.read(a, key), this.read(b, key), this.read(postB, key), interpolation, x);
         }
 
         return this.interpolated;
@@ -98,9 +129,13 @@ public abstract class ChainKeyframeFactory <C extends ChainControl<C>, S extends
         if (b != null) this.keys.addAll(b.controls.keySet());
         if (postB != b && postB != null) this.keys.addAll(postB.controls.keySet());
 
-        for (C value : this.interpolated.controls.values())
-        {
-            value.identity();
-        }
+        this.interpolated.controls.clear();
+        if (a != null) this.interpolated.copyMetadata(a);
+    }
+
+    private C read(S value, String key)
+    {
+        C control = value == null ? null : value.controls.get(key);
+        return control == null ? this.createEmpty().get(key) : control;
     }
 }

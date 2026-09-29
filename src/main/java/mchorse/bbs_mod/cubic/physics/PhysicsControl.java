@@ -4,11 +4,13 @@ import mchorse.bbs_mod.cubic.chains.ChainControl;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.interps.AutoBezier;
 import mchorse.bbs_mod.utils.interps.IInterp;
+import mchorse.bbs_mod.cubic.ik.IKControl;
+import mchorse.bbs_mod.utils.interps.Interpolations;
 
 /**
  * The animatable per-chain physics scalars, layered over the form's physics config at
  * playback (the chain structure — root/end/target bone — stays on the config). Mirrors
- * {@link mchorse.bbs_mod.cubic.ik.IKControl}, the IK track's element. Floats interpolate;
+ * {@link IKControl}, the IK track's element. Floats interpolate;
  * the boolean steps.
  */
 public class PhysicsControl extends ChainControl<PhysicsControl>
@@ -31,6 +33,7 @@ public class PhysicsControl extends ChainControl<PhysicsControl>
     @Override
     public void identity()
     {
+        this.bindings.clear();
         this.weight = DEFAULT_WEIGHT;
         this.gravity = DEFAULT_GRAVITY;
         this.damping = DEFAULT_DAMPING;
@@ -41,6 +44,7 @@ public class PhysicsControl extends ChainControl<PhysicsControl>
     @Override
     public void lerp(PhysicsControl preA, PhysicsControl a, PhysicsControl b, PhysicsControl postB, IInterp interp, float x)
     {
+        this.lerpBindings(preA, a, b, postB, interp, x, 0, 0, 0, 0, false);
         this.weight = (float) interp.interpolate(IInterp.context.set(preA.weight, a.weight, b.weight, postB.weight, x));
         this.gravity = (float) interp.interpolate(IInterp.context.set(preA.gravity, a.gravity, b.gravity, postB.gravity, x));
         this.damping = (float) interp.interpolate(IInterp.context.set(preA.damping, a.damping, b.damping, postB.damping, x));
@@ -51,6 +55,7 @@ public class PhysicsControl extends ChainControl<PhysicsControl>
     @Override
     public void autoLerp(PhysicsControl preA, PhysicsControl a, PhysicsControl b, PhysicsControl postB, float pt, float at, float bt, float qt, boolean clamped, float x)
     {
+        this.lerpBindings(preA, a, b, postB, clamped ? Interpolations.AUTO_CLAMPED : Interpolations.AUTO, x, pt, at, bt, qt, true);
         this.weight = (float) AutoBezier.get(preA.weight, a.weight, b.weight, postB.weight, pt, at, bt, qt, clamped, x);
         this.gravity = (float) AutoBezier.get(preA.gravity, a.gravity, b.gravity, postB.gravity, pt, at, bt, qt, clamped, x);
         this.damping = (float) AutoBezier.get(preA.damping, a.damping, b.damping, postB.damping, pt, at, bt, qt, clamped, x);
@@ -71,6 +76,7 @@ public class PhysicsControl extends ChainControl<PhysicsControl>
     @Override
     public void copy(PhysicsControl other)
     {
+        this.copyBindings(other);
         this.weight = other.weight;
         this.gravity = other.gravity;
         this.damping = other.damping;
@@ -81,7 +87,7 @@ public class PhysicsControl extends ChainControl<PhysicsControl>
     @Override
     public boolean isDefault()
     {
-        return this.weight == DEFAULT.weight
+        return !this.hasBindingsOrMetadata() && this.weight == DEFAULT.weight
             && this.gravity == DEFAULT.gravity
             && this.damping == DEFAULT.damping
             && this.stiffness == DEFAULT.stiffness
@@ -98,7 +104,7 @@ public class PhysicsControl extends ChainControl<PhysicsControl>
 
         if (obj instanceof PhysicsControl control)
         {
-            return this.weight == control.weight
+            return this.sameBindings(control) && this.weight == control.weight
                 && this.gravity == control.gravity
                 && this.damping == control.damping
                 && this.stiffness == control.stiffness
@@ -111,6 +117,7 @@ public class PhysicsControl extends ChainControl<PhysicsControl>
     @Override
     public void toData(MapType data)
     {
+        this.writeBindings(data);
         data.putDouble("weight", this.weight);
         data.putDouble("gravity", this.gravity);
         data.putDouble("damping", this.damping);
@@ -121,6 +128,7 @@ public class PhysicsControl extends ChainControl<PhysicsControl>
     @Override
     public void fromData(MapType data)
     {
+        this.readBindings(data);
         this.weight = (float) data.getDouble("weight", DEFAULT.weight);
         this.gravity = (float) data.getDouble("gravity", DEFAULT.gravity);
         this.damping = (float) data.getDouble("damping", DEFAULT.damping);

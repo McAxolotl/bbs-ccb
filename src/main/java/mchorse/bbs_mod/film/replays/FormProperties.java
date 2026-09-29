@@ -32,6 +32,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import mchorse.bbs_mod.film.replays.tracks.SolverBindings;
+import mchorse.bbs_mod.film.replays.tracks.compatibility.LegacyTrackCompatibility;
+import mchorse.bbs_mod.film.replays.tracks.compatibility.LegacySplineValues;
 
 /**
  * Every track of one replay (or one animation state): a channel of keyframes per address.
@@ -52,6 +55,7 @@ public class FormProperties extends ValueGroup
     private static final String TRACKS = "tracks";
 
     public final Map<TrackId, KeyframeChannel> tracks = new LinkedHashMap<>();
+    private final Map<Form, Set<TrackId>> appliedTracks = new java.util.WeakHashMap<>();
 
     /**
      * Tracks that were read but could not be understood — an unknown kind, or a channel whose
@@ -135,7 +139,7 @@ public class FormProperties extends ValueGroup
     /** Make the track of a form property, keyed by the path the property sits at. */
     public KeyframeChannel create(BaseValue property)
     {
-        if (property.isVisible() && property instanceof BaseKeyframeFactoryValue<?> keyframeFactoryValue)
+        if (property instanceof BaseKeyframeFactoryValue<?> keyframeFactoryValue && keyframeFactoryValue.isAnimatable())
         {
             TrackId track = TrackId.parse(FormUtils.getPropertyPath(property));
 
@@ -226,8 +230,19 @@ public class FormProperties extends ValueGroup
 
         float clampedBlend = MathUtils.clamp(blend, 0F, 1F);
         Map<TrackId, KeyframeChannel> boneTracks = new LinkedHashMap<>();
+        Set<TrackId> previous = this.appliedTracks.put(context.root(), new HashSet<>(this.tracks.keySet()));
+        Set<TrackId> affected = new HashSet<>(this.tracks.keySet());
+        if (previous != null) affected.addAll(previous);
+        var legacySplines = LegacySplineValues.begin(context.root(), affected);
+        if (previous != null)
+            for (TrackId track : previous)
+                if (!this.tracks.containsKey(track) && TrackBehaviours.of(track) != null)
+                    TrackBehaviours.of(track).reset(context.root(), track);
 
-        for (Map.Entry<TrackId, KeyframeChannel> entry : this.tracks.entrySet())
+        List<Map.Entry<TrackId, KeyframeChannel>> ordered = new ArrayList<>(this.tracks.entrySet());
+        ordered.sort(java.util.Comparator.comparingInt(entry ->
+            LegacyTrackCompatibility.order(entry.getKey())));
+        for (Map.Entry<TrackId, KeyframeChannel> entry : ordered)
         {
             if (entry.getKey().is(TrackKind.BONE))
             {
@@ -260,6 +275,8 @@ public class FormProperties extends ValueGroup
         {
             apply(context, entry.getKey(), entry.getValue(), tick, clampedBlend);
         }
+        LegacySplineValues.finish(legacySplines);
+        SolverBindings.apply(context);
     }
 
     private static void apply(TrackContext context, TrackId track, KeyframeChannel channel, float tick, float blend)
@@ -280,7 +297,11 @@ public class FormProperties extends ValueGroup
             return;
         }
 
-        for (TrackId track : this.tracks.keySet())
+        Set<TrackId> reset = new HashSet<>(this.tracks.keySet());
+        Set<TrackId> previous = this.appliedTracks.remove(form);
+        if (previous != null) reset.addAll(previous);
+        var legacySplines = LegacySplineValues.begin(form, reset);
+        for (TrackId track : reset)
         {
             TrackBehaviour behaviour = TrackBehaviours.of(track);
 
@@ -289,6 +310,7 @@ public class FormProperties extends ValueGroup
                 behaviour.reset(form, track);
             }
         }
+        LegacySplineValues.finish(legacySplines);
     }
 
     public void cleanUp()

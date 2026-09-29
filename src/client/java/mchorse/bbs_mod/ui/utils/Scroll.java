@@ -20,6 +20,7 @@ import java.util.function.IntSupplier;
 public class Scroll
 {
     private static Area temporary = new Area();
+    private static final long SCROLLBAR_HOVER_DELAY = 500_000_000L;
 
     /**
      * Size of an element/item in the scroll area
@@ -74,6 +75,8 @@ public class Scroll
     private double targetScroll;
     private BooleanSupplier smoothScrolling;
     private IntSupplier wheelScrollStep;
+    private long scrollbarHoverStarted = -1L;
+    private boolean scrollbarExpanded;
 
     public static final int HANDLE_COLOR = 0xff4d525a;
     public static final int HANDLE_ACTIVE_COLOR = 0xff6e747c;
@@ -204,6 +207,42 @@ public class Scroll
     public int getScrollbarWidth()
     {
         return BBSSettings.scrollbarWidth.get();
+    }
+
+    private int getScrollbarHandleWidth()
+    {
+        int width = this.getScrollbarWidth();
+        int available = this.direction == ScrollDirection.VERTICAL ? this.area.w : this.area.h;
+
+        return Math.min(available, this.scrollbarExpanded ? width * 2 : width);
+    }
+
+    private void updateScrollbarHover(int x, int y)
+    {
+        if (this.scrollbar && this.hasScrollbar())
+        {
+            if (this.dragging && this.scrollbarExpanded)
+            {
+                return;
+            }
+
+            if (this.getScrollbarArea().isInside(x, y))
+            {
+                long now = System.nanoTime();
+
+                if (this.scrollbarHoverStarted == -1L)
+                {
+                    this.scrollbarHoverStarted = now;
+                }
+
+                this.scrollbarExpanded = now - this.scrollbarHoverStarted >= SCROLLBAR_HOVER_DELAY;
+
+                return;
+            }
+        }
+
+        this.scrollbarHoverStarted = -1L;
+        this.scrollbarExpanded = false;
     }
 
     public void setSize(int items)
@@ -384,7 +423,7 @@ public class Scroll
         }
         else
         {
-            int width = this.getScrollbarWidth();
+            int width = this.getScrollbarHandleWidth();
 
             if (this.direction == ScrollDirection.VERTICAL)
             {
@@ -409,7 +448,7 @@ public class Scroll
         }
         else
         {
-            int scrollbar = this.getScrollbarWidth();
+            int scrollbar = this.getScrollbarHandleWidth();
             int h = this.getScrollbar();
 
             if (this.direction == ScrollDirection.HORIZONTAL)
@@ -563,6 +602,8 @@ public class Scroll
 
             this.scrollTo(to);
         }
+
+        this.updateScrollbarHover(x, y);
     }
 
     /**

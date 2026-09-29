@@ -204,7 +204,12 @@ public class IKBake
      */
     private static void disableChains(FormProperties properties, ModelForm form, List<String> tips, int start, int end, float lastKeyframe)
     {
-        KeyframeChannel<IKControls> channel = properties.getOrCreate(TrackId.ikControls(""));
+        KeyframeChannel<IKControls> channel = properties.get(TrackId.property("", "ik"));
+        if (channel == null || channel.isEmpty())
+        {
+            KeyframeChannel<IKControls> legacy = properties.get(TrackId.ikControls(""));
+            channel = legacy != null && !legacy.isEmpty() ? legacy : properties.getOrCreate(form, TrackId.property("", "ik"));
+        }
 
         /* Both ends are read before either is written: the key at the start changes what the
          * track reads everywhere after it. */
@@ -235,7 +240,7 @@ public class IKBake
     {
         KeyframeSegment<IKControls> segment = channel.find(tick);
 
-        return segment == null ? TrackCatalog.ikControls(form) : segment.createInterpolated();
+        return segment == null ? form.ik.getOriginalValue().copy() : segment.createInterpolated(form.ik.getOriginalValue());
     }
 
     private static void switchOff(IKControls controls, List<String> tips)

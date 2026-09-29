@@ -130,13 +130,25 @@ public class ValueGroup extends BaseValueGroup
     @Override
     public BaseType toData()
     {
+        return this.toData(this::serializeChild);
+    }
+
+    protected BaseType serializeChild(BaseValue value)
+    {
+        return value.toData();
+    }
+
+    /** Serialize selected child representations while retaining unknown fields. Null omits a child. */
+    public BaseType toData(java.util.function.Function<BaseValue, BaseType> serialize)
+    {
         MapType data = new MapType();
 
         for (BaseValue value : this.children.values())
         {
             if (this.canPersist(value))
             {
-                data.put(value.getId(), value.toData());
+                BaseType child = serialize.apply(value);
+                if (child != null) data.put(value.getId(), child);
             }
         }
 

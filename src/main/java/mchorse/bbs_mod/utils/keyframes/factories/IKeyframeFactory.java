@@ -5,6 +5,7 @@ import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 import java.util.Objects;
+import mchorse.bbs_mod.utils.interps.Interpolations;
 
 public interface IKeyframeFactory <T>
 {
@@ -20,6 +21,16 @@ public interface IKeyframeFactory <T>
     }
 
     public T copy(T value);
+
+    /** Resolve missing elements of a compound snapshot; ordinary values are already complete. */
+    public default T withDefaults(T value, T defaults) { return value; }
+
+    /** Blend an already evaluated value, which may carry runtime interpolation state. */
+    public default T blend(T current, T sampled, float amount)
+    {
+        return this.copy(this.interpolate(this.copy(current), this.copy(current), sampled, sampled,
+            Interpolations.LINEAR, amount));
+    }
 
     /**
      * Whether this kind of value has no in-between states, so a new keyframe of

@@ -1,5 +1,8 @@
 package mchorse.bbs_mod.forms;
 
+import mchorse.bbs_mod.forms.forms.SplineForm;
+import mchorse.bbs_mod.forms.renderers.SplineFormRenderer;
+
 import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
@@ -132,6 +135,7 @@ public class FormUtilsClient
         register(BlockForm.class, BlockFormRenderer::new);
         register(ItemForm.class, ItemFormRenderer::new);
         register(AnchorForm.class, AnchorFormRenderer::new);
+        register(SplineForm.class, SplineFormRenderer::new);
         register(MobForm.class, MobFormRenderer::new);
         register(VanillaParticleForm.class, VanillaParticleFormRenderer::new);
         register(TrailForm.class, TrailFormRenderer::new);

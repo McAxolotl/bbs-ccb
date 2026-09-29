@@ -16,8 +16,8 @@ public class FramebufferForm extends Form
 
     public FramebufferForm()
     {
-        this.width.invisible();
-        this.height.invisible();
+        this.width.animatable(false).invisible();
+        this.height.animatable(false).invisible();
 
         this.add(this.width);
         this.add(this.height);

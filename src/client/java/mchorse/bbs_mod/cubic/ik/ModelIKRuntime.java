@@ -2,6 +2,7 @@ package mchorse.bbs_mod.cubic.ik;
 
 import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.ModelInstance;
+import mchorse.bbs_mod.cubic.spline.ModelSplineRuntime;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.FormBone;
 import org.joml.Vector3f;
@@ -52,7 +53,7 @@ public final class ModelIKRuntime
         {
             FormBone bone = form.bones.getBone(chain.tip());
 
-            controls.put(chain.tip(), bone == null ? IKControl.DEFAULT : bone.ik.get());
+            controls.put(chain.tip(), form.ik.get().get(chain.tip()));
         }
 
         ModelIKApplier.apply(model, chains, compiled.bones(), controllerTargets, poleTargets, form.ikTargetWeights, form.poleTargetWeights, controls);
@@ -140,6 +141,11 @@ public final class ModelIKRuntime
         if (model == null || form == null || bone == null || bone.isEmpty())
         {
             return false;
+        }
+
+        if (ModelSplineRuntime.isRotationConstrained(model, form, bone))
+        {
+            return true;
         }
 
         ModelIKCache.Compiled compiled = ModelIKCache.compile(model, form);

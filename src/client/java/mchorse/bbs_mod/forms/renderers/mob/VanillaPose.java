@@ -59,6 +59,6 @@ public class VanillaPose
         }
 
         model.animateModel(living, limbAngle, limbDistance, transition);
-        model.setAngles(living, limbAngle, limbDistance, animationProgress, headYaw - bodyYaw, pitch);
+        model.setAngles(living, limbAngle, limbDistance, animationProgress, MathHelper.wrapDegrees(headYaw - bodyYaw), pitch);
     }
 }

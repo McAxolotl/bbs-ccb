@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.ui.film.replays;
 
+import mchorse.bbs_mod.ui.utils.SplineKeyframeEditor;
+
 import mchorse.bbs_mod.ui.framework.elements.input.drag.TransformSpace;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.L10n;
@@ -61,6 +63,8 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
+import mchorse.bbs_mod.utils.pose.Transform;
+import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -73,6 +77,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
 
 public class UIReplaysEditorUtils
 {
@@ -259,12 +264,19 @@ public class UIReplaysEditorUtils
      * their parent row. The catalog decides what exists and where it sits; this only builds widgets,
      * which is why both timelines — a replay's and an animation state's — go through it.
      */
-    public static void buildSheets(List<TrackDescriptor> catalog, List<UIKeyframeSheet> sheets)
+    public static void buildSheets(List<TrackDescriptor> catalog, List<UIKeyframeSheet> sheets, FormProperties properties)
     {
         Map<TrackId, UIKeyframeSheet> rows = new HashMap<>();
 
         for (TrackDescriptor track : catalog)
         {
+            /* Creating an editable row needs a channel. Catalog/search enumeration does not. */
+            if (track.channel() == null)
+            {
+                KeyframeChannel channel = properties.getOrCreate(FormUtils.getRoot(track.owner()), track.id());
+                if (channel == null) continue;
+                track = new TrackDescriptor(track.id(), channel, track.owner(), track.title(), track.icon(), track.color(), track.property(), track.seed(), track.parent());
+            }
             UIKeyframeSheet sheet = new UIKeyframeSheet(track);
 
             rows.put(track.id(), sheet);
@@ -275,7 +287,7 @@ public class UIReplaysEditorUtils
         {
             if (track.parent() != null)
             {
-                rows.get(track.id()).setParent(rows.get(track.parent()));
+                if (rows.containsKey(track.id())) rows.get(track.id()).setParent(rows.get(track.parent()));
             }
         }
     }
@@ -355,7 +367,11 @@ public class UIReplaysEditorUtils
             return null;
         }
 
-        if (editor.editor instanceof UITransformKeyframeFactory transformKeyframeFactory)
+        if (editor.editor instanceof SplineKeyframeEditor spline)
+        {
+            return spline.pointPath() == null ? null : spline.pointEditor().position;
+        }
+        else if (editor.editor instanceof UITransformKeyframeFactory transformKeyframeFactory)
         {
             return transformKeyframeFactory.transform;
         }
@@ -564,6 +580,18 @@ public class UIReplaysEditorUtils
             return drag;
         }
 
+        String splinePath = SplineEditorUtils.selectedPath(keyframeEditor);
+        if (splinePath != null && entity != null)
+        {
+            var point = SplineEditorUtils.resolve(entity.getForm(), splinePath);
+            Matrix4f parent = FilmMatrices.getSplineParentCompositeMatrix(panel.getController().getEntities(), entity,
+                panel.replayEditor.getReplay(), camera.position.x, camera.position.y, camera.position.z, transition, point);
+            if (parent == null || Math.abs(parent.determinant()) < 1E-8F) return null;
+            drag.setJacobian(new org.joml.Matrix3f(parent));
+            drag.setFrameAxes(parent, parent);
+            return drag;
+        }
+
         Pair<String, TransformSpace> bone = keyframeEditor.getBone();
         Replay replay = panel.replayEditor.getReplay();
 
@@ -705,21 +733,72 @@ public class UIReplaysEditorUtils
     }
 
     /**
-     * Measure a gizmo's axes by perturbing what it drives: every probe pushes the keyframe state
-     * onto the form so the matrix cache reflects that sample, and the pose is put back afterwards.
-     * The composite the sampler returns is what the form is actually drawn with, so the numeric
-     * Jacobian answers in world space.
+     * Probe the edited bone across the selected keys of its track. Probing only the primary key
+     * measures no response when the playhead is on a different selected key. This is a silent,
+     * temporary channel delta, not an editor operation (which would notify and record undo).
      */
+    public static <T> Supplier<T> keyframeGizmoSampler(UIKeyframeEditor editor, UIPropTransform transform, Supplier<T> sampler)
+    {
+        if (editor == null || editor.editor == null) return sampler;
+
+        UIKeyframeSheet sheet = editor.getSheet(editor.editor.getKeyframe());
+        if (sheet == null) return sampler;
+
+        String bone = editor.editor instanceof UIPoseKeyframeFactory pose ? pose.poseEditor.getGroup() : null;
+        List<Transform> targets = new ArrayList<>();
+        Map<Pose, PoseTransform> missing = new java.util.IdentityHashMap<>();
+        List<Keyframe> keys = editor.view.getAutoKeyframeTick() == null
+            ? new ArrayList<>(sheet.selection.getSelected()) : List.of(editor.editor.getEditTarget());
+
+        for (Keyframe key : keys)
+        {
+            Object value = key.getValue();
+            Transform target = null;
+
+            if (value instanceof Pose pose && bone != null)
+            {
+                target = pose.transforms.get(bone);
+
+                if (target == null)
+                {
+                    PoseTransform temporary = new PoseTransform();
+                    missing.put(pose, temporary);
+                    target = temporary;
+                }
+            }
+            else if (value instanceof Transform t) target = t;
+            else if (value instanceof Anchor anchor) target = anchor.transform;
+
+            if (target != null) targets.add(target);
+        }
+
+        /* Missing bones are implicit rest transforms. Expose them only during the probe,
+         * without notifications or permanent changes to sparse poses. */
+        return GizmoDrag.withTransformSelection(transform.getTransform(), targets, () ->
+        {
+            try
+            {
+                missing.forEach((pose, temporary) -> pose.transforms.put(bone, temporary));
+                return sampler.get();
+            }
+            finally
+            {
+                missing.forEach((pose, temporary) -> pose.transforms.remove(bone, temporary));
+            }
+        });
+    }
+
+    /** Re-evaluate the displayed form for every probe, then restore its unperturbed pose. */
     private static void sampleGizmoAxes(UIFilmPanel panel, GizmoDrag drag, UIPropTransform transform, Replay replay, IEntity entity, float transition, Supplier<Matrix4f> composite)
     {
-        Supplier<Matrix4f> matrixSampler = () ->
+        Supplier<Matrix4f> matrixSampler = keyframeGizmoSampler(panel.replayEditor.keyframeEditor, transform, () ->
         {
             applyFormProperties(panel, replay, entity, transition);
 
             Matrix4f matrix = composite.get();
 
             return matrix == null ? new Matrix4f() : matrix;
-        };
+        });
 
         drag.setRotateAxes(GizmoDrag.computeRotateAxes(transform.getTransform(), matrixSampler));
         drag.setJacobian(GizmoDrag.computeTranslateJacobian(
@@ -789,6 +868,8 @@ public class UIReplaysEditorUtils
             && keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory
             && poseFactory.poseEditor.hasBone(bone))
         {
+            IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
+            keyframeEditor.view.getDopeSheet().revealSheet(graph.getSheet(graph.getSelected()));
             poseFactory.poseEditor.selectBone(bone, true);
 
             return;
@@ -809,6 +890,7 @@ public class UIReplaysEditorUtils
             }
             if (isPoseSheet(currentSheet, path))
             {
+                keyframeEditor.view.getDopeSheet().revealSheet(currentSheet);
                 float tick = keyframeEditor.view.getTick();
                 Keyframe closest = getClosestKeyframe(currentSheet, tick);
                 if (closest != null)
@@ -941,6 +1023,17 @@ public class UIReplaysEditorUtils
         return getPropertySheet(graph, formPath, property);
     }
 
+    /** Viewport property controls use the same nearest-key selection and insertion as pose. */
+    public static void pickPropertyTrack(UIKeyframeEditor keyframeEditor, ICursor cursor, String key, boolean insert)
+    {
+        if (keyframeEditor == null) return;
+        UIKeyframeSheet sheet = keyframeEditor.view.getGraph().getSheet(key);
+        if (sheet == null) return;
+
+        if (insert) insertIntoPropertySheet(keyframeEditor, "", sheet);
+        else pickProperty(keyframeEditor, cursor, "", sheet, false);
+    }
+
     private static void pickProperty(UIKeyframeEditor keyframeEditor, ICursor cursor, String bone, String key, boolean insert)
     {
         UIKeyframeSheet sheet = keyframeEditor.view.getGraph().getSheet(key);
@@ -953,6 +1046,7 @@ public class UIReplaysEditorUtils
 
     private static void pickProperty(UIKeyframeEditor keyframeEditor, ICursor filmPanel, String bone, UIKeyframeSheet sheet, boolean insert)
     {
+        keyframeEditor.view.getDopeSheet().revealSheet(sheet);
         IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
         float tick = keyframeEditor.view.getTick();
 
@@ -1012,6 +1106,7 @@ public class UIReplaysEditorUtils
      */
     private static void insertIntoPropertySheet(UIKeyframeEditor keyframeEditor, String bone, UIKeyframeSheet sheet)
     {
+        keyframeEditor.view.getDopeSheet().revealSheet(sheet);
         IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
         float tick = keyframeEditor.view.getTick();
         Keyframe existing = getKeyframeAt(sheet, tick);
@@ -1208,38 +1303,6 @@ public class UIReplaysEditorUtils
         });
 
         return true;
-    }
-
-    public static void clearIKTracks(Replay replay, ModelForm modelForm)
-    {
-        if (replay == null || modelForm == null)
-        {
-            return;
-        }
-
-        ModelInstance model = ModelFormRenderer.getModel(modelForm);
-
-        if (model == null)
-        {
-            return;
-        }
-
-        List<String> controllers = ModelIKRuntime.getControllers(model);
-        List<String> poleControllers = ModelIKRuntime.getPoleControllers(model);
-        String path = FormUtils.getPath(modelForm);
-
-        BaseValue.edit(replay.properties, (props) ->
-        {
-            for (String controller : controllers)
-            {
-                props.remove(TrackId.ikTarget(path, controller));
-            }
-
-            for (String controller : poleControllers)
-            {
-                props.remove(TrackId.poleTarget(path, controller));
-            }
-        });
     }
 
     /* Offer bone hierarchy options */

@@ -1,5 +1,7 @@
 package mchorse.bbs_mod;
 
+import mchorse.bbs_mod.forms.forms.SplineForm;
+
 import mchorse.bbs_mod.actions.ActionHandler;
 import mchorse.bbs_mod.actions.ActionManager;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
@@ -45,6 +47,7 @@ import mchorse.bbs_mod.camera.clips.overwrite.DollyClip;
 import mchorse.bbs_mod.camera.clips.overwrite.IdleClip;
 import mchorse.bbs_mod.camera.clips.overwrite.KeyframeClip;
 import mchorse.bbs_mod.camera.clips.overwrite.PathClip;
+import mchorse.bbs_mod.camera.clips.overwrite.SplineClip;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.entity.GunProjectileEntity;
 import mchorse.bbs_mod.api.BBSAddonMod;
@@ -441,6 +444,7 @@ public class BBSMod implements ModInitializer
             .register(Link.bbs("block"), BlockForm.class, null)
             .register(Link.bbs("item"), ItemForm.class, null)
             .register(Link.bbs("anchor"), AnchorForm.class, null)
+            .register(Link.bbs("spline"), SplineForm.class, null)
             .register(Link.bbs("mob"), MobForm.class, null)
             .register(Link.bbs("vanilla_particles"), VanillaParticleForm.class, null)
             .register(Link.bbs("trail"), TrailForm.class, null)
@@ -482,6 +486,7 @@ public class BBSMod implements ModInitializer
             .register(Link.bbs("video"), VideoClip.class, new ClipFactoryData(Icons.VIDEO_CAMERA, 0xd21f3c))
             .register(Link.bbs("curve"), CurveClip.class, new ClipFactoryData(Icons.ARC, 0xff1493))
             .register(Link.bbs("tracker"), TrackerClip.class, new ClipFactoryData(Icons.USER, 0xffffff))
+            .register(Link.bbs("spline"), SplineClip.class, new ClipFactoryData(Icons.GRAPH, 0x5599ff))
             .register(Link.bbs("dolly_zoom"), DollyZoomClip.class, new ClipFactoryData(Icons.FILTER, 0x7d56c9));
 
         events.post(new RegisterCameraClipsEvent(factoryCameraClips));

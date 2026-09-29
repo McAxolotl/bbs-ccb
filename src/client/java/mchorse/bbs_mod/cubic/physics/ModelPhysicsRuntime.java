@@ -284,7 +284,7 @@ public final class ModelPhysicsRuntime
 
             if (bone != null)
             {
-                control = bone.physics.get();
+                control = modelForm.physics.get().get(ids.get(0));
             }
         }
 

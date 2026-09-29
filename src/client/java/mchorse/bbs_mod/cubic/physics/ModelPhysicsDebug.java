@@ -115,7 +115,7 @@ public final class ModelPhysicsDebug
         {
             FormBone bone = form.bones.getBone(chain.attach());
 
-            if (bone == null || !bone.physics.get().enabled)
+            if (bone == null || !form.physics.get().get(chain.attach()).enabled)
             {
                 continue;
             }
@@ -203,7 +203,7 @@ public final class ModelPhysicsDebug
         {
             FormBone bone = modelForm.bones.getBone(chain.attach());
 
-            if (bone == null || !bone.physics.get().enabled)
+            if (bone == null || !modelForm.physics.get().get(chain.attach()).enabled)
             {
                 continue;
             }

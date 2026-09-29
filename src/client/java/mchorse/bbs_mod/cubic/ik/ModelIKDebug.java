@@ -94,7 +94,7 @@ public final class ModelIKDebug
         {
             FormBone bone = form.bones.getBone(chain.tip());
 
-            if (bone == null || !bone.ik.get().enabled)
+            if (bone == null || !form.ik.get().get(chain.tip()).enabled)
             {
                 continue;
             }
@@ -181,7 +181,7 @@ public final class ModelIKDebug
         {
             FormBone bone = modelForm.bones.getBone(chain.tip());
 
-            if (bone == null || !bone.ik.get().enabled)
+            if (bone == null || !modelForm.ik.get().get(chain.tip()).enabled)
             {
                 continue;
             }

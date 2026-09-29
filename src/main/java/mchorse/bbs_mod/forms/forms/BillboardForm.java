@@ -32,10 +32,10 @@ public class BillboardForm extends Form
     {
         super();
 
-        this.linear.invisible();
-        this.mipmap.invisible();
-        this.resizeCrop.invisible();
-        this.shading.invisible();
+        this.linear.animatable(false).invisible();
+        this.mipmap.animatable(false).invisible();
+        this.resizeCrop.animatable(false).invisible();
+        this.shading.animatable(false).invisible();
 
         this.add(this.texture);
         this.add(this.billboard);

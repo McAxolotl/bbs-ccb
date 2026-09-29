@@ -1,7 +1,11 @@
 package mchorse.bbs_mod.ui.film.utils.keyframes;
 
+import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import mchorse.bbs_mod.settings.values.IValueListener;
+import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.api.client.events.TimelineEvents;
-
 import mchorse.bbs_mod.ui.framework.elements.utils.UITimelineCanvas;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
@@ -31,6 +35,23 @@ public class UIFilmKeyframes extends UIKeyframes
         super(callback);
 
         this.editor = delegate;
+    }
+
+    @Override
+    public void editForm(Form form, Runnable edit)
+    {
+        Film film = this.editor == null ? null : this.editor.getFilm();
+        if (film == null) return;
+        var root = FormUtils.getRoot(form);
+        for (var replay : film.replays.getList())
+        {
+            if (replay.form.get() != root) continue;
+            BaseValue.edit(replay.form,
+                IValueListener.FLAG_UNMERGEABLE, value -> edit.run());
+            var panel = this.getParent(UIFilmPanel.class);
+            if (panel != null) panel.getController().refreshReplayForm(replay);
+            return;
+        }
     }
 
     private FilmMarkers getFilmMarkers()

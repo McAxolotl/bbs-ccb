@@ -181,6 +181,7 @@ public class FilmEntityRenderer
              * placed on matrices of their own and so live past the pop below. Both halves read
              * the one target, so they cannot disagree about which of the three it is. */
             if (gizmoTarget.boneOrNull() != null) renderAxes(gizmoTarget.bone(), gizmoTarget.space(), context.gizmoView, context.map, form, entity, transition, stack, gizmoFrame);
+            if (gizmoTarget.is(FilmTarget.Kind.SPLINE_POINT)) renderSplineGizmo(gizmoTarget, context.gizmoView, context.map, form, entity, transition, stack);
             if (context.bone2 != null && context.map == null) renderPreviewAxes(context.bone2, context.space2, form, entity, transition, stack, gizmoFrame, context.gizmoViewportHeight);
         }
 
@@ -256,6 +257,20 @@ public class FilmEntityRenderer
         }
 
         RenderSystem.enableDepthTest();
+    }
+
+    private static void renderSplineGizmo(FilmTarget target, Matrix4f view, StencilMap map, Form form, IEntity entity, float transition, MatrixStack stack)
+    {
+        Form root = FormUtils.getRoot(form);
+        var point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(root, target.bone());
+        Matrix4f matrix = mchorse.bbs_mod.ui.utils.SplineEditorUtils.pointMatrix(root, entity, transition, point);
+        if (matrix == null) return;
+        stack.push();
+        MatrixStackUtils.multiply(stack, matrix);
+        Gizmo.INSTANCE.reorientForSpace(stack, target.space(), view, FilmMatrices.getReplayWorldAxes(entity, transition));
+        if (map == null) Gizmo.INSTANCE.captureVisual(stack, mchorse.bbs_mod.ui.utils.SplineEditorUtils.HANDLES);
+        else Gizmo.INSTANCE.renderStencil(stack, mchorse.bbs_mod.ui.utils.SplineEditorUtils.HANDLES);
+        stack.pop();
     }
 
     private static void renderAxes(String bone, TransformSpace space, Matrix4f gizmoView, StencilMap stencilMap, Form form, IEntity entity, float transition, MatrixStack stack, FormFrameCache frame)

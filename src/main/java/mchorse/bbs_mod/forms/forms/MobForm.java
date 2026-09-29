@@ -26,8 +26,8 @@ public class MobForm extends Form implements IPosedForm
 
     public MobForm()
     {
-        this.slim.invisible();
-        this.boneTracks.invisible();
+        this.slim.animatable(false).invisible();
+        this.boneTracks.animatable(false).invisible();
 
         this.add(this.mobID);
         this.add(this.mobNBT);

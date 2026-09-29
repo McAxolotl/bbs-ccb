@@ -25,8 +25,8 @@ import org.joml.Vector3f;
  */
 public class ReplayFactory
 {
-    /** A replay standing at the given spot, facing the given way. */
-    public static Replay atPosition(Film film, Vector3d position, float pitch, float yaw)
+    /** A replay standing at the given spot, optionally facing the given way. */
+    public static Replay atPosition(Film film, Vector3d position, float pitch, float yaw, boolean includeRotation)
     {
         Replay replay = film.replays.addReplay();
 
@@ -36,10 +36,13 @@ public class ReplayFactory
         replay.keyframes.y.insert(0, position.y);
         replay.keyframes.z.insert(0, position.z);
 
-        replay.keyframes.pitch.insert(0, (double) pitch);
-        replay.keyframes.yaw.insert(0, (double) yaw);
-        replay.keyframes.headYaw.insert(0, (double) yaw);
-        replay.keyframes.bodyYaw.insert(0, (double) yaw);
+        if (includeRotation)
+        {
+            replay.keyframes.pitch.insert(0, (double) pitch);
+            replay.keyframes.yaw.insert(0, (double) yaw);
+            replay.keyframes.headYaw.insert(0, (double) yaw);
+            replay.keyframes.bodyYaw.insert(0, (double) yaw);
+        }
 
         return replay;
     }

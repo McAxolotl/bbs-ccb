@@ -1751,7 +1751,7 @@ public class UIReplayList extends UIList<ReplayListEntry>
             return;
         }
 
-        Replay replay = ReplayFactory.atPosition(film, position, pitch, yaw);
+        Replay replay = ReplayFactory.atPosition(film, position, pitch, yaw, !Window.isShiftPressed());
 
         this.showNewReplay(replay);
         this.openFormEditor(replay.form, false, null);

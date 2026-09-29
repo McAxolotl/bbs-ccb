@@ -495,6 +495,13 @@ public class MotionPath
             ? FilmMatrices.getGizmoAnchorCompositeMatrix(entities, entity, replay, 0D, 0D, 0D, 0F)
             : FilmMatrices.getBoneCompositeMatrix(entities, entity, replay, 0D, 0D, 0D, 0F, target.bone(), false);
 
+        if (target.is(FilmTarget.Kind.SPLINE_POINT))
+        {
+            var point = mchorse.bbs_mod.ui.utils.SplineEditorUtils.resolve(entity.getForm(), target.bone());
+            matrix = FilmMatrices.getSplineParentCompositeMatrix(entities, entity, replay, 0D, 0D, 0D, 0F, point);
+            if (matrix != null) matrix.translate(point.point().position.get().translate);
+        }
+
         if (matrix == null)
         {
             return false;

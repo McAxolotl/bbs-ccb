@@ -28,12 +28,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
- * The shared skeleton of the per-bone solver panels (IK, physics, constraints): a searchable bone
- * tree with a preset menu on the left, and fields on the right that always stand for the selected
- * bone. The panel holds no data of its own — every read and write goes to the form's bone
- * properties, and undo picks the writes up itself.
+ * The shared skeleton of the per-bone solver panels: a searchable bone tree and fields
+ * for the selected bone. Each solver owns its data and optional preset menu.
  */
 public abstract class UIBoneListFormPanel extends UIFormPanel<ModelForm>
 {
@@ -93,14 +92,11 @@ public abstract class UIBoneListFormPanel extends UIFormPanel<ModelForm>
     }
 
     /** Hang the preset copy/paste menu on the bone list; each panel names its own store and labels. */
-    protected void bonePresets(DataManager manager, String copyId, IKey copy, IKey paste, IKey reset, IKey save, IKey name)
+    protected void bonePresets(DataManager manager, String copyId, IKey copy, IKey paste, IKey reset, IKey save, IKey name,
+        Supplier<MapType> read, Consumer<MapType> apply)
     {
-        this.bones.context(() -> new UIDataContextMenu(manager, this.presetGroup, this::toPresetData, this::applyPresetData).tooltips(copyId, copy, paste, reset, save, name));
+        this.bones.context(() -> new UIDataContextMenu(manager, this.presetGroup, read, apply).tooltips(copyId, copy, paste, reset, save, name));
     }
-
-    protected abstract MapType toPresetData();
-
-    protected abstract void applyPresetData(MapType map);
 
     /** Push the selected bone's values into the fields. */
     protected abstract void updateFields();

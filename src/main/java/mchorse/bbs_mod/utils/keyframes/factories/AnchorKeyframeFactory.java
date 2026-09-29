@@ -40,8 +40,10 @@ public class AnchorKeyframeFactory implements IKeyframeFactory<Anchor>
     {
         Anchor anchor = value.copy();
 
-        anchor.previous = value.previous == null ? null : value.previous.copy();
+        anchor.previous = value.previous == null ? null : this.copy(value.previous);
         anchor.x = value.x;
+        anchor.blendSource = value.blendSource == null ? null : this.copy(value.blendSource);
+        anchor.blendWeight = value.blendWeight;
 
         return anchor;
     }
@@ -58,6 +60,9 @@ public class AnchorKeyframeFactory implements IKeyframeFactory<Anchor>
 
             Anchor anchor = b.getValue().copy();
 
+            anchor.progress = (float) mchorse.bbs_mod.utils.interps.AutoBezier.get(preA.getValue().progress, a.getValue().progress,
+                b.getValue().progress, postB.getValue().progress, preA.getTick(), a.getTick(), b.getTick(), postB.getTick(),
+                interpolation.has(Interpolations.AUTO_CLAMPED), x);
             anchor.transform.autoLerp(
                 preA.getValue().transform, a.getValue().transform, b.getValue().transform, postB.getValue().transform,
                 preA.getTick(), a.getTick(), b.getTick(), postB.getTick(),
@@ -80,6 +85,7 @@ public class AnchorKeyframeFactory implements IKeyframeFactory<Anchor>
 
             Anchor anchor = b.copy();
 
+            anchor.progress = (float) interpolation.interpolate(IInterp.context.set(preA.progress, a.progress, b.progress, postB.progress, x));
             anchor.transform.copy(this.transform.interpolate(preA.transform, a.transform, b.transform, postB.transform, interpolation, x));
 
             return anchor;

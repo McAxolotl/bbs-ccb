@@ -73,6 +73,8 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.IK, UIIKKeyframeFactory::new);
         register(KeyframeFactories.PHYSICS, UIPhysicsKeyframeFactory::new);
         register(KeyframeFactories.WIND, UIWindKeyframeFactory::new);
+        register(KeyframeFactories.SPLINE, UISplineKeyframeFactory::new);
+        register(KeyframeFactories.SPLINE_POINTS, UISplinePointsKeyframeFactory::new);
         register(KeyframeFactories.POSE_TRANSFORM, UIPoseTransformKeyframeFactory::new);
         register(KeyframeFactories.BONE_CONSTRAINT, UIBoneConstraintKeyframeFactory::new);
         register(KeyframeFactories.STRING, UIStringKeyframeFactory::new);
@@ -230,7 +232,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
             return this.keyframe.getValue();
         }
 
-        T value = (T) sheet.channel.interpolate(tick);
+        T value = (T) sheet.sample(tick);
 
         return value == null ? this.keyframe.getValue() : value;
     }

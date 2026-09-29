@@ -53,7 +53,8 @@ public class UIModelConstraintsFormPanel extends UIBoneListFormPanel
             UIKeys.FORMS_EDITORS_MODEL_CONSTRAINTS_CONTEXT_PASTE,
             UIKeys.FORMS_EDITORS_MODEL_CONSTRAINTS_CONTEXT_RESET,
             UIKeys.FORMS_EDITORS_MODEL_CONSTRAINTS_CONTEXT_SAVE,
-            UIKeys.FORMS_EDITORS_MODEL_CONSTRAINTS_CONTEXT_NAME
+            UIKeys.FORMS_EDITORS_MODEL_CONSTRAINTS_CONTEXT_NAME,
+            this::toPresetData, this::applyPresetData
         );
 
         this.limitX = this.axisToggle(UIKeys.GENERAL_X, (c, v) -> c.limitX = v);
@@ -251,13 +252,11 @@ public class UIModelConstraintsFormPanel extends UIBoneListFormPanel
         this.updateFieldsEnabled();
     }
 
-    @Override
     protected MapType toPresetData()
     {
         return this.form == null ? new MapType() : BoneConstraintsIO.write(this.form.bones);
     }
 
-    @Override
     protected void applyPresetData(MapType map)
     {
         if (this.form == null)

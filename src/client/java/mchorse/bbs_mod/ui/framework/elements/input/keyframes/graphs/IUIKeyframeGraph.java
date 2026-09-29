@@ -180,7 +180,7 @@ public interface IUIKeyframeGraph
         {
             if (segment != null)
             {
-                value = segment.createInterpolated();
+                value = sheet.sample(tick);
                 extra = segment.a;
             }
             else if (sheet.seed != null)

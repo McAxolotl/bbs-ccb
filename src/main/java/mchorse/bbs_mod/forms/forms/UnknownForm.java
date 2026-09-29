@@ -4,6 +4,7 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.base.BaseKeyframeFactoryValue;
 import mchorse.bbs_mod.utils.factory.IUnknownType;
 
 /**
@@ -30,6 +31,7 @@ public class UnknownForm extends Form implements IUnknownType
         for (BaseValue value : this.getAll())
         {
             value.invisible();
+            if (value instanceof BaseKeyframeFactoryValue<?> property) property.animatable(false);
         }
     }
 

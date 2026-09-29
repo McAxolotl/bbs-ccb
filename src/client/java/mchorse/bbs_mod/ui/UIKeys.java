@@ -425,7 +425,6 @@ public class UIKeys
     public static final IKey FILM_REPLAY_CONTEXT_ADD = L10n.lang("bbs.ui.film.replay.context.add");
     public static final IKey FILM_REPLAY_CONTEXT_ANIMATION_TO_KEYFRAMES = L10n.lang("bbs.ui.film.replay.context.animation_to_keyframes");
     public static final IKey FILM_REPLAY_CONTEXT_POSES_TO_LIMBS = L10n.lang("bbs.ui.film.replay.context.poses_to_limbs");
-    public static final IKey FILM_REPLAY_CONTEXT_CLEAR_IK = L10n.lang("bbs.ui.film.replay.context.clear_ik");
     public static final IKey FILM_REPLAY_CONTEXT_BAKE_IK = L10n.lang("bbs.ui.film.replay.context.bake_ik");
     public static final IKey FILM_REPLAY_CONTEXT_MOVE_HERE = L10n.lang("bbs.ui.film.replay.context.move_here");
     public static final IKey FILM_REPLAY_FILTER_SHEETS = L10n.lang("bbs.ui.film.replay.filter_sheets");
@@ -592,9 +591,11 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_MODEL_IK_SETTINGS = L10n.lang("bbs.ui.forms.editors.model.ik.settings");
     public static final IKey FORMS_EDITORS_MODEL_IK_ENABLED = L10n.lang("bbs.ui.forms.editors.model.ik.enabled");
     public static final IKey FORMS_EDITORS_MODEL_IK_TARGET = L10n.lang("bbs.ui.forms.editors.model.ik.target");
+    public static final IKey FORMS_EDITORS_MODEL_IK_TARGET_LABEL = L10n.lang("bbs.ui.forms.editors.model.ik.target_label");
     public static final IKey FORMS_EDITORS_MODEL_IK_CHAIN_LENGTH = L10n.lang("bbs.ui.forms.editors.model.ik.chain_length");
     public static final IKey FORMS_EDITORS_MODEL_IK_POLE = L10n.lang("bbs.ui.forms.editors.model.ik.pole");
     public static final IKey FORMS_EDITORS_MODEL_IK_POLE_TARGET = L10n.lang("bbs.ui.forms.editors.model.ik.pole_target");
+    public static final IKey FORMS_EDITORS_MODEL_IK_POLE_TARGET_LABEL = L10n.lang("bbs.ui.forms.editors.model.ik.pole_target_label");
     public static final IKey FORMS_EDITORS_MODEL_IK_POLE_ANGLE = L10n.lang("bbs.ui.forms.editors.model.ik.pole_angle");
     public static final IKey FORMS_EDITORS_MODEL_IK_SOFTNESS = L10n.lang("bbs.ui.forms.editors.model.ik.softness");
     public static final IKey FORMS_EDITORS_MODEL_IK_WEIGHT = L10n.lang("bbs.ui.forms.editors.model.ik.weight");

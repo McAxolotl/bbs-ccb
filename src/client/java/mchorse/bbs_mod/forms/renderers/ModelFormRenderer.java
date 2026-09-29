@@ -20,6 +20,7 @@ import mchorse.bbs_mod.cubic.animation.ProceduralAnimator;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.ik.ModelIKDebug;
 import mchorse.bbs_mod.cubic.ik.ModelIKRuntime;
+import mchorse.bbs_mod.cubic.spline.ModelSplineRuntime;
 import mchorse.bbs_mod.cubic.jem.CemAnimator;
 import mchorse.bbs_mod.cubic.jem.CemVanillaStage;
 import mchorse.bbs_mod.cubic.constraints.ModelConstraintsRuntime;
@@ -74,6 +75,7 @@ import net.minecraft.item.Items;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.RotationAxis;
 import org.joml.Vector3f;
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
@@ -95,6 +97,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     }
 
     private MatrixCache bones = new MatrixCache();
+    private ModelSplineRuntime.Motion splineMotion;
+
+    /** Result of this form's latest evaluation, never stored on the shared model asset. */
+    public ModelSplineRuntime.Motion getSplineMotion()
+    {
+        return this.splineMotion;
+    }
 
     private ActionsConfig lastConfigs;
     private IAnimator animator;
@@ -249,6 +258,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
      */
     private void evaluateChannels(IEntity entity, ModelInstance model, float transition)
     {
+        this.splineMotion = null;
         /* The asset already holds this exact evaluation (same form, entity, transition, frame
          * and pose version) — every render pass of a frame used to redo it: the main render,
          * the shadow displacement's two samples, the stencil pass, the Iris shadow pass.
@@ -373,6 +383,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
+        this.splineMotion = null;
         context.batcher.flush();
 
         this.ensureAnimator(context.getTransition());
@@ -462,7 +473,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         this.applyIK(model, baseTransform);
         this.applyPhysics(target, model, transition, baseTransform);
+        this.applySpline(model);
         this.applyConstraints(model);
+        this.applySplineMotion(newStack);
 
         /* Default texture for materials without their own: the form's texture override, else the
          * model's default. Per-material textures (folder defaults now, animation tracks later)
@@ -624,6 +637,23 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         ModelIKRuntime.apply(model, local.isEmpty() ? null : local, poleLocal.isEmpty() ? null : poleLocal);
+    }
+
+    private void applySpline(ModelInstance model)
+    {
+        this.splineMotion = this.rest ? null : ModelSplineRuntime.apply(model, this.form);
+    }
+
+    private void applySplineMotion(MatrixStack stack)
+    {
+        if (this.splineMotion != null)
+        {
+            Matrix4f motion = this.splineMotion.matrix();
+            stack.peek().getPositionMatrix().mul(motion);
+            /* A scaled parent can make the conjugated motion affine, so preserve its shear
+             * and use the inverse transpose for normals instead of decomposing it to TRS. */
+            stack.peek().getNormalMatrix().mul(motion.normal(new Matrix3f()));
+        }
     }
 
     /** World-space target overrides into the model's local space (the space the solver and pivot frames use). */
@@ -900,6 +930,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     @Override
     public void render3D(FormRenderingContext context)
     {
+        this.splineMotion = null;
         this.ensureAnimator(context.getTransition());
 
         ModelInstance model = this.getModel();
@@ -1035,6 +1066,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         model.fillStencilMap(context.stencilMap, this.form);
 
+        context.stack.push();
+        this.applySplineMotion(context.stack);
         if (this.form != null)
         {
             ModelIKDebug.renderStencil(context.stack, model.model, this.form, context.stencilMap, this.form);
@@ -1044,12 +1077,21 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             ModelPhysicsDebug.renderStencil(context.stack, model.model, this.form, context.stencilMap, this.form);
         }
+        context.stack.pop();
     }
 
     private void captureMatrices(ModelInstance model)
     {
-        /* this.bones.clear()? */
+        this.bones.clear();
         model.captureMatrices(this.bones);
+        if (this.splineMotion != null)
+        {
+            for (Map.Entry<String, MatrixCacheEntry> entry : this.bones.entrySet())
+            {
+                this.splineMotion.matrix().mul(entry.getValue().matrix(), entry.getValue().matrix());
+                this.splineMotion.matrix().mul(entry.getValue().origin(), entry.getValue().origin());
+            }
+        }
     }
 
     @Override
@@ -1081,9 +1123,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             }
             else
             {
+                this.applySplineMotion(context.stack);
                 context.stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
                 if (context.world != null)
                 {
+                    this.applySplineMotion(context.world);
                     context.world.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
                 }
             }
@@ -1108,6 +1152,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     @Override
     public void collectMatrices(IEntity entity, MatrixStack stack, MatrixCache matrices, String prefix, float transition)
     {
+        this.splineMotion = null;
         FormPoseEvents.PARENT_FRAME.invoker().capture(this.form, entity, stack.peek().getPositionMatrix(), prefix, transition);
 
         ModelInstance model = this.getModel();
@@ -1139,6 +1184,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             model.form = this.form;
             ModelIKRuntime.apply(model, null, null);
             FormPoseEvents.MODEL_POSE.invoker().apply(this.form, entity, model, transition, null, FormPoseEvents.Pass.MATRICES);
+            this.applySpline(model);
 
             stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
             this.captureMatrices(model);
@@ -1179,6 +1225,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 }
                 else
                 {
+                    this.applySplineMotion(stack);
                     stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
                 }
 
@@ -1215,6 +1262,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (anchor == null || anchor.isEmpty())
         {
+            if (this.form.splines.getAllTyped().stream().anyMatch(spline -> spline.moveModel.get() && this.form.splineIK.get().get(spline.getId()).influence > 0F))
+            {
+                this.ensureAnimator(transition);
+                Vector3f movedOrigin = this.sampleBoneOrigin(entity, transition, null, false);
+                if (movedOrigin != null) return movedOrigin;
+            }
             return super.getShadowDisplacement(entity, transition);
         }
 
@@ -1237,6 +1290,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
      */
     private Vector3f sampleBoneOrigin(IEntity entity, float transition, String bone, boolean rest)
     {
+        this.splineMotion = null;
         ModelInstance model = this.getModel();
 
         if (model == null)
@@ -1275,9 +1329,25 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         else
         {
             this.evaluateChannels(entity, model, transition);
+            if (!this.form.splines.getAllTyped().isEmpty())
+            {
+                /* Match the non-simulating pose used by matrix readers, including an
+                 * IK-driven parent of the travelling chain and addon pose contributions. */
+                model.form = this.form;
+                ModelIKRuntime.apply(model, null, null);
+                FormPoseEvents.MODEL_POSE.invoker().apply(this.form, entity, model, transition, null, FormPoseEvents.Pass.MATRICES);
+            }
+            this.applySpline(model);
         }
 
         stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
+        if (bone == null)
+        {
+            this.applySplineMotion(stack);
+            Vector3f origin = stack.peek().getPositionMatrix().getTranslation(new Vector3f());
+            stack.pop();
+            return origin;
+        }
         this.captureMatrices(model);
 
         Vector3f result = null;

@@ -83,15 +83,12 @@ public class UICameraUtils
         menu.action(Icons.COPY, UIKeys.CAMERA_PANELS_CONTEXT_COPY_POINT, Colors.POSITIVE, () ->
         {
             Map<String, Double> map = new LinkedHashMap<>();
-
             copyPoint(map, value.get());
             Window.setClipboard(mapToString(map));
         });
-
         menu.action(Icons.PASTE, UIKeys.CAMERA_PANELS_CONTEXT_PASTE_POINT, () ->
         {
             Point point = createPoint(stringToMap(Window.getClipboard()));
-
             if (point != null)
             {
                 value.set(point);

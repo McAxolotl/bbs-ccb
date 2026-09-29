@@ -23,6 +23,7 @@ import mchorse.bbs_mod.camera.clips.misc.CurveClientClip;
 import mchorse.bbs_mod.camera.clips.misc.ImageClip;
 import mchorse.bbs_mod.camera.clips.misc.SubtitleClip;
 import mchorse.bbs_mod.camera.clips.misc.TrackerClientClip;
+import mchorse.bbs_mod.camera.clips.misc.SplineClientClip;
 import mchorse.bbs_mod.camera.clips.misc.VideoClientClip;
 import mchorse.bbs_mod.camera.clips.modifiers.AngleClip;
 import mchorse.bbs_mod.camera.clips.modifiers.DollyZoomClip;
@@ -126,6 +127,7 @@ public abstract class UIClip <T extends Clip> extends UIElement
         register(MathClip.class, UIMathClip::new);
         register(LookClip.class, UILookClip::new);
         register(TrackerClientClip.class, UITrackerClip::new);
+        register(SplineClientClip.class, UISplineClip::new);
         register(OrbitClip.class, UIOrbitClip::new);
         register(RemapperClip.class, UIRemapperClip::new);
         register(AudioClientClip.class, UIAudioClip::new);

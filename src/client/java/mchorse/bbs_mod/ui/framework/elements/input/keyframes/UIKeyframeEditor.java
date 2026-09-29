@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes;
 
+import mchorse.bbs_mod.ui.utils.SplineKeyframeEditor;
+
 import mchorse.bbs_mod.ui.framework.elements.input.drag.TransformSpace;
 import mchorse.bbs_mod.camera.clips.overwrite.KeyframeClip;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
@@ -251,7 +253,11 @@ public class UIKeyframeEditor extends UITimelinePanel
     {
         UIKeyframeFactory editor = this.editor;
 
-        if (editor instanceof UIPoseKeyframeFactory pose)
+        if (editor instanceof SplineKeyframeEditor spline)
+        {
+            return spline.pointEditor().position.getSpace();
+        }
+        else if (editor instanceof UIPoseKeyframeFactory pose)
         {
             return pose.poseEditor.transform.getSpace();
         }

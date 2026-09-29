@@ -75,7 +75,7 @@ public class TimelineBodyPartSelection
         return "-";
     }
 
-    /** Keep the existing bone/material trees, adding only an owner heading when several parts show. */
+    /** Keep track-specific sections and trees; add owner headings for the remaining tracks when several parts show. */
     public void groupSheets(List<UIKeyframeSheet> sheets, UIForms forms, FoldState<String> folds)
     {
         Set<String> shown = new LinkedHashSet<>();
@@ -83,7 +83,6 @@ public class TimelineBodyPartSelection
         {
             if (this.includes(entry.getPath()) && entry.getForm() != null) shown.add(entry.getPath());
         }
-        if (shown.size() < 2) return;
 
         Map<String, String> names = forms.selectedNames(shown);
         Map<String, UIKeyframeSheet.Section> sections = new LinkedHashMap<>();
@@ -91,10 +90,13 @@ public class TimelineBodyPartSelection
         {
             if (sheet.descriptor == null) continue;
             String path = sheet.descriptor.id().formPath();
-            sheet.section = sections.computeIfAbsent(path, key -> new UIKeyframeSheet.Section(
-                "body_part/" + key, IKey.constant(names.getOrDefault(key, key)), sheet.descriptor.owner().getIcon(), 0x40bfff));
+            if (sheet.section == null && shown.size() > 1)
+            {
+                sheet.section = sections.computeIfAbsent(path, key -> new UIKeyframeSheet.Section(
+                    "body_part/" + key, IKey.constant(names.getOrDefault(key, key)), sheet.descriptor.owner().getIcon(), 0x40bfff));
+            }
             /* A new heading must not hide tracks that were already accessible. */
-            if (this.knownGroups.add(sheet.section.id())) folds.set(sheet.section.id(), true);
+            if (sheet.section != null && this.knownGroups.add(sheet.section.id())) folds.set(sheet.section.id(), true);
         }
     }
 
