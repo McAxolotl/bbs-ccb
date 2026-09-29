@@ -110,6 +110,8 @@ public class UIKeys
     public static final IKey CAMERA_PANELS_CURVE_REMOVE = L10n.lang("bbs.ui.camera.panels.curve.remove");
     public static final IKey CAMERA_PANELS_DETERMINISTIC = L10n.lang("bbs.ui.camera.panels.deterministic");
     public static final IKey CAMERA_PANELS_DETERMINISTIC_TOOLTIP = L10n.lang("bbs.ui.camera.panels.deterministic_tooltip");
+    public static final IKey CAMERA_PANELS_DIMENSION_PICK = L10n.lang("bbs.ui.camera.panels.dimension.pick_dimension");
+    public static final IKey CAMERA_PANELS_DIMENSION_TITLE = L10n.lang("bbs.ui.camera.panels.dimension.title");
     public static final IKey CAMERA_PANELS_DISTANCE = L10n.lang("bbs.ui.camera.panels.distance");
     public static final IKey CAMERA_PANELS_DOLLY_DISTANCE = L10n.lang("bbs.ui.camera.panels.dolly.distance");
     public static final IKey CAMERA_PANELS_DOLLY_PITCH = L10n.lang("bbs.ui.camera.panels.dolly.pitch");

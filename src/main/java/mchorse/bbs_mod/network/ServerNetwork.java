@@ -39,6 +39,8 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -47,6 +49,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -94,6 +97,7 @@ public class ServerNetwork
     public static final Identifier SERVER_APPLY_FILM_PLAYER_SETTINGS = new Identifier(BBSMod.MOD_ID, "s14");
     public static final Identifier SERVER_SAVE_STRUCTURE = new Identifier(BBSMod.MOD_ID, "s15");
     public static final Identifier SERVER_CUT_STRUCTURE = new Identifier(BBSMod.MOD_ID, "s16");
+    public static final Identifier SERVER_CHANGE_DIMENSION = new Identifier(BBSMod.MOD_ID, "s17");
 
     private static ServerPacketCrusher crusher = new ServerPacketCrusher();
 
@@ -120,6 +124,7 @@ public class ServerNetwork
         ServerPlayNetworking.registerGlobalReceiver(SERVER_APPLY_FILM_PLAYER_SETTINGS, (server, player, handler, buf, responder) -> handleApplyFilmPlayerSettings(server, player, buf));
         ServerPlayNetworking.registerGlobalReceiver(SERVER_SAVE_STRUCTURE, (server, player, handler, buf, responder) -> handleSaveStructure(server, player, buf));
         ServerPlayNetworking.registerGlobalReceiver(SERVER_CUT_STRUCTURE, (server, player, handler, buf, responder) -> handleCutStructure(server, player, buf));
+        ServerPlayNetworking.registerGlobalReceiver(SERVER_CHANGE_DIMENSION, (server, player, handler, buf, responder) -> handleDimensionSwitch(server, player, buf));
     }
 
     /* Handlers */
@@ -547,6 +552,54 @@ public class ServerNetwork
             player.setHeadYaw(yaw);
             player.setBodyYaw(bodyYaw);
             player.setPitch(pitch);
+        });
+    }
+
+    private static void handleDimensionSwitch(MinecraftServer server, ServerPlayerEntity player, PacketByteBuf buf)
+    {
+        if (!PermissionUtils.arePanelsAllowed(server, player))
+        {
+            return;
+        }
+
+        String dimString = buf.readString();
+        double x = buf.readDouble();
+        double y = buf.readDouble();
+        double z = buf.readDouble();
+        float yaw = buf.readFloat();
+        float pitch = buf.readFloat();
+
+        server.execute(() ->
+        {
+            if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
+                || !Float.isFinite(yaw) || !Float.isFinite(pitch))
+            {
+                return;
+            }
+
+            if (Math.abs(x) > 30000000.0 || Math.abs(z) > 30000000.0 || y < -2000.0 || y > 2000.0)
+            {
+                return;
+            }
+
+            Identifier dimId = Identifier.tryParse(dimString);
+            if (dimId != null)
+            {
+                RegistryKey<World> key = RegistryKey.of(RegistryKeys.WORLD, dimId);
+                ServerWorld targetWorld = server.getWorld(key);
+
+                if (targetWorld != null)
+                {
+                    if (player.getServerWorld() != targetWorld)
+                    {
+                        player.teleport(targetWorld, x, y, z, Collections.emptySet(), yaw, pitch);
+                    }
+                    else
+                    {
+                        player.teleport(x, y, z);
+                    }
+                }
+            }
         });
     }
 

@@ -62,6 +62,7 @@ public class Recorder extends WorldFilmController
     public Form lastForm;
     public Vector3d lastPosition;
     public Vector4f lastRotation;
+    public net.minecraft.util.Identifier initialDimension;
 
     public int countdown;
     public final int initialTick;
@@ -195,6 +196,7 @@ public class Recorder extends WorldFilmController
         {
             this.lastPosition = new Vector3d(player.getX(), player.getY(), player.getZ());
             this.lastRotation = new Vector4f(player.getYaw(), player.getPitch(), player.getHeadYaw(), player.getBodyYaw());
+            this.initialDimension = player.getWorld().getRegistryKey().getValue();
 
             this.hp = player.getHealth();
             this.hunger = player.getHungerManager().getFoodLevel();
@@ -328,6 +330,16 @@ public class Recorder extends WorldFilmController
         if (pos != null)
         {
             Vector4f rot = this.lastRotation;
+
+            if (this.initialDimension != null)
+            {
+                ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+                if (player != null && !player.getWorld().getRegistryKey().getValue().equals(this.initialDimension))
+                {
+                    ClientNetwork.sendDimensionSwitch(this.initialDimension, pos.x, pos.y, pos.z, rot.z, rot.y);
+                }
+            }
 
             PlayerUtils.teleport(pos.x, pos.y, pos.z, rot.z, rot.y);
             ClientNetwork.sendPlayerForm(this.lastForm);

@@ -39,6 +39,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.HashMap;
@@ -587,6 +588,20 @@ public class ClientNetwork
         buf.writeFloat(pitch);
 
         ClientPlayNetworking.send(ServerNetwork.SERVER_PLAYER_TP, buf);
+    }
+
+    public static void sendDimensionSwitch(Identifier targetDim, double x, double y, double z, float yaw, float pitch)
+    {
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeString(targetDim.toString());
+        buf.writeDouble(x);
+        buf.writeDouble(y);
+        buf.writeDouble(z);
+        buf.writeFloat(yaw);
+        buf.writeFloat(pitch);
+
+        ClientPlayNetworking.send(ServerNetwork.SERVER_CHANGE_DIMENSION, buf);
     }
 
     public static void sendFormTrigger(String triggerId, int type)

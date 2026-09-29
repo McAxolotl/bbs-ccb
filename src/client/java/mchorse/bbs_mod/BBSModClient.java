@@ -1,7 +1,9 @@
 package mchorse.bbs_mod;
 
 import mchorse.bbs_mod.api.client.editor.TrackCategories;
+import mchorse.bbs_mod.api.client.events.FilmEvents;
 import mchorse.bbs_mod.api.client.events.RegisterTrackCategoriesEvent;
+import mchorse.bbs_mod.camera.runtime.DimensionRuntimeController;
 
 import mchorse.bbs_mod.api.client.events.RegisterFilmToolsEvent;
 import mchorse.bbs_mod.api.client.events.RegisterFormPanelsEvent;
@@ -541,6 +543,10 @@ public class BBSModClient implements ClientModInitializer
         selectors = new EntitySelectors();
         selectors.read();
         films = new Films();
+
+        FilmEvents.CREATED.register(DimensionRuntimeController::onCreated);
+        FilmEvents.TICK_BEFORE.register(DimensionRuntimeController::onTick);
+        FilmEvents.SHUTDOWN.register(DimensionRuntimeController::onShutdown);
 
         BBSResources.init();
 
