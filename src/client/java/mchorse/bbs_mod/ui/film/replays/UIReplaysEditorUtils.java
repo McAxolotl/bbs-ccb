@@ -63,6 +63,8 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
+import mchorse.bbs_mod.utils.pose.Transform;
+import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -731,21 +733,72 @@ public class UIReplaysEditorUtils
     }
 
     /**
-     * Measure a gizmo's axes by perturbing what it drives: every probe pushes the keyframe state
-     * onto the form so the matrix cache reflects that sample, and the pose is put back afterwards.
-     * The composite the sampler returns is what the form is actually drawn with, so the numeric
-     * Jacobian answers in world space.
+     * Probe the edited bone across the selected keys of its track. Probing only the primary key
+     * measures no response when the playhead is on a different selected key. This is a silent,
+     * temporary channel delta, not an editor operation (which would notify and record undo).
      */
+    public static <T> Supplier<T> keyframeGizmoSampler(UIKeyframeEditor editor, UIPropTransform transform, Supplier<T> sampler)
+    {
+        if (editor == null || editor.editor == null) return sampler;
+
+        UIKeyframeSheet sheet = editor.getSheet(editor.editor.getKeyframe());
+        if (sheet == null) return sampler;
+
+        String bone = editor.editor instanceof UIPoseKeyframeFactory pose ? pose.poseEditor.getGroup() : null;
+        List<Transform> targets = new ArrayList<>();
+        Map<Pose, PoseTransform> missing = new java.util.IdentityHashMap<>();
+        List<Keyframe> keys = editor.view.getAutoKeyframeTick() == null
+            ? new ArrayList<>(sheet.selection.getSelected()) : List.of(editor.editor.getEditTarget());
+
+        for (Keyframe key : keys)
+        {
+            Object value = key.getValue();
+            Transform target = null;
+
+            if (value instanceof Pose pose && bone != null)
+            {
+                target = pose.transforms.get(bone);
+
+                if (target == null)
+                {
+                    PoseTransform temporary = new PoseTransform();
+                    missing.put(pose, temporary);
+                    target = temporary;
+                }
+            }
+            else if (value instanceof Transform t) target = t;
+            else if (value instanceof Anchor anchor) target = anchor.transform;
+
+            if (target != null) targets.add(target);
+        }
+
+        /* Missing bones are implicit rest transforms. Expose them only during the probe,
+         * without notifications or permanent changes to sparse poses. */
+        return GizmoDrag.withTransformSelection(transform.getTransform(), targets, () ->
+        {
+            try
+            {
+                missing.forEach((pose, temporary) -> pose.transforms.put(bone, temporary));
+                return sampler.get();
+            }
+            finally
+            {
+                missing.forEach((pose, temporary) -> pose.transforms.remove(bone, temporary));
+            }
+        });
+    }
+
+    /** Re-evaluate the displayed form for every probe, then restore its unperturbed pose. */
     private static void sampleGizmoAxes(UIFilmPanel panel, GizmoDrag drag, UIPropTransform transform, Replay replay, IEntity entity, float transition, Supplier<Matrix4f> composite)
     {
-        Supplier<Matrix4f> matrixSampler = () ->
+        Supplier<Matrix4f> matrixSampler = keyframeGizmoSampler(panel.replayEditor.keyframeEditor, transform, () ->
         {
             applyFormProperties(panel, replay, entity, transition);
 
             Matrix4f matrix = composite.get();
 
             return matrix == null ? new Matrix4f() : matrix;
-        };
+        });
 
         drag.setRotateAxes(GizmoDrag.computeRotateAxes(transform.getTransform(), matrixSampler));
         drag.setJacobian(GizmoDrag.computeTranslateJacobian(

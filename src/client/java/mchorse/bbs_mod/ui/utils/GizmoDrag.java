@@ -16,6 +16,9 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import java.util.function.Supplier;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Snapshot of camera, viewport and gizmo placement captured at the start of a drag;
@@ -494,6 +497,55 @@ public class GizmoDrag
             RenderFrame.invalidate();
 
             return sampler.get();
+        };
+    }
+
+    /** Measure a keyframe edit with the same channel delta on every selected temporal sample. */
+    public static <T> Supplier<T> withTransformSelection(Transform primary, List<Transform> selection, Supplier<T> sampler)
+    {
+        Transform source = primary.copy();
+        Vector3f sourceRotation = source.rotationMode == Transform.RotationMode.QUATERNION
+            ? Matrices.toEulerZYXRadians(source.quat, new Vector3f()) : new Vector3f(source.rotate);
+        Map<Transform, Transform> saved = new IdentityHashMap<>();
+
+        for (Transform target : selection)
+        {
+            if (target != primary) saved.put(target, target.copy());
+        }
+
+        return () ->
+        {
+            Vector3f translation = new Vector3f(primary.translate).sub(source.translate);
+            Vector3f rotation = primary.rotationMode == Transform.RotationMode.QUATERNION
+                ? Matrices.toEulerZYXRadians(primary.quat, new Vector3f()) : new Vector3f(primary.rotate);
+            rotation.sub(sourceRotation);
+
+            try
+            {
+                for (Map.Entry<Transform, Transform> entry : saved.entrySet())
+                {
+                    Transform target = entry.getKey();
+                    Transform original = entry.getValue();
+
+                    target.translate.set(original.translate).add(translation);
+
+                    if (rotation.lengthSquared() != 0F)
+                    {
+                        if (original.rotationMode == Transform.RotationMode.QUATERNION)
+                        {
+                            Vector3f angles = Matrices.toEulerZYXRadians(original.quat, new Vector3f()).add(rotation);
+                            target.quat.set(Matrices.toQuaternionZYXRadians(angles.x, angles.y, angles.z));
+                        }
+                        else target.rotate.set(original.rotate).add(rotation);
+                    }
+                }
+
+                return sampler.get();
+            }
+            finally
+            {
+                saved.forEach(Transform::copy);
+            }
         };
     }
 

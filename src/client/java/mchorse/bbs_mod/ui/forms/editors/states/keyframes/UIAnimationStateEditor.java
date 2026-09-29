@@ -669,7 +669,7 @@ public class UIAnimationStateEditor extends UIElement
              * axes collapse to identity, breaking the trackball and view rotation. */
             drag.setJacobian(GizmoDrag.computeTranslateJacobian(
                 transform.getTransform(),
-                () ->
+                UIReplaysEditorUtils.keyframeGizmoSampler(this.keyframeEditor, transform, () ->
                 {
                     this.editor.applyStateForSampling(tick);
 
@@ -679,11 +679,11 @@ public class UIAnimationStateEditor extends UIElement
                      * drag: the gizmo's own origin/axes come from the render
                      * matrix and already carry the renderer's transform. */
                     return origin == null ? new Vector3f() : this.editor.renderer.toSceneMatrix(origin).getTranslation(new Vector3f());
-                }
+                })
             ));
             drag.setRotateAxes(GizmoDrag.computeRotateAxes(
                 transform.getTransform(),
-                () ->
+                UIReplaysEditorUtils.keyframeGizmoSampler(this.keyframeEditor, transform, () ->
                 {
                     this.editor.applyStateForSampling(tick);
 
@@ -694,7 +694,7 @@ public class UIAnimationStateEditor extends UIElement
                     Matrix4f origin = this.getOriginMatrix(transition);
 
                     return origin == null ? new Matrix4f() : MatrixStackUtils.stripScale(this.editor.renderer.toSceneMatrix(origin));
-                }
+                })
             ));
 
             /* Both bone frames, so a gesture walked into the other one mid-edit gets its
