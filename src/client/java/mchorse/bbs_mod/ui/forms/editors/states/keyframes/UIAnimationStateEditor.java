@@ -84,8 +84,8 @@ public class UIAnimationStateEditor extends UIElement
         Matrix4f view = new Matrix4f(camera.view).translate((float) -camera.position.x, (float) -camera.position.y, (float) -camera.position.z);
         for (var entry : this.bodyParts.getList())
         {
-            if (!(entry.getForm() instanceof ModelForm model)) continue;
-            for (var chain : model.splines.getAllTyped())
+            Form model = entry.getForm();
+            for (var chain : SplineEditorUtils.sources(model))
             {
                 Matrix4f parent = SplineEditorUtils.parentMatrix(this.root, renderer.getTargetEntity(), context.getTransition(), model, chain);
                 if (parent == null) continue;

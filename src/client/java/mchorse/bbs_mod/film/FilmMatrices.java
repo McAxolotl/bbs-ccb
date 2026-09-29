@@ -1,5 +1,9 @@
 package mchorse.bbs_mod.film;
 
+import mchorse.bbs_mod.cubic.spline.SplinePath;
+import mchorse.bbs_mod.forms.forms.SplineForm;
+import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
+
 import mchorse.bbs_mod.api.client.events.FormPoseEvents;
 import mchorse.bbs_mod.ui.framework.elements.input.drag.TransformSpace;
 
@@ -41,7 +45,7 @@ public class FilmMatrices
 {
     /** Full linear frame of a spline's point coordinates, including actor and anchor. */
     public static Matrix4f getSplineParentCompositeMatrix(Map<String, IEntity> entities, IEntity entity, Replay replay,
-        double cameraX, double cameraY, double cameraZ, float transition, mchorse.bbs_mod.ui.utils.SplineEditorUtils.Point point)
+        double cameraX, double cameraY, double cameraZ, float transition, SplineEditorUtils.Point point)
     {
         if (entity == null || entity.getForm() == null || point == null) return null;
         Form form = entity.getForm();
@@ -53,7 +57,7 @@ public class FilmMatrices
             Pair<Matrix4f, Float> anchor = getTotalMatrix(entities, form.anchor.get(), target, origin.x, origin.y, origin.z, transition, 0);
             if (anchor.a != null) target = anchor.a;
         }
-        Matrix4f parent = mchorse.bbs_mod.ui.utils.SplineEditorUtils.parentMatrix(FormUtils.getRoot(form), entity, transition, point.form(), point.chain());
+        Matrix4f parent = SplineEditorUtils.parentMatrix(FormUtils.getRoot(form), entity, transition, point.form(), point.chain());
         return parent == null ? null : new Matrix4f(target).mul(parent);
     }
 
@@ -142,6 +146,7 @@ public class FilmMatrices
 
     public static Matrix4f getEntityMatrix(Map<String, IEntity> entities, double cameraX, double cameraY, double cameraZ, Anchor anchor, Matrix4f defaultMatrix, float transition, int i, boolean fullMatrix, FormFrameCache frame)
     {
+        if (anchor.spline && cyclic(entities, anchor.replay, new java.util.HashSet<>())) return defaultMatrix;
         IEntity entity = entities.get(anchor.replay);
 
         if (entity != null)
@@ -166,6 +171,19 @@ public class FilmMatrices
                 MatrixCache map = FormFrameCache.collect(frame, form, entity, transition);
                 Matrix4f matrix = map.get(anchor.attachment).matrix();
 
+                if (anchor.spline)
+                {
+                    Form target = FormUtils.getForm(form, anchor.attachment);
+                    if (!(target instanceof SplineForm spline) || matrix == null) return defaultMatrix;
+                    Matrix4f world = new Matrix4f(basic).mul(matrix);
+                    var path = SplinePath.create(spline, world);
+                    Matrix4f sampled = path == null ? null : path.frame(anchor.progress, anchor.horizontal);
+                    if (sampled == null) return defaultMatrix;
+                    Matrix4f result = fullMatrix ? sampled : anchor.filterMatrix(sampled, defaultMatrix);
+                    if (fullMatrix || anchor.inheritScale) result.scale(world.getScale(new Vector3f()));
+                    return result.isFinite() ? result : defaultMatrix;
+                }
+
                 if (matrix != null)
                 {
                     basic.mul(matrix);
@@ -185,6 +203,34 @@ public class FilmMatrices
         }
 
         return defaultMatrix;
+    }
+
+    private static boolean cyclic(Map<String, IEntity> entities, String id, java.util.Set<String> visited)
+    {
+        if (id.isEmpty()) return false;
+        if (!visited.add(id) || visited.size() > 32) return true;
+        IEntity entity = entities.get(id);
+        Anchor next = entity == null || entity.getForm() == null ? null : entity.getForm().anchor.get();
+        boolean result = next != null && (cyclic(entities, next.replay, visited)
+            || next.previous != null && cyclic(entities, next.previous.replay, visited));
+        visited.remove(id);
+        return result;
+    }
+
+    /** Same path evaluator for camera and actor bindings, with camera offsets measured in blocks. */
+    public static Matrix4f getPathMatrix(Map<String, IEntity> entities, String replay, String attachment,
+        float progress, boolean horizontal, double cx, double cy, double cz, float transition)
+    {
+        Anchor anchor = new Anchor();
+        anchor.replay = replay;
+        anchor.attachment = attachment;
+        anchor.spline = true;
+        anchor.progress = progress;
+        anchor.horizontal = horizontal;
+        anchor.inheritScale = false;
+        Matrix4f fallback = new Matrix4f();
+        Matrix4f matrix = getEntityMatrix(entities, cx, cy, cz, anchor, fallback, transition, 0);
+        return matrix == fallback ? null : matrix;
     }
 
     /**

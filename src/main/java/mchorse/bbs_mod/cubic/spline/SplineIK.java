@@ -8,8 +8,11 @@ import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 
 /** One form's curve and chain settings. The shared model asset never owns these values. */
-public class SplineIK extends ValueGroup
+public class SplineIK extends ValueGroup implements SplineSource
 {
+    @Override public ValueSplinePoints points() { return this.points; }
+    @Override public mchorse.bbs_mod.utils.pose.Transform position(String id) { return this.state().point(id); }
+
     private ModelForm owner;
 
     public void bind(ModelForm owner)

@@ -16,6 +16,10 @@ public class Anchor implements IMapSerializable
      */
     public String replay = NO_ATTACHMENT;
     public String attachment = "";
+    /** Optional path following; absent in legacy anchors. Progress is a percent of world arc length. */
+    public boolean spline;
+    public float progress;
+    public boolean horizontal;
 
     /**
      * Which components of the target's frame the anchored form rides — the same three the body
@@ -99,6 +103,8 @@ public class Anchor implements IMapSerializable
         return anchor != null
             && this.replay.equals(anchor.replay)
             && this.attachment.equals(anchor.attachment)
+            && this.spline == anchor.spline
+            && this.horizontal == anchor.horizontal
             && this.inheritPosition == anchor.inheritPosition
             && this.inheritRotation == anchor.inheritRotation
             && this.inheritScale == anchor.inheritScale;
@@ -108,6 +114,9 @@ public class Anchor implements IMapSerializable
     {
         Anchor anchor = new Anchor(this.replay, this.attachment, this.inheritPosition, this.inheritRotation, this.inheritScale);
 
+        anchor.spline = this.spline;
+        anchor.progress = this.progress;
+        anchor.horizontal = this.horizontal;
         anchor.transform.copy(this.transform);
 
         return anchor;
@@ -123,7 +132,7 @@ public class Anchor implements IMapSerializable
 
         if (obj instanceof Anchor anchor)
         {
-            return this.hasSameTarget(anchor)
+            return this.hasSameTarget(anchor) && this.progress == anchor.progress
                 && this.transform.equals(anchor.transform);
         }
 
@@ -135,6 +144,9 @@ public class Anchor implements IMapSerializable
     {
         this.replay = data.getString("actor");
         this.attachment = data.getString("attachment");
+        this.spline = data.getBool("spline", false);
+        this.progress = data.getFloat("progress", 0F);
+        this.horizontal = data.getBool("horizontal", false);
 
         if (data.has("inheritPosition") || data.has("inheritRotation") || data.has("inheritScale"))
         {
@@ -170,6 +182,12 @@ public class Anchor implements IMapSerializable
     {
         data.putString("actor", this.replay);
         data.putString("attachment", this.attachment);
+        if (this.spline)
+        {
+            data.putBool("spline", true);
+            data.putFloat("progress", this.progress);
+            data.putBool("horizontal", this.horizontal);
+        }
         data.putBool("inheritPosition", this.inheritPosition);
         data.putBool("inheritRotation", this.inheritRotation);
         data.putBool("inheritScale", this.inheritScale);

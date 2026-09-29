@@ -253,8 +253,8 @@ public final class ModelSplineRuntime
         if (terminalAxis.lengthSquared() <= EPS * EPS) return false;
         fkTangents[count - 1] = fkWorld[count - 1].transform(terminalAxis.normalize());
 
-        Vector3f fkNormal = SplineIKSolver.perpendicular(fkTangents[0]);
-        Vector3f normal = SplineIKSolver.transport(fkNormal, fkTangents[0], result.tangents()[0]);
+        Vector3f fkNormal = SplineMath.perpendicular(fkTangents[0]);
+        Vector3f normal = SplineMath.transport(fkNormal, fkTangents[0], result.tangents()[0]);
         float weight = Math.min(1F, control.influence);
         float twist = (float) Math.toRadians(control.twist);
         Quaternionf[] orientations = new Quaternionf[count];
@@ -266,12 +266,12 @@ public final class ModelSplineRuntime
             ModelGroup bone = chain.get(i);
             if (i > 0)
             {
-                fkNormal = SplineIKSolver.transport(fkNormal, fkTangents[i - 1], fkTangents[i]);
-                normal = SplineIKSolver.transport(normal, result.tangents()[i - 1], result.tangents()[i]);
+                fkNormal = SplineMath.transport(fkNormal, fkTangents[i - 1], fkTangents[i]);
+                normal = SplineMath.transport(normal, result.tangents()[i - 1], result.tangents()[i]);
             }
 
-            Quaternionf reference = SplineIKSolver.frame(fkTangents[i], fkNormal);
-            Quaternionf target = SplineIKSolver.frame(result.tangents()[i], normal);
+            Quaternionf reference = SplineMath.frame(fkTangents[i], fkNormal);
+            Quaternionf target = SplineMath.frame(result.tangents()[i], normal);
             target.mul(reference.invert()).mul(fkWorld[i]);
 
             Quaternionf parentRotation = matrix.getUnnormalizedRotation(new Quaternionf()).normalize();

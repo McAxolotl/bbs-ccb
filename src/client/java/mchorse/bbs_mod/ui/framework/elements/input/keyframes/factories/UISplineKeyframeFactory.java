@@ -1,7 +1,12 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
+import mchorse.bbs_mod.film.replays.tracks.TrackId;
+import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.ui.utils.SplineKeyframeEditor;
+import mchorse.bbs_mod.ui.utils.UISplinePointsEditor;
+import org.joml.Vector3f;
+
 import mchorse.bbs_mod.cubic.spline.*;
-import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelSplineFormPanel;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
@@ -15,19 +20,16 @@ import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
-import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.LinkedHashSet;
 import java.util.function.Consumer;
 import mchorse.bbs_mod.ui.utils.UISplineControlFields;
 import mchorse.bbs_mod.ui.utils.UISplinePointList;
 
 /** One shared key time; chain/point selection edits elements of the compound snapshot. */
-public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls>
+public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls> implements SplineKeyframeEditor
 {
     private final ModelForm form;
     public final UIStringList chains;
@@ -37,8 +39,7 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls>
     private final UITrackpad progress;
     private final UITrackpad twist;
     private String chainId = "";
-    private String pointId = "";
-    private final Set<String> selectedPoints = new LinkedHashSet<>();
+    private final UISplinePointsEditor pointEditor;
 
     public UISplineKeyframeFactory(Keyframe<SplineControls> keyframe, UIKeyframes editor)
     {
@@ -54,7 +55,6 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls>
             }
         };
         this.chains.background().h(UIConstants.LIST_ITEM_HEIGHT * 6).expand();
-        this.points = new UISplinePointList(this::selectPoints);
         var fields = new UISplineControlFields(this::edit);
         this.influence = fields.influence;
         this.progress = fields.progress;
@@ -64,30 +64,38 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls>
             @Override protected UIKeyframes getKeyframes() { return editor; }
             @Override protected Transform getTargetTransform()
             {
-                return UISplineKeyframeFactory.this.pointId.isEmpty() ? null
-                    : UISplineKeyframeFactory.this.control(UISplineKeyframeFactory.this.getDisplayValue()).point(UISplineKeyframeFactory.this.pointId);
+                Float tick = this.getKeyframes().getAutoKeyframeTick();
+                if (tick != null) return this.getAutoKeyTransform(tick);
+                return UISplineKeyframeFactory.this.pointEditor.pointId().isEmpty() ? null
+                    : UISplineKeyframeFactory.this.control(UISplineKeyframeFactory.this.getDisplayValue()).point(UISplineKeyframeFactory.this.pointEditor.pointId());
             }
             @Override protected void applyToSelection(Consumer<Transform> consumer)
             {
-                if (!UISplineKeyframeFactory.this.pointId.isEmpty())
+                if (!UISplineKeyframeFactory.this.pointEditor.pointId().isEmpty())
                     UISplineKeyframeFactory.this.edit(control ->
                     {
-                        for (String id : UISplineKeyframeFactory.this.selectedPoints) consumer.accept(control.point(id));
+                        for (String id : UISplineKeyframeFactory.this.pointEditor.selected()) consumer.accept(control.point(id));
                     });
             }
             @Override protected Transform getAutoKeyTransform(float tick)
             {
-                if (sheet == null || UISplineKeyframeFactory.this.pointId.isEmpty()) return null;
+                if (sheet == null || UISplineKeyframeFactory.this.pointEditor.pointId().isEmpty()) return null;
                 Keyframe<SplineControls> target = sheet.ensureKeyframe(tick);
-                return target == null ? null : UISplineKeyframeFactory.this.control(target.getValue()).point(UISplineKeyframeFactory.this.pointId);
+                if (target == null) return null;
+                SplineControl control = UISplineKeyframeFactory.this.control(target.getValue());
+                target.getValue().controls.put(UISplineKeyframeFactory.this.chainId, control);
+                return control.point(UISplineKeyframeFactory.this.pointEditor.pointId());
             }
         };
+        this.pointEditor = new UISplinePointsEditor(this::source,
+            id -> this.control(this.getDisplayValue()).point(id), this.transform, Vector3f::new, false);
+        this.points = this.pointEditor.points;
         this.transform.noScale().setRotationVisible(false);
-        this.transform.enableHotkeys(() -> !this.pointId.isEmpty(), op -> op == TransformOp.TRANSLATE);
+        this.transform.enableHotkeys(() -> !this.pointEditor.pointId().isEmpty(), op -> op == TransformOp.TRANSLATE);
         this.scroll.add(UI.column(this.chains,
             UI.labelRow(UIModelSplineFormPanel.key("influence"), this.influence),
             UI.labelRow(UIModelSplineFormPanel.key("progress_short"), this.progress),
-            UI.labelRow(UIModelSplineFormPanel.key("twist"), this.twist), this.points, this.transform).expand());
+            UI.labelRow(UIModelSplineFormPanel.key("twist"), this.twist), this.pointEditor).expand());
         List<String> ids = new ArrayList<>();
         if (this.form != null) for (SplineIK chain : this.form.splines.getAllTyped()) ids.add(chain.getId());
         this.chains.setList(ids);
@@ -122,13 +130,9 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls>
         SplineIK chain = this.form == null ? null : this.form.splines.get(chainId);
         List<String> ids = new ArrayList<>();
         if (chain != null) for (SplinePoint point : chain.points.getAllTyped()) ids.add(point.getId());
-        this.pointId = ids.contains(pointId) ? pointId : ids.isEmpty() ? "" : ids.get(0);
-        this.selectedPoints.clear();
-        if (!this.pointId.isEmpty()) this.selectedPoints.add(this.pointId);
         this.chains.setCurrent(chainId);
-        this.points.setList(ids);
-        this.points.setCurrent(this.pointId);
-        this.points.h(UIConstants.LIST_ITEM_HEIGHT * Math.max(1, Math.min(6, ids.size())));
+        this.pointEditor.refresh();
+        this.pointEditor.select(ids.contains(pointId) ? pointId : ids.isEmpty() ? "" : ids.get(0));
         SplineControl control = this.control(this.getDisplayValue());
         this.influence.setValue(control.influence);
         this.progress.setValue(control.progress);
@@ -136,44 +140,18 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls>
         this.influence.setEnabled(chain != null);
         this.progress.setEnabled(chain != null);
         this.twist.setEnabled(chain != null);
-        this.transform.setVisible(!this.pointId.isEmpty());
-        this.transform.setTransform(this.pointId.isEmpty() ? null : control.point(this.pointId));
+        this.transform.setVisible(!this.pointEditor.pointId().isEmpty());
+        this.transform.setTransform(this.pointEditor.pointId().isEmpty() ? null : control.point(this.pointEditor.pointId()));
         this.scroll.resize();
     }
 
-    private void selectPoints(List<String> ids)
+    @Override public UISplinePointsEditor pointEditor() { return this.pointEditor; }
+    @Override public SplineSource source() { return this.form == null ? null : this.form.splines.get(this.chainId); }
+    @Override public void selectPoint(String path)
     {
-        if (this.transform.isEditing()) this.transform.endGesture();
-        this.selectedPoints.clear();
-        this.selectedPoints.addAll(ids);
-        String anchor = this.points.selection.getAnchor();
-        this.pointId = ids.contains(anchor) ? anchor : ids.isEmpty() ? "" : ids.get(ids.size() - 1);
-        this.transform.setVisible(!this.pointId.isEmpty());
-        this.transform.setTransform(this.pointId.isEmpty() ? null : this.control(this.getDisplayValue()).point(this.pointId));
-        this.scroll.resize();
-    }
-
-    public Set<String> selectedPoints(SplineIK chain)
-    {
-        return this.form != null && this.form.splines.get(this.chainId) == chain ? Set.copyOf(this.selectedPoints) : Set.of();
-    }
-
-    public String hoveredPoint(UIContext context, SplineIK chain)
-    {
-        if (this.form == null || this.form.splines.get(this.chainId) != chain || !this.points.area.isInside(context)) return "";
-        return this.points.hoveredPoint(context);
-    }
-
-    public void viewportHover(SplineIK chain, String point)
-    {
-        this.points.viewportHover = this.form != null && chain != null && this.form.splines.get(this.chainId) == chain ? point : "";
-    }
-
-    public String pointPath()
-    {
-        SplineIK chain = this.form == null ? null : this.form.splines.get(this.chainId);
-        SplinePoint point = chain == null ? null : chain.points.get(this.pointId);
-        return point == null ? null : FormUtils.getPropertyPath(point.position);
+        String[] parts = TrackId.parse(path).subject().split("/");
+        if (!this.chainId.equals(parts[1])) this.select(parts[1], "");
+        this.pointEditor.selectInViewport(parts[3], Window.isCtrlPressed() || Window.isShiftPressed());
     }
 
     @Override
@@ -183,7 +161,7 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls>
         if (!this.influence.isUserEditing()) this.influence.setValue(control.influence);
         if (!this.progress.isUserEditing()) this.progress.setValue(control.progress);
         if (!this.twist.isUserEditing()) this.twist.setValue(control.twist);
-        if (!this.transform.isUserEditing() && !this.pointId.isEmpty()) this.transform.setTransform(control.point(this.pointId));
+        if (!this.transform.isUserEditing() && !this.pointEditor.pointId().isEmpty()) this.transform.setTransform(control.point(this.pointEditor.pointId()));
         super.render(context);
     }
 }

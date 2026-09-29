@@ -52,6 +52,8 @@ public class TrackerFrame
     private final Matrix3d rotation = new Matrix3d();
 
     /** {@link #rotation} with the scale stripped off, for angle math (see {@link #solveAngles}). */
+    private final Matrix3d angleBasis = new Matrix3d();
+
     private final Matrix3d rotationOnly = new Matrix3d();
 
     /** Relative mode's camera travel, already rotated into tracker space. Zero otherwise. */
@@ -95,13 +97,29 @@ public class TrackerFrame
         return new TrackerFrame(cx, cy, cz, formTransform);
     }
 
+    public static TrackerFrame resolvePath(Map<String, IEntity> entities,
+        mchorse.bbs_mod.camera.clips.overwrite.SplineClip clip, float tick, double cx, double cy, double cz, float transition)
+    {
+        Matrix4f matrix = FilmMatrices.getPathMatrix(entities, clip.selector.get(), clip.group.get(),
+            clip.progress(tick), clip.pathRotation.get() == 2, cx, cy, cz, transition);
+        if (matrix == null) return null;
+        TrackerFrame frame = new TrackerFrame(cx, cy, cz, matrix);
+        // angles() already maps the basis's +Z to BBS camera yaw via -180 degrees.
+        // Independent angles keep a zero-yaw camera reference, regardless of the path.
+        if (clip.pathRotation.get() == 0) frame.angleBasis.rotationY(Math.PI);
+        frame.rotationOnly.set(frame.angleBasis);
+        normalize(frame.rotationOnly);
+        return frame;
+    }
+
     private TrackerFrame(double cx, double cy, double cz, Matrix4f boneTransform)
     {
         this.origin.set(cx, cy, cz);
         boneTransform.getTranslation(this.bone);
 
         this.rotation.set(new Matrix3d(boneTransform));
-        this.rotationOnly.set(this.rotation);
+        this.angleBasis.set(this.rotation);
+        this.rotationOnly.set(this.angleBasis);
 
         normalize(this.rotationOnly);
         this.angleDelta.identity();
@@ -155,7 +173,7 @@ public class TrackerFrame
 
     public Angle angles(Point angle)
     {
-        Matrix3d matrix = new Matrix3d(this.rotation)
+        Matrix3d matrix = new Matrix3d(this.angleBasis)
             .mul(ORDER.getRotationMatrix(Math.toRadians(angle.y), Math.toRadians(angle.x), Math.toRadians(angle.z)))
             .mul(this.angleDelta);
         Vector3d euler = ORDER.getEulerAngles(matrix);

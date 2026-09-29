@@ -1,5 +1,8 @@
 package mchorse.bbs_mod.api;
 
+import mchorse.bbs_mod.cubic.spline.SplineFormCheck;
+import mchorse.bbs_mod.cubic.spline.SplineIKDataTest;
+
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
@@ -64,7 +67,8 @@ public final class AddonApiCheck implements net.fabricmc.loader.api.entrypoint.P
         transforms();
         lifecycle();
         categories();
-        mchorse.bbs_mod.cubic.spline.SplineIKDataTest.main(new String[]{"client"});
+        SplineIKDataTest.main(new String[]{"client"});
+        SplineFormCheck.run();
         System.out.println("AddonApiCheck: " + checks + " checks passed");
     }
 

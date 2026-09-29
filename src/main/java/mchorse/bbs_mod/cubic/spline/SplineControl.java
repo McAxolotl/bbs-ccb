@@ -7,18 +7,13 @@ import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 /** Animatable state only. Chain topology and the ordered point identities live in the rig. */
 public class SplineControl extends ChainControl<SplineControl>
 {
     public float influence = 1F;
     public float progress;
     public float twist;
-    public final Map<String, Transform> points = new HashMap<>();
+    public final SplinePositions points = new SplinePositions();
 
     public Transform point(String id) { return this.points.computeIfAbsent(id, key -> new Transform()); }
 
@@ -79,8 +74,7 @@ public class SplineControl extends ChainControl<SplineControl>
         this.influence = (float) interp.interpolate(IInterp.context.set(p.influence, a.influence, b.influence, q.influence, x));
         this.progress = (float) interp.interpolate(IInterp.context.set(p.progress, a.progress, b.progress, q.progress, x));
         this.twist = (float) interp.interpolate(IInterp.context.set(p.twist, a.twist, b.twist, q.twist, x));
-        for (String id : pointIds(p, a, b, q))
-            this.point(id).copy(KeyframeFactories.TRANSFORM.interpolate(read(p, id), read(a, id), read(b, id), read(q, id), interp, x));
+        this.points.lerp(p.points, a.points, b.points, q.points, interp, x);
     }
 
     @Override
@@ -90,20 +84,7 @@ public class SplineControl extends ChainControl<SplineControl>
         this.influence = (float) AutoBezier.get(p.influence, a.influence, b.influence, q.influence, pt, at, bt, qt, clamped, x);
         this.progress = (float) AutoBezier.get(p.progress, a.progress, b.progress, q.progress, pt, at, bt, qt, clamped, x);
         this.twist = (float) AutoBezier.get(p.twist, a.twist, b.twist, q.twist, pt, at, bt, qt, clamped, x);
-        for (String id : pointIds(p, a, b, q))
-            this.point(id).autoLerp(read(p, id), read(a, id), read(b, id), read(q, id), pt, at, bt, qt, clamped, x);
-    }
-
-    private static Transform read(SplineControl value, String id)
-    {
-        return value.points.getOrDefault(id, new Transform());
-    }
-
-    private static Set<String> pointIds(SplineControl... values)
-    {
-        Set<String> ids = new HashSet<>();
-        for (SplineControl value : values) ids.addAll(value.points.keySet());
-        return ids;
+        this.points.autoLerp(p.points, a.points, b.points, q.points, pt, at, bt, qt, clamped, x);
     }
 
     @Override

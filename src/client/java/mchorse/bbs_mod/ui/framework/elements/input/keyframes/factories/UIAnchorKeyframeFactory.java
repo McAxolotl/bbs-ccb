@@ -110,7 +110,8 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
         this.transform.setTransform(keyframe.getValue().transform);
 
         this.scroll.add(new UIAnchorBinding(
-            () -> this.keyframe.getValue(), this::retarget, this.transform, this.keepTransform));
+            () -> this.keyframe.getValue(), this::retarget, change -> UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe,
+                selected -> BaseValue.edit(selected, value -> change.accept((Anchor) value.getValue()))), this.transform, this.keepTransform));
     }
 
     /**

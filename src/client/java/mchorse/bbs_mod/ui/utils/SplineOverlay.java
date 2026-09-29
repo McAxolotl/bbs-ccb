@@ -2,8 +2,8 @@ package mchorse.bbs_mod.ui.utils;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.spline.SplineCurve;
-import mchorse.bbs_mod.cubic.spline.SplineControl;
 import mchorse.bbs_mod.cubic.spline.SplineIK;
+import mchorse.bbs_mod.cubic.spline.SplineSource;
 import mchorse.bbs_mod.cubic.spline.SplinePoint;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import org.joml.Matrix4f;
@@ -20,28 +20,56 @@ import mchorse.bbs_mod.l10n.L10n;
 /** Screen-space spline handles shared by the form, state and film viewports. */
 public class SplineOverlay
 {
-    public record Hit(SplineIK chain, SplinePoint point, float x, float y, float depth) {}
-    public record CurveHit(SplineIK chain, int after, Vector3f position, float x, float y, float depth, float distance) {}
+    public record Hit(SplineSource chain, SplinePoint point, float x, float y, float depth) {}
+    public record CurveHit(SplineSource chain, int after, Vector3f position, float x, float y, float depth, float distance) {}
 
     private final List<Hit> handles = new ArrayList<>();
     private CurveHit curveHit;
 
-    /** Shares the IK debug switch, including the dashboard's combined IK/physics shortcut. */
+    /** Actual path geometry in the palette's ordinary form-preview frame, without picking. */
+    public static void drawPreview(UIContext context, SplineSource source, Matrix4f matrix)
+    {
+        List<Vector3f> points = new ArrayList<>();
+        for (SplinePoint point : source.points().getAllTyped())
+            points.add(new Vector3f(source.position(point.getId()).translate));
+        if (points.isEmpty()) return;
+
+        Vector3f previous = null;
+        for (Vector3f sample : SplineCurve.sample(points, 20, source.closed()))
+        {
+            Vector3f current = matrix.transformPosition(new Vector3f(sample));
+            if (previous != null)
+            {
+                line(context, previous, current, 0xAA111820, 2F);
+                line(context, previous, current, 0xFF79BBFF, 0.85F);
+            }
+            previous = current;
+        }
+        for (Vector3f point : points)
+        {
+            Vector3f position = matrix.transformPosition(new Vector3f(point));
+            if (!position.isFinite()) continue;
+            context.batcher.box(position.x - 3, position.y - 3, position.x + 3, position.y + 3, 0xFF15212B);
+            context.batcher.box(position.x - 2, position.y - 2, position.x + 2, position.y + 2, 0xFF79BBFF);
+        }
+    }
+
+    /** Clear pick data for this editor frame. Only IK sources obey the debug switch. */
     public boolean begin()
     {
         this.handles.clear();
         this.curveHit = null;
-        return BBSSettings.ikDebug.enabled.get();
+        return true;
     }
 
     public Hit pick(int x, int y)
     {
         /* The shortcut can hide the overlay between its last draw and the next click. */
-        if (!BBSSettings.ikDebug.enabled.get()) return null;
         Hit best = null;
         float distance = 100;
         for (Hit hit : this.handles)
         {
+            if (hit.chain instanceof SplineIK && !BBSSettings.ikDebug.enabled.get()) continue;
             float d = (hit.x - x) * (hit.x - x) + (hit.y - y) * (hit.y - y);
             if (d < distance || (d == distance && best != null && hit.depth < best.depth))
             {
@@ -52,19 +80,27 @@ public class SplineOverlay
         return best;
     }
 
+    public SplineSource pickSource(int x, int y)
+    {
+        Hit hit = this.pick(x, y);
+        if (hit != null) return hit.chain;
+        CurveHit curve = this.insertionAt(x, y);
+        return curve == null ? null : curve.chain;
+    }
+
     /** Called in the ordinary GUI pass, after the viewport restores its projection. */
-    public void draw(UIContext context, Matrix4f parentModelView, Matrix4f projection, Area viewport, SplineIK chain,
+    public void draw(UIContext context, Matrix4f parentModelView, Matrix4f projection, Area viewport, SplineSource chain,
         Collection<String> selectedPointIds, String hoveredPointId)
     {
-        SplineControl control = chain.state();
+        if (chain instanceof SplineIK && !BBSSettings.ikDebug.enabled.get()) return;
         Matrix4f matrix = new Matrix4f(projection).mul(parentModelView);
         List<Vector3f> positions = new ArrayList<>();
-        for (SplinePoint point : chain.points.getAllTyped()) positions.add(new Vector3f(control.point(point.getId()).translate));
+        for (SplinePoint point : chain.points().getAllTyped()) positions.add(new Vector3f(chain.position(point.getId()).translate));
         if (positions.isEmpty()) return;
         int color = selectedPointIds.isEmpty() ? 0xFF6599CF : 0xFF79BBFF;
         context.batcher.clip(viewport, context);
         Vector3f previous = null;
-        List<Vector3f> sampled = SplineCurve.sample(positions, 20);
+        List<Vector3f> sampled = SplineCurve.sample(positions, 20, chain.closed());
         for (Vector3f point : sampled)
         {
             Vector3f current = project(matrix, viewport, point);
@@ -91,9 +127,9 @@ public class SplineOverlay
                 }
             }
         }
-        for (SplinePoint point : chain.points.getAllTyped())
+        for (SplinePoint point : chain.points().getAllTyped())
         {
-            Vector3f p = project(matrix, viewport, control.point(point.getId()).translate);
+            Vector3f p = project(matrix, viewport, chain.position(point.getId()).translate);
             if (p == null || !viewport.isInside((int) p.x, (int) p.y)) continue;
             boolean selected = selectedPointIds.contains(point.getId());
             boolean hover = point.getId().equals(hoveredPointId);
@@ -115,7 +151,7 @@ public class SplineOverlay
         if (hit == null) return;
         context.batcher.clip(viewport, context);
         context.batcher.outline(hit.x - 8, hit.y - 8, hit.x + 8, hit.y + 8, Colors.WHITE);
-        String label = SplinePoint.displayName(hit.chain.points.getAllTyped().indexOf(hit.point) + 1);
+        String label = SplinePoint.displayName(hit.chain.points().getAllTyped().indexOf(hit.point) + 1);
         float x = Math.min(hit.x + 13, viewport.ex() - context.batcher.getFont().getWidth(label) - 6);
         float y = Math.max(viewport.y + 4, hit.y - 18);
         context.batcher.textShadow(label, x, y, Colors.WHITE);
@@ -124,7 +160,7 @@ public class SplineOverlay
 
     public CurveHit insertionAt(int x, int y)
     {
-        if (!BBSSettings.ikDebug.enabled.get() || this.curveHit == null || this.pick(x, y) != null) return null;
+        if (this.curveHit == null || (this.curveHit.chain instanceof SplineIK && !BBSSettings.ikDebug.enabled.get()) || this.pick(x, y) != null) return null;
         float dx = this.curveHit.x - x, dy = this.curveHit.y - y;
         return dx * dx + dy * dy <= 64F ? this.curveHit : null;
     }
@@ -147,17 +183,19 @@ public class SplineOverlay
     }
 
     /** Search in screen space, but evaluate the returned point on the actual 3D curve. */
-    public static CurveHit findCurveHit(SplineIK chain, List<Vector3f> points, Matrix4f matrix, Area viewport, int x, int y)
+    public static CurveHit findCurveHit(SplineSource chain, List<Vector3f> points, Matrix4f matrix, Area viewport, int x, int y)
     {
         if (points.size() < 2) return null;
-        int steps = (points.size() - 1) * 20;
+        boolean closed = chain != null && chain.closed();
+        int segments = closed ? points.size() : points.size() - 1;
+        int steps = segments * 20;
         float best = 64F;
         float bestDepth = Float.POSITIVE_INFINITY;
         int segment = -1;
         Vector3f previous = project(matrix, viewport, points.get(0));
         for (int i = 1; i <= steps; i++)
         {
-            Vector3f current = project(matrix, viewport, SplineCurve.evaluate(points, i / (float) steps));
+            Vector3f current = project(matrix, viewport, SplineCurve.evaluate(points, i / (float) steps, closed));
             if (previous != null && current != null)
             {
                 float dx = current.x - previous.x, dy = current.y - previous.y;
@@ -180,16 +218,16 @@ public class SplineOverlay
         for (int i = 0; i < 12; i++)
         {
             float a = low + (high - low) / 3F, b = high - (high - low) / 3F;
-            Vector3f pa = project(matrix, viewport, SplineCurve.evaluate(points, a));
-            Vector3f pb = project(matrix, viewport, SplineCurve.evaluate(points, b));
+            Vector3f pa = project(matrix, viewport, SplineCurve.evaluate(points, a, closed));
+            Vector3f pb = project(matrix, viewport, SplineCurve.evaluate(points, b, closed));
             if (pa == null || pb == null) return null;
             if (screenDistance(pa, x, y) < screenDistance(pb, x, y)) high = b; else low = a;
         }
         float t = (low + high) * 0.5F;
-        Vector3f position = SplineCurve.evaluate(points, t);
+        Vector3f position = SplineCurve.evaluate(points, t, closed);
         Vector3f screen = project(matrix, viewport, position);
         if (screen == null || !viewport.isInside((int) screen.x, (int) screen.y)) return null;
-        return new CurveHit(chain, Math.min(points.size() - 2, (int) (t * (points.size() - 1))),
+        return new CurveHit(chain, Math.min(segments - 1, (int) (t * segments)),
             position, screen.x, screen.y, screen.z, screenDistance(screen, x, y));
     }
 

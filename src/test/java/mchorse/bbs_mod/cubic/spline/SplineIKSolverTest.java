@@ -42,17 +42,17 @@ public class SplineIKSolverTest
         check(SplineIKSolver.solve(line, new float[] {0F}, false) == null, "Zero-length bones reject safely");
 
         Vector3f previous = new Vector3f(0, 0, 1);
-        Vector3f normal = SplineIKSolver.perpendicular(previous);
+        Vector3f normal = SplineMath.perpendicular(previous);
         for (Vector3f tangent : a.tangents())
         {
-            normal = SplineIKSolver.transport(normal, previous, tangent);
+            normal = SplineMath.transport(normal, previous, tangent);
             check(normal.isFinite() && Math.abs(normal.dot(tangent)) < 1E-4F, "Transport normal is perpendicular and finite");
-            Quaternionf frame = SplineIKSolver.frame(tangent, normal);
+            Quaternionf frame = SplineMath.frame(tangent, normal);
             close(frame.transform(new Vector3f(0, 0, 1)), tangent, "Frame points along tangent");
             previous = tangent;
         }
         Vector3f reversed = new Vector3f(previous).negate();
-        normal = SplineIKSolver.transport(normal, previous, reversed);
+        normal = SplineMath.transport(normal, previous, reversed);
         check(normal.isFinite() && Math.abs(normal.dot(reversed)) < 1E-4F, "Exact reversal has stable normal");
         progress(line, lengths, straight);
         tightBends();
@@ -112,8 +112,8 @@ public class SplineIKSolverTest
         Vector3f normal = new Vector3f(0, 1, 0);
         Vector3f a = new Vector3f(-1, 0.0142F, 0).normalize();
         Vector3f b = new Vector3f(-1, 0.0140F, 0).normalize();
-        Vector3f first = SplineIKSolver.transport(normal, from, a);
-        Vector3f second = SplineIKSolver.transport(normal, from, b);
+        Vector3f first = SplineMath.transport(normal, from, a);
+        Vector3f second = SplineMath.transport(normal, from, b);
         check(first.dot(second) > 0.999F, "Near reversal does not switch the roll axis at the old dot threshold");
         check(Math.abs(first.dot(a)) < 1E-5F && Math.abs(second.dot(b)) < 1E-5F, "Near-reversal normals stay perpendicular");
     }

@@ -10,14 +10,14 @@ public class ValueSplinePoints extends ValueStableList<SplinePoint>
     public void add(SplinePoint point)
     {
         super.add(point);
-        if (this.getParent() instanceof SplineIK spline) spline.bindPoint(point);
+        if (this.getParent() instanceof SplineSource spline) spline.bindPoint(point);
     }
 
     @Override
     public void add(int index, SplinePoint point)
     {
         super.add(index, point);
-        if (this.getParent() instanceof SplineIK spline) spline.bindPoint(point);
+        if (this.getParent() instanceof SplineSource spline) spline.bindPoint(point);
     }
     public ValueSplinePoints(String id)
     {

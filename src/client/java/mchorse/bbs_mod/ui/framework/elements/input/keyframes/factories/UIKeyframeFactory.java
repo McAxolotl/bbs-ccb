@@ -74,6 +74,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.PHYSICS, UIPhysicsKeyframeFactory::new);
         register(KeyframeFactories.WIND, UIWindKeyframeFactory::new);
         register(KeyframeFactories.SPLINE, UISplineKeyframeFactory::new);
+        register(KeyframeFactories.SPLINE_POINTS, UISplinePointsKeyframeFactory::new);
         register(KeyframeFactories.POSE_TRANSFORM, UIPoseTransformKeyframeFactory::new);
         register(KeyframeFactories.BONE_CONSTRAINT, UIBoneConstraintKeyframeFactory::new);
         register(KeyframeFactories.STRING, UIStringKeyframeFactory::new);

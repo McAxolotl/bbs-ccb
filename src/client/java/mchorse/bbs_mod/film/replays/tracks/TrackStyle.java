@@ -66,6 +66,7 @@ public class TrackStyle
         register("physics", Icons.PHYSICS, 0x9d6cff);
         register("wind", Icons.PARTICLE, Colors.ORANGE);
         register("spline_ik", Icons.GRAPH, Colors.BLUE);
+        register("curve", Icons.GRAPH, Colors.BLUE);
     }
 
     /**
@@ -134,7 +135,6 @@ public class TrackStyle
          * falls through to the default blue, which is now the armour's tone. */
         COLORS.put("selected_slot", Colors.WHITE & Colors.RGB);
     }
-
 
     private static void putColors(int color, String... keys)
     {

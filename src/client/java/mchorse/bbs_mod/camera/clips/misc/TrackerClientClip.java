@@ -78,10 +78,9 @@ public class TrackerClientClip extends TrackerClip
 
         Point offset = this.offset.get();
         Point angle = this.angle.get();
-        boolean lookAt = this.lookAt.get();
-        Angle newAngle = lookAt ? frame.lookAtAngles(offset, angle) : frame.angles(angle);
+        Angle newAngle = this.lookAt.get() ? frame.lookAtAngles(offset, angle) : frame.angles(angle);
 
-        if (!lookAt)
+        if (!this.lookAt.get())
         {
             Vector3d newPosition = frame.position(offset);
 

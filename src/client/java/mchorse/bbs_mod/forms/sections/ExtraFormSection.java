@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.forms.sections;
 
+import mchorse.bbs_mod.forms.forms.SplineForm;
+
 import mchorse.bbs_mod.forms.FormCategories;
 import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
@@ -64,6 +66,7 @@ public class ExtraFormSection extends FormSection
         item.stack.set(new ItemStack(Items.STICK));
 
         extra.addForm(anchor);
+        extra.addForm(new SplineForm());
         extra.addForm(billboard);
         extra.addForm(label);
         extra.addForm(extruded);

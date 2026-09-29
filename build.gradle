@@ -322,6 +322,7 @@ loom {
             client()
             runDir 'build/addonApiCheck'
             vmArg "-Dfabric.addMods=${layout.buildDirectory.file('addon-api-check.jar').get().asFile.absolutePath}"
+            if (project.hasProperty('splineUiChecks')) vmArg '-Dbbs.check.splineUI=true'
         }
     }
 }
@@ -332,6 +333,12 @@ tasks.register('addonApiCheck') {
     dependsOn 'runAddonApiCheck'
 }
 tasks.named('check') { dependsOn 'addonApiCheck' }
+
+tasks.register('splineFormTest') {
+    group = 'verification'
+    description = 'Checks independent spline forms, animation, anchors and camera paths; -PsplineUiChecks adds desktop input/layout checks.'
+    dependsOn 'addonApiCheck'
+}
 
 tasks.register('splineIKRuntimeTest', JavaExec) {
 	group = 'verification'

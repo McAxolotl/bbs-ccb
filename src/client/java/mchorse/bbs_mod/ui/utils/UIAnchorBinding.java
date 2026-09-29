@@ -1,6 +1,9 @@
 package mchorse.bbs_mod.ui.utils;
 
+import mchorse.bbs_mod.forms.forms.SplineForm;
+
 import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -32,19 +35,21 @@ public class UIAnchorBinding extends UIElement
     private final UIIcon pickActor;
     private final UIIcon pickAttachment;
     private final UIPropTransform transform;
+    private final UIPathFields path;
+    private final UIElement inheritRow;
 
     /** Solver binding: edits a world target, so the root form's keep-world-transform does not apply. */
     public static UISection section(IKey label, IKey tooltip, Supplier<Anchor> read, Consumer<Consumer<Anchor>> edit)
     {
         UISection section = new UISection(label);
         section.title.tooltip(tooltip);
-        section.fields.add(new UIAnchorBinding(read, edit, offset(read, edit), null));
+        section.fields.add(new UIAnchorBinding(read, edit, edit, offset(read, edit), null));
         section.setExpanded(false);
         return section;
     }
 
     /** Ordinary Anchor and solver bindings use the same rows and viewport pickers. */
-    public UIAnchorBinding(Supplier<Anchor> read, Consumer<Consumer<Anchor>> retarget,
+    public UIAnchorBinding(Supplier<Anchor> read, Consumer<Consumer<Anchor>> retarget, Consumer<Consumer<Anchor>> edit,
         UIPropTransform transform, UIElement keepTransform)
     {
         this.read = read;
@@ -56,7 +61,12 @@ public class UIAnchorBinding extends UIElement
             if (panel == null) return;
             panel.getController().picker.cancelTargetPick();
             UIAnchorKeyframeFactory.displayActors(this.getContext(), panel.getController().getEntities(), this.read.get().replay,
-                id -> this.retarget.accept(anchor -> anchor.replay = id));
+                id -> this.retarget.accept(anchor ->
+                {
+                    anchor.replay = id;
+                    anchor.attachment = "";
+                    anchor.spline = isSpline(panel, id, "");
+                }));
         });
         this.attachment = new UIButton(UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ATTACHMENT, button ->
         {
@@ -64,7 +74,11 @@ public class UIAnchorBinding extends UIElement
             if (panel == null) return;
             panel.getController().picker.cancelTargetPick();
             UIAnchorKeyframeFactory.displayAttachments(panel, this.read.get().replay, this.read.get().attachment,
-                id -> this.retarget.accept(anchor -> anchor.attachment = id));
+                id -> this.retarget.accept(anchor ->
+                {
+                    anchor.attachment = id;
+                    anchor.spline = isSpline(panel, anchor.replay, id);
+                }));
         });
         this.pickActor = this.picker(false, UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ACTOR);
         this.pickAttachment = this.picker(true, UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ATTACHMENT);
@@ -75,7 +89,16 @@ public class UIAnchorBinding extends UIElement
         this.column(UIConstants.MARGIN).vertical().stretch();
         this.add(UI.row(this.actor, this.pickActor), UI.row(this.attachment, this.pickAttachment));
         if (keepTransform != null) this.add(keepTransform);
-        this.add(inherit.labelRow(UIKeys.INHERIT_TITLE), this.transform);
+        this.inheritRow = inherit.labelRow(UIKeys.INHERIT_TITLE);
+        UIIconToggles pathInherit = new UIIconToggles(null)
+            .add(Icons.ALL_DIRECTIONS, UIKeys.INHERIT_POSITION, () -> read.get().inheritPosition, value -> retarget.accept(anchor -> anchor.inheritPosition = value))
+            .add(Icons.SCALE, UIKeys.INHERIT_SCALE, () -> read.get().inheritScale, value -> retarget.accept(anchor -> anchor.inheritScale = value));
+        UIElement pathInheritRow = pathInherit.labelRow(UIKeys.INHERIT_TITLE);
+        this.path = new UIPathFields(() -> read.get().progress, value -> edit.accept(anchor -> anchor.progress = (float) value),
+            () -> !read.get().inheritRotation ? 0 : read.get().horizontal ? 2 : 1,
+            mode -> retarget.accept(anchor -> { anchor.inheritRotation = mode != 0; anchor.horizontal = mode == 2; }));
+        this.path.add(pathInheritRow);
+        this.add(this.inheritRow, this.path, this.transform);
     }
 
     private static UIPropTransform offset(Supplier<Anchor> read, Consumer<Consumer<Anchor>> edit)
@@ -107,13 +130,21 @@ public class UIAnchorBinding extends UIElement
         if (replay == null) return;
         panel.getController().picker.toggleTargetPick(owner, replay.getId(), (actor, pair) ->
         {
-            String attachment = bone ? StringUtils.combinePaths(FormUtils.getPath(pair.a), pair.b) : Anchor.NO_ATTACHMENT;
+            String attachment = bone || pair.a instanceof SplineForm ? StringUtils.combinePaths(FormUtils.getPath(pair.a), pair.b) : Anchor.NO_ATTACHMENT;
             this.retarget.accept(anchor ->
             {
                 anchor.replay = actor;
                 anchor.attachment = attachment;
+                anchor.spline = isSpline(panel, actor, attachment);
             });
         });
+    }
+
+    public static boolean isSpline(UIFilmPanel panel, String replay, String path)
+    {
+        var entity = panel == null ? null : panel.getController().getEntities().get(replay);
+        Form target = entity == null || entity.getForm() == null ? null : FormUtils.getForm(entity.getForm(), path);
+        return target instanceof SplineForm && FormUtils.getPath(target).equals(path);
     }
 
     private UIFilmPanel panel()
@@ -128,6 +159,13 @@ public class UIAnchorBinding extends UIElement
     {
         Anchor anchor = this.read.get();
         UIFilmPanel panel = this.panel();
+        if (this.path.isVisible() != anchor.spline || this.inheritRow.isVisible() == anchor.spline)
+        {
+            this.path.setVisible(anchor.spline);
+            this.inheritRow.setVisible(!anchor.spline);
+            this.resize();
+            if (this.getParent() != null) this.getParent().resize();
+        }
         if (!this.transform.isUserEditing()) this.transform.setTransform(anchor.transform);
         this.actor.setEnabled(panel != null);
         this.attachment.setEnabled(panel != null && anchor.hasTarget());
@@ -136,6 +174,12 @@ public class UIAnchorBinding extends UIElement
         var replay = panel == null ? null : panel.getData().replays.getById(anchor.replay);
         this.actor.label = anchor.hasTarget() ? IKey.constant(replay == null ? anchor.replay : replay.getName()) : UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ACTOR;
         this.attachment.label = anchor.attachment.isEmpty() ? UIKeys.GENERIC_KEYFRAMES_ANCHOR_PICK_ATTACHMENT : IKey.constant(anchor.attachment);
+        if (anchor.spline && panel != null)
+        {
+            var entity = panel.getController().getEntities().get(anchor.replay);
+            var target = entity == null ? null : FormUtils.getForm(entity.getForm(), anchor.attachment);
+            this.attachment.label = target == null ? UIPathFields.key("missing") : IKey.constant(target.getDisplayName());
+        }
         super.render(context);
     }
 }

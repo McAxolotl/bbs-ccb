@@ -1,5 +1,10 @@
 package mchorse.bbs_mod.ui.forms.editors;
 
+import mchorse.bbs_mod.cubic.spline.SplineIK;
+import mchorse.bbs_mod.forms.forms.SplineForm;
+import mchorse.bbs_mod.ui.forms.editors.forms.UISplineForm;
+import mchorse.bbs_mod.ui.utils.SplineFormTool;
+
 import mchorse.bbs_mod.api.client.editor.FormEditorTool;
 
 import mchorse.bbs_mod.BBSModClient;
@@ -71,7 +76,6 @@ import mchorse.bbs_mod.ui.utils.IBoneSelectionHost;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.SplineOverlay;
 import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
-import mchorse.bbs_mod.ui.forms.editors.panels.UIModelSplineFormPanel;
 import mchorse.bbs_mod.ui.utils.GizmoDrag;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 import mchorse.bbs_mod.ui.utils.bones.UIBonePicker;
@@ -177,6 +181,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
         register(BlockForm.class, UIBlockForm::new);
         register(ItemForm.class, UIItemForm::new);
         register(AnchorForm.class, UIAnchorForm::new);
+        register(SplineForm.class, UISplineForm::new);
         register(MobForm.class, UIMobForm::new);
         register(VanillaParticleForm.class, UIVanillaParticleForm::new);
         register(TrailForm.class, UITrailForm::new);
@@ -507,12 +512,13 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
 
         if (!this.statesEditor.isVisible() && !context.isFocused() && context.mouseButton == 0 && Window.isCtrlPressed()
             && this.renderer.area.isInside(context) && this.editor != null
-            && this.editor.view instanceof UIModelSplineFormPanel panel && !panel.position.isEditing())
+            && this.editor.view instanceof SplineFormTool panel && !panel.pointEditor().position.isEditing())
         {
             SplineOverlay.CurveHit hit = this.splineOverlay.insertionAt(context.mouseX, context.mouseY);
-            if (hit != null)
+            if (hit != null && panel.splineSources().contains(hit.chain()))
             {
-                panel.insertPoint(hit.chain().getId(), hit.after(), hit.position());
+                panel.selectSpline(hit.chain());
+                panel.pointEditor().insert(hit.after(), hit.position());
                 return true;
             }
         }
@@ -527,14 +533,28 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
             return this.statesKeyframes.pickSplinePoint(context) || this.statesKeyframes.clickViewport(context, stencil);
         }
 
-        if (context.mouseButton == 0 && this.editor != null && this.editor.view instanceof UIModelSplineFormPanel panel)
+        if (context.mouseButton == 0 && this.editor != null && this.editor.view instanceof SplineFormTool panel)
         {
             SplineOverlay.Hit hit = this.splineOverlay.pick(context.mouseX, context.mouseY);
-            if (hit != null)
+            if (hit != null && panel.splineSources().contains(hit.chain()))
             {
-                panel.selectInViewport(hit.chain().getId(), hit.point().getId(), Window.isCtrlPressed() || Window.isShiftPressed());
+                panel.selectSpline(hit.chain());
+                panel.pointEditor().selectInViewport(hit.point().getId(), Window.isCtrlPressed() || Window.isShiftPressed());
                 return true;
             }
+        }
+
+        var splineSource = this.splineOverlay.pickSource(context.mouseX, context.mouseY);
+        if (context.mouseButton == 0 && splineSource instanceof SplineForm spline)
+        {
+            this.pickFormFromRenderer(new Pair<>(spline, ""));
+            var hit = this.splineOverlay.pick(context.mouseX, context.mouseY);
+            if (hit != null && this.editor.defaultPanel instanceof SplineFormTool tool)
+            {
+                this.editor.setPanel(this.editor.defaultPanel);
+                tool.pointEditor().select(hit.point().getId());
+            }
+            return true;
         }
 
         if (stencil.hasPicked() && (context.mouseButton == 0 || (context.mouseButton == 2 && Window.isCtrlPressed())))
@@ -558,8 +578,8 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
         if (!context.isFocused() && context.getKeyAction() == mchorse.bbs_mod.ui.utils.keys.KeyAction.PRESSED
             && context.getKeyCode() == org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE
             && this.renderer.area.isInside(context) && !this.statesEditor.isVisible()
-            && this.editor != null && this.editor.view instanceof UIModelSplineFormPanel panel)
-            return panel.removeSelectedPoints();
+            && this.editor != null && this.editor.view instanceof SplineFormTool panel)
+            return panel.pointEditor().removeSelected();
         return super.subKeyPressed(context);
     }
 
@@ -570,7 +590,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
         {
             return SplineEditorUtils.selectedPath(this.statesKeyframes.keyframeEditor) == null ? Gizmo.HandleMask.ALL : SplineEditorUtils.HANDLES;
         }
-        if (this.editor != null && this.editor.view instanceof UIModelSplineFormPanel panel)
+        if (this.editor != null && this.editor.view instanceof SplineFormTool panel)
         {
             return panel.getGizmoTransform() == null ? NO_GIZMO_HANDLES : SplineEditorUtils.HANDLES;
         }
@@ -579,7 +599,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
 
     public void renderSplineOverlay(UIContext context)
     {
-        if (this.editor != null && this.editor.view instanceof UIModelSplineFormPanel panel) panel.setHoveredPoint("");
+        if (this.editor != null && this.editor.view instanceof SplineFormTool panel) panel.pointEditor().points.viewportHover = ("");
         SplineEditorUtils.viewportHover(this.statesKeyframes.keyframeEditor, null);
         if (!this.splineOverlay.begin()) return;
         if (this.statesEditor.isVisible())
@@ -587,25 +607,27 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
             this.statesKeyframes.renderSplineOverlay(context);
             return;
         }
-        if (this.editor == null || !(this.editor.view instanceof UIModelSplineFormPanel panel)) return;
-        ModelForm model = panel.getModelForm();
-        if (model == null) return;
-        for (var chain : model.splines.getAllTyped())
+        if (this.editor == null) return;
+        SplineFormTool panel = this.editor.view instanceof SplineFormTool tool ? tool : null;
+        var sources = SplineEditorUtils.sourcesInTree(FormUtils.getRoot(this.editor.form));
+        for (var chain : sources)
         {
-            Matrix4f parent = SplineEditorUtils.parentMatrix(FormUtils.getRoot(model), this.renderer.getTargetEntity(), context.getTransition(), model, chain);
+            if (chain instanceof SplineIK && (panel == null || !panel.splineSources().contains(chain))) continue;
+            Form owner = SplineEditorUtils.owner(chain);
+            Matrix4f parent = SplineEditorUtils.parentMatrix(FormUtils.getRoot(owner), this.renderer.getTargetEntity(), context.getTransition(), owner, chain);
             if (parent == null) continue;
             Matrix4f modelView = new Matrix4f(this.renderer.camera.view)
                 .translate((float) -this.renderer.camera.position.x, (float) -this.renderer.camera.position.y, (float) -this.renderer.camera.position.z)
                 .mul(this.renderer.toSceneMatrix(parent));
             this.splineOverlay.draw(context, modelView, this.renderer.camera.projection, this.renderer.area, chain,
-                chain.getId().equals(panel.getChainId()) ? panel.getSelectedPointIds() : java.util.Set.of(),
-                chain.getId().equals(panel.getChainId()) ? panel.getListHoveredPoint(context) : "");
+                panel != null && chain == panel.activeSpline() ? panel.pointEditor().selected() : java.util.Set.of(),
+                panel != null && chain == panel.activeSpline() ? panel.pointEditor().points.hoveredPoint(context) : "");
         }
         this.splineOverlay.finish(context, this.renderer.area);
-        if (Window.isCtrlPressed() && !context.isFocused() && !panel.position.isEditing())
+        if (panel != null && Window.isCtrlPressed() && !context.isFocused() && !panel.pointEditor().position.isEditing())
             this.splineOverlay.drawInsertionPreview(context, this.renderer.area);
         SplineOverlay.Hit hovered = this.renderer.area.isInside(context) ? this.splineOverlay.pick(context.mouseX, context.mouseY) : null;
-        panel.setHoveredPoint(hovered != null && hovered.chain().getId().equals(panel.getChainId()) ? hovered.point().getId() : "");
+        if (panel != null) panel.pointEditor().points.viewportHover = (hovered != null && hovered.chain() == panel.activeSpline() ? hovered.point().getId() : "");
     }
 
     private FormEditorTool getPanelTool()
@@ -618,7 +640,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
     public boolean startGizmo(UIContext context, int stencilIndex)
     {
         if (!this.statesEditor.isVisible() && this.editor != null
-            && this.editor.view instanceof UIModelSplineFormPanel panel && panel.getGizmoTransform() == null)
+            && this.editor.view instanceof SplineFormTool panel && panel.getGizmoTransform() == null)
         {
             return false;
         }
@@ -755,7 +777,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
         if (Window.isShiftPressed()) UIReplaysEditorUtils.offerHierarchy(this.getContext(), pair.a, pair.b, (bone) -> this.pickFormBone(pair.a, bone));
         else this.pickFormBone(pair.a, pair.b);
     }
-
 
     @Override
     public BoneSelection getBoneSelection()

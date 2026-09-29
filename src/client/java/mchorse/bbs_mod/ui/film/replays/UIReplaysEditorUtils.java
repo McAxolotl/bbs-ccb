@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.ui.film.replays;
 
+import mchorse.bbs_mod.ui.utils.SplineKeyframeEditor;
+
 import mchorse.bbs_mod.ui.framework.elements.input.drag.TransformSpace;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.L10n;
@@ -17,7 +19,6 @@ import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.AnimationPart;
 import mchorse.bbs_mod.cubic.ik.ModelIKRuntime;
-import mchorse.bbs_mod.cubic.spline.SplineIK;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.tracks.TrackDescriptor;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
@@ -53,7 +54,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.IUIKeyframeG
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.StringUtils;
-import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
@@ -75,7 +75,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UISplineKeyframeFactory;
 import mchorse.bbs_mod.ui.utils.SplineEditorUtils;
 
 public class UIReplaysEditorUtils
@@ -366,9 +365,9 @@ public class UIReplaysEditorUtils
             return null;
         }
 
-        if (editor.editor instanceof UISplineKeyframeFactory spline)
+        if (editor.editor instanceof SplineKeyframeEditor spline)
         {
-            return spline.pointPath() == null ? null : spline.transform;
+            return spline.pointPath() == null ? null : spline.pointEditor().position;
         }
         else if (editor.editor instanceof UITransformKeyframeFactory transformKeyframeFactory)
         {
