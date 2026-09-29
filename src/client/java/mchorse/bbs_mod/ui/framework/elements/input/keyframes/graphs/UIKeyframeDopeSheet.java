@@ -119,7 +119,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     {
         Color color = frame.getStyle().getColor();
 
-        return color != null ? color.getRGBColor() | Colors.A100 : sheet.color;
+        int base = color != null ? color.getRGBColor() | Colors.A100 : sheet.color;
+
+        return frame.isEnabled() ? base : Colors.mulRGB(base, 0.4F);
     }
 
     /**
@@ -134,6 +136,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         {
             return Colors.ACTIVE | Colors.A100;
         }
+
+        if (!frame.isEnabled()) return Colors.A100;
 
         return (frame.getStyle().isFilled() ? keyframeColor(frame, sheet) : 0) | Colors.A100;
     }
@@ -1281,8 +1285,10 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         /* Render bars indicating same values */
         for (int j = 1; j < keyframes.size(); j++)
         {
-            Keyframe previous = (Keyframe) keyframes.get(j - 1);
             Keyframe frame = (Keyframe) keyframes.get(j);
+            int previousIndex = sheet.channel.previousEnabledIndex(j - 1);
+            if (!frame.isEnabled() || previousIndex < 0) continue;
+            Keyframe previous = (Keyframe) keyframes.get(previousIndex);
             int c = Colors.setA(sheet.color, TRACK_BAR_ALPHA);
             int xx = this.keyframes.toGraphX(previous.getTick());
             int xxx = this.keyframes.toGraphX(frame.getTick());

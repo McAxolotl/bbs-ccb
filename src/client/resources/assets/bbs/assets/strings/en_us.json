@@ -1449,6 +1449,8 @@
 	"bbs.ui.keyframes.context.maximize": "View all keyframes",
 	"bbs.ui.keyframes.context.paste": "Paste copied keyframes",
 	"bbs.ui.keyframes.context.keyframe_style": "Keyframe appearance...",
+	"bbs.ui.keyframes.enabled": "Enabled",
+	"bbs.ui.keyframes.keys.enabled": "Toggle enable",
 	"bbs.ui.keyframes.context.remove": "Remove keyframe(s)",
 	"bbs.ui.keyframes.context.round": "Round keyframes' tick",
 	"bbs.ui.keyframes.context.select_all": "Select all",

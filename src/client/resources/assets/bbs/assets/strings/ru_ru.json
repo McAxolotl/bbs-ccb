@@ -1443,6 +1443,8 @@
 	"bbs.ui.keyframes.context.maximize": "Увидеть все ключевые кадры",
 	"bbs.ui.keyframes.context.paste": "Вставить скопированные ключевые кадры",
 	"bbs.ui.keyframes.context.keyframe_style": "Оформление кейфрейма...",
+	"bbs.ui.keyframes.enabled": "Включён",
+	"bbs.ui.keyframes.keys.enabled": "Включить/выключить ключевые кадры",
 	"bbs.ui.keyframes.context.remove": "Удалить ключевой(ые) кадр(ы)",
 	"bbs.ui.keyframes.context.round": "Округлить тики кадров",
 	"bbs.ui.keyframes.context.select_all": "Выбрать всё",

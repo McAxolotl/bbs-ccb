@@ -87,7 +87,7 @@ public class Envelope extends ValueGroup
 
         if (this.keyframes.get())
         {
-            if (!this.channel.isEmpty())
+            if (this.channel.hasEnabledKeyframes())
             {
                 envelope = this.channel.interpolate(tick).floatValue();
             }

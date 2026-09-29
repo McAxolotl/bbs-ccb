@@ -377,7 +377,7 @@ public class UIKeyframeLoops
                 double tick = key.getTick() + pass * period;
                 if (tick > lastTick) break;
                 if (tick <= loop.sourceEnd()) continue;
-                UIKeyframeDopeSheet.renderShape(key, context, builder, matrix, this.view.toGraphX(tick), y, 3, Colors.setA(sheet.color, 0.35F));
+                UIKeyframeDopeSheet.renderShape(key, context, builder, matrix, this.view.toGraphX(tick), y, 3, Colors.setA(key.isEnabled() ? sheet.color : Colors.mulRGB(sheet.color, 0.4F), 0.35F));
                 drawn++;
             }
         }

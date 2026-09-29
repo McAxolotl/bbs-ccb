@@ -3,11 +3,13 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 import mchorse.bbs_mod.BBSSettings;
 
 import mchorse.bbs_mod.camera.utils.TimeUtils;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.context.UIInterpolationContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragEndEvent;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragStartEvent;
@@ -44,6 +46,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     private static final ScrollMemory<IKeyframeFactory> SCROLLS = new ScrollMemory<>();
 
     public UIScrollView scroll;
+    public UIToggle enabled;
     public UITrackpad tick;
     public UITrackpad duration;
     public UITrackpad motionShift;
@@ -150,6 +153,10 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         this.scroll.scroll.cancelScrolling();
         this.scroll.full(this);
 
+        this.enabled = new UIToggle(IKey.EMPTY, b -> this.editor.setSelectedEnabled(b.getValue()));
+        this.enabled.setValue(keyframe.isEnabled());
+        this.enabled.wh(26, UIConstants.CONTROL_HEIGHT).tooltip(UIKeys.KEYFRAMES_ENABLED);
+
         this.tick = new UITrackpad(this::setTick);
         this.tick.tooltip(UIKeys.KEYFRAMES_TICK);
         this.tick.getEvents().register(UITrackpadDragStartEvent.class, (e) -> this.editor.cacheKeyframes());
@@ -182,7 +189,8 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         });
         this.motionShift.setValue(keyframe.getMotionShift() * 100F);
         this.motionShift.setEnabled(keyframe.supportsMotionShift());
-        this.scroll.add(UI.row(UIConstants.MARGIN, 0, 0, this.interp, this.tick, this.duration, this.motionShift));
+        this.scroll.add(UI.row(UIConstants.MARGIN, 0, 0, this.interp, this.enabled, this.tick));
+        this.scroll.add(UI.row(UIConstants.MARGIN, 0, 0, this.duration, this.motionShift));
 
         this.add(this.scroll);
 
@@ -257,6 +265,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
     public void update()
     {
+        this.enabled.setValue(this.keyframe.isEnabled());
         this.tick.setValue(TimeUtils.toTime(this.keyframe.getTick()));
         this.motionShift.setValue(this.keyframe.getMotionShift() * 100F);
         this.motionShift.setEnabled(this.keyframe.supportsMotionShift());

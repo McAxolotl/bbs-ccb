@@ -218,6 +218,7 @@ public class UIKeyframes extends UITimelineCanvas
         IKey category = UIKeys.KEYFRAMES_KEYS_CATEGORY;
         Supplier<Boolean> canModify = () -> !this.scaling;
 
+        this.keys().register(Keys.KEYFRAMES_ENABLE, this::toggleEnabled).inside().category(category).active(canModify);
         this.keys().register(Keys.KEYFRAMES_MAXIMIZE, this::resetView).inside().category(category);
         this.keys().register(Keys.KEYFRAMES_SELECT_ALL, () -> this.currentGraph.selectAll()).inside().category(category).active(canModify);
         this.keys().register(Keys.KEYFRAMES_SELECT_TRACK, this::selectAllOnTrackUnderCursor).inside().category(category).active(canModify);
@@ -306,6 +307,30 @@ public class UIKeyframes extends UITimelineCanvas
                 }
             }
         }), 220, 200);
+    }
+
+    private void toggleEnabled()
+    {
+        this.setSelectedEnabled(null);
+    }
+
+    /** Null inverts each key independently, just like the clip shortcut. */
+    public void setSelectedEnabled(Boolean enabled)
+    {
+        List<UIKeyframeSheet> selectedSheets = new ArrayList<>();
+        for (UIKeyframeSheet sheet : this.currentGraph.getSheets())
+        {
+            if (sheet.selection.hasAny()) selectedSheets.add(sheet);
+        }
+        if (selectedSheets.isEmpty()) return;
+
+        for (UIKeyframeSheet sheet : selectedSheets) sheet.channel.preNotify(IValueListener.FLAG_UNMERGEABLE);
+        for (UIKeyframeSheet sheet : selectedSheets)
+        {
+            for (Keyframe keyframe : sheet.selection.getSelected()) keyframe.setEnabled(enabled == null ? !keyframe.isEnabled() : enabled);
+        }
+        for (UIKeyframeSheet sheet : selectedSheets) sheet.channel.postNotify(IValueListener.FLAG_UNMERGEABLE);
+        this.triggerChange();
     }
 
     private void adjustValues()

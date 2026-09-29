@@ -65,7 +65,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     public float getLoopEnd(KeyframeLoop loop)
     {
         float end = loop.end();
-        Keyframe<T> next = this.get(this.upperBound(loop.sourceEnd()));
+        Keyframe<T> next = this.get(this.nextEnabledIndex(this.upperBound(loop.sourceEnd())));
         if (next != null) end = Math.min(end, next.getTick());
         for (KeyframeLoop other : this.loops)
         {
@@ -136,6 +136,33 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         return this.keyframesView;
     }
 
+    /** Stored keys remain editable even when none of them affect playback. */
+    public boolean hasEnabledKeyframes()
+    {
+        return this.nextEnabledIndex(0) < this.list.size();
+    }
+
+    public boolean hasDisabledKeyframes()
+    {
+        for (Keyframe<T> keyframe : this.list)
+        {
+            if (!keyframe.isEnabled()) return true;
+        }
+        return false;
+    }
+
+    public int nextEnabledIndex(int index)
+    {
+        while (index < this.list.size() && !this.list.get(index).isEnabled()) index++;
+        return index;
+    }
+
+    public int previousEnabledIndex(int index)
+    {
+        while (index >= 0 && !this.list.get(index).isEnabled()) index--;
+        return index;
+    }
+
     public int indexOf(Keyframe<T> keyframe)
     {
         return this.list.indexOf(keyframe);
@@ -202,12 +229,12 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             if (ticks < loop.start()) break;
 
             float end = this.getLoopEnd(loop);
-            int first = this.lowerBound(loop.start());
+            int first = this.nextEnabledIndex(this.lowerBound(loop.start()));
             int after = this.upperBound(loop.sourceEnd());
 
             if (first >= after) continue;
 
-            Keyframe<T> next = this.get(after);
+            Keyframe<T> next = this.get(this.nextEnabledIndex(after));
 
             if (ticks > end && (next == null || ticks < next.getTick()))
             {
@@ -223,7 +250,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
                 Keyframe<T> endpoint = this.loopEndpoint(source, end);
                 KeyframeSegment<T> result = new KeyframeSegment<>(endpoint, next, -1);
                 result.preA = this.shiftLoopNeighbour(source.a.getTick() < local ? source.a : source.preA, passOffset);
-                Keyframe<T> post = this.get(after + 1);
+                Keyframe<T> post = this.get(this.nextEnabledIndex(this.nextEnabledIndex(after) + 1));
                 result.postB = post == null ? next : post;
                 result.setup(ticks);
                 return result;
@@ -252,8 +279,8 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             if (loop.sourceEnd() >= segment.a.getTick()) break;
 
             int after = this.upperBound(loop.sourceEnd());
-            if (this.get(after) != segment.a) continue;
-            int first = this.lowerBound(loop.start());
+            if (this.get(this.nextEnabledIndex(after)) != segment.a) continue;
+            int first = this.nextEnabledIndex(this.lowerBound(loop.start()));
             if (first >= after) continue;
 
             float end = this.getLoopEnd(loop);
@@ -295,15 +322,16 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     private KeyframeSegment<T> findSourceSegment(float tick, int first, int after, KeyframeLoop loop, float passOffset, float end)
     {
-        int right = Math.min(after - 1, Math.max(first, this.upperBound(tick)));
-        int left = tick >= this.list.get(after - 1).getTick() ? after - 1 : Math.max(first, right - 1);
+        int last = this.previousEnabledIndex(after - 1);
+        int right = Math.min(last, Math.max(first, this.nextEnabledIndex(this.upperBound(tick))));
+        int left = tick >= this.list.get(last).getTick() ? last : Math.max(first, this.previousEnabledIndex(right - 1));
         KeyframeSegment<T> segment = new KeyframeSegment<>(this.list.get(left), this.list.get(right), left);
         /* Neighbours live on the repeated timeline, in the same local time as a/b.
          * Skip a coincident seam key: Auto needs a neighbour at a distinct tick. */
         if (left == first && passOffset > 0)
         {
             int previous = this.lowerBound(segment.a.getTick() + loop.period()) - 1;
-            previous = Math.min(after - 1, previous);
+            previous = this.previousEnabledIndex(Math.min(last, previous));
             segment.preA = previous < first ? segment.a : this.shiftLoopNeighbour(this.get(previous), -loop.period());
         }
         else if (left == first)
@@ -311,13 +339,13 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             this.fillLoopPredecessor(segment);
         }
 
-        if (right == after - 1)
+        if (right == last)
         {
-            int following = Math.max(first, this.upperBound(segment.b.getTick() - loop.period()));
-            Keyframe<T> next = this.get(after);
+            int following = Math.max(first, this.nextEnabledIndex(this.upperBound(segment.b.getTick() - loop.period())));
+            Keyframe<T> next = this.get(this.nextEnabledIndex(after));
             if (next != null && next.getTick() <= segment.b.getTick() + passOffset)
             {
-                next = this.get(this.upperBound(segment.b.getTick() + passOffset));
+                next = this.get(this.nextEnabledIndex(this.upperBound(segment.b.getTick() + passOffset)));
             }
             Keyframe<T> repeated = following < after ? this.get(following) : null;
             float repeatedTick = repeated == null ? Float.POSITIVE_INFINITY : repeated.getTick() + loop.period() + passOffset;
@@ -325,7 +353,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             if (repeatedTick <= end && (next == null || repeatedTick < next.getTick()))
             {
                 segment.postB = this.shiftLoopNeighbour(repeated, loop.period());
-                Keyframe<T> repeatedStart = following > first ? this.get(following - 1) : null;
+                Keyframe<T> repeatedStart = following > first ? this.get(this.previousEnabledIndex(following - 1)) : null;
 
                 if (repeatedStart != null && repeatedStart.getTick() + loop.period() == segment.b.getTick())
                 {
@@ -354,60 +382,28 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     private KeyframeSegment<T> findRawSegment(float ticks)
     {
+        int first = this.nextEnabledIndex(0);
+        if (first >= this.list.size()) return null;
 
-        /* No keyframes, no values */
-        if (this.list.isEmpty())
+        int last = this.previousEnabledIndex(this.list.size() - 1);
+        if (first == last || ticks < this.list.get(first).getTick())
         {
-            return null;
+            return new KeyframeSegment<>(this.list.get(first), this.list.get(first), first);
+        }
+        if (ticks >= this.list.get(last).getTick())
+        {
+            return new KeyframeSegment<>(this.list.get(last), this.list.get(last), last);
         }
 
-        /* Check whether given ticks are outside keyframe channel's range */
-        Keyframe<T> prev = this.list.get(0);
-        int size = this.list.size();
-
-        if (size == 1 || ticks < prev.getTick())
+        int right = this.nextEnabledIndex(this.lowerBound(ticks));
+        if (this.list.get(right).getTick() == Math.floor(ticks) && right < last)
         {
-            return new KeyframeSegment<>(prev, prev, 0);
+            right = this.nextEnabledIndex(right + 1);
         }
-
-        Keyframe<T> last = this.list.get(size - 1);
-
-        if (ticks >= last.getTick())
-        {
-            return new KeyframeSegment<>(last, last, size - 1);
-        }
-
-        /* Use binary search to find the proper segment */
-        int low = 0;
-        int high = size - 1;
-
-        while (low <= high)
-        {
-            int mid = low + (high - low) / 2;
-
-            if (this.list.get(mid).getTick() < ticks)
-            {
-                low = mid + 1;
-            }
-            else
-            {
-                high = mid - 1;
-            }
-        }
-
-        Keyframe<T> b = this.list.get(low);
-
-        if (b.getTick() == Math.floor(ticks) && low < size - 1)
-        {
-            low += 1;
-            b = this.list.get(low);
-        }
-
-        Keyframe<T> a = low - 1 >= 0 ? this.list.get(low - 1) : b;
-        KeyframeSegment<T> segment = new KeyframeSegment<>(a, b, low - 1 >= 0 ? low - 1 : low);
-
+        int left = this.previousEnabledIndex(right - 1);
+        if (left < first) left = right;
+        KeyframeSegment<T> segment = new KeyframeSegment<>(this.list.get(left), this.list.get(right), left);
         segment.setup(ticks);
-
         return segment;
     }
 

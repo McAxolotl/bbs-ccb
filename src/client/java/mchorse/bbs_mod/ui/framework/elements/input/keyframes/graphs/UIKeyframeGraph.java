@@ -31,6 +31,7 @@ import net.minecraft.client.render.VertexFormats;
 import org.joml.Matrix4f;
 
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 public class UIKeyframeGraph implements IUIKeyframeGraph
@@ -537,6 +538,12 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         UIKeyframeSheet sheet = this.sheet;
         List keyframes = sheet.channel.getKeyframes();
+        boolean filtered = sheet.channel.hasDisabledKeyframes();
+        if (filtered)
+        {
+            keyframes = new ArrayList(keyframes);
+            keyframes.removeIf(key -> !((Keyframe) key).isEnabled());
+        }
         KeyframeSegment segment = new KeyframeSegment();
 
         /* Render graph */
@@ -577,7 +584,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
                         float steps = Math.min(50, Math.max(2, Math.abs(x - px)));
 
                         /* prev sits at i - 1 by construction — no need to re-find it per sample. */
-                        segment.fill(prev, frame, i - 1);
+                        segment.fill(prev, frame, filtered ? sheet.channel.indexOf(prev) : i - 1);
 
                         for (int j = 1; j <= steps; j++)
                         {
@@ -637,7 +644,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         /* Render track bars (horizontal lines) */
         builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-        this.renderGraphPointShapes(context, builder, matrix, keyframes);
+        this.renderGraphPointShapes(context, builder, matrix, sheet.channel.getKeyframes());
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
@@ -655,7 +662,8 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             float tick = (float) this.keyframes.fromGraphX(x);
             float source = this.sheet.channel.getSourceTick(tick);
             if (source < previousSource) line.push();
-            Object value = this.sheet.channel.interpolate(tick);
+            KeyframeSegment segment = this.sheet.channel.find(tick);
+            Object value = segment == null ? null : segment.createInterpolated();
             if (value != null) line.add(x, this.toGraphY(this.sheet.channel.getFactory().getY(value)));
             previousSource = source;
         }
@@ -665,9 +673,10 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         for (int index = 0; index < originals.size(); index++)
         {
             Keyframe key = originals.get(index);
+            if (!key.isEnabled()) continue;
             int x = this.keyframes.toGraphX(key.getTick()), y = this.toGraphY(key.getY());
             if (x < this.keyframes.graphArea.x - 20 || x > this.keyframes.graphArea.ex() + 20) continue;
-            Keyframe previous = this.sheet.channel.get(index - 1);
+            Keyframe previous = this.sheet.channel.get(this.sheet.channel.previousEnabledIndex(index - 1));
             if (key.getInterpolation().getInterp() == Interpolations.BEZIER)
             {
                 line.push(); line.add(x, y);
@@ -795,7 +804,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         context.batcher.clip(area, context);
         builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-        this.renderGraphPointShapes(context, builder, matrix, keyframes);
+        this.renderGraphPointShapes(context, builder, matrix, sheet.channel.getKeyframes());
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());

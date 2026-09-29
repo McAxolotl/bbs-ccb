@@ -14,6 +14,7 @@ public class Keyframe <T> extends BaseValue
 {
     private float tick;
     private T value;
+    private boolean enabled = true;
 
     public float lx = 5;
     public float ly;
@@ -70,6 +71,7 @@ public class Keyframe <T> extends BaseValue
     {
         int hash = Float.floatToIntBits(this.tick);
 
+        hash = 31 * hash + Boolean.hashCode(this.enabled);
         hash = 31 * hash + Float.floatToIntBits(this.duration);
         hash = 31 * hash + Float.floatToIntBits(this.motionShift);
         hash = 31 * hash + Float.floatToIntBits(this.lx);
@@ -84,6 +86,20 @@ public class Keyframe <T> extends BaseValue
         hash = 31 * hash + (this.value == null || this.factory == null ? 0 : this.factory.contentHash(this.value));
 
         return hash;
+    }
+
+    public boolean isEnabled()
+    {
+        return this.enabled;
+    }
+
+    public void setEnabled(boolean enabled)
+    {
+        if (this.enabled == enabled) return;
+
+        this.preNotify();
+        this.enabled = enabled;
+        this.postNotify();
     }
 
     public float getTick()
@@ -200,6 +216,7 @@ public class Keyframe <T> extends BaseValue
     public void copy(Keyframe<T> keyframe)
     {
         this.tick = keyframe.tick;
+        this.enabled = keyframe.enabled;
         this.duration = keyframe.duration;
         this.motionShift = keyframe.motionShift;
         this.value = this.factory.copy(keyframe.value);
@@ -223,6 +240,7 @@ public class Keyframe <T> extends BaseValue
         if (obj instanceof Keyframe<?> kf)
         {
             return this.tick == kf.tick
+                && this.enabled == kf.enabled
                 && Objects.equals(this.value, kf.value)
                 && this.lx == kf.lx
                 && this.ly == kf.ly
@@ -242,6 +260,7 @@ public class Keyframe <T> extends BaseValue
         MapType data = new MapType();
 
         data.putFloat("tick", this.tick);
+        if (!this.enabled) data.putBool("enabled", false);
         data.put("value", this.factory.toData(this.value));
 
         if (this.duration != 0F) data.putFloat("duration", this.duration);
@@ -266,6 +285,7 @@ public class Keyframe <T> extends BaseValue
 
         MapType map = data.asMap();
 
+        this.enabled = !map.has("enabled") || map.getBool("enabled");
         this.setMotionShift(map.getFloat("motion_shift"), false);
 
         this.style.fromData(map);
@@ -282,6 +302,7 @@ public class Keyframe <T> extends BaseValue
 
     public void copyOverExtra(Keyframe<?> a)
     {
+        this.setEnabled(a.isEnabled());
         this.getInterpolation().copy(a.getInterpolation());
         this.setStyle(a.getStyle());
         this.setDuration(a.getDuration());
