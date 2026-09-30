@@ -3,7 +3,6 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 import mchorse.bbs_mod.cubic.constraints.BoneConstraint;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UISliderTrackpad;
@@ -11,13 +10,13 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * Editor for a bone's constraints keyframe: the rotation limits, laid out the way the form
+ * Editor for a bone's constraints track: the rotation limits, laid out the way the form
  * editor's "Constraints" tab lays them out. The value is the bone property's own type, so what
  * this edits is exactly what the form stores statically.
  */
@@ -40,9 +39,9 @@ public class UIBoneConstraintKeyframeFactory extends UIKeyframeFactory<BoneConst
 
     private boolean syncing;
 
-    public UIBoneConstraintKeyframeFactory(Keyframe<BoneConstraint> keyframe, UIKeyframes editor)
+    public UIBoneConstraintKeyframeFactory(UITrackValue<BoneConstraint> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
         IKey axis = IKey.constant("%s (%s)");
 
@@ -73,9 +72,16 @@ public class UIBoneConstraintKeyframeFactory extends UIKeyframeFactory<BoneConst
         this.display();
     }
 
+    @Override
+    public void update()
+    {
+        if (!this.minX.isUserEditing() && !this.minY.isUserEditing() && !this.minZ.isUserEditing()
+            && !this.maxX.isUserEditing() && !this.maxY.isUserEditing() && !this.maxZ.isUserEditing()) this.display();
+    }
+
     private void display()
     {
-        BoneConstraint c = this.keyframe.getValue();
+        BoneConstraint c = this.track.getValue();
 
         if (c == null)
         {
@@ -113,18 +119,15 @@ public class UIBoneConstraintKeyframeFactory extends UIKeyframeFactory<BoneConst
             return;
         }
 
-        UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe, (selected) ->
+        this.track.edit((selected) ->
         {
-            BoneConstraint c = (BoneConstraint) selected.getValue();
+            BoneConstraint c = (BoneConstraint) selected;
 
             if (c == null)
             {
                 return;
             }
-
-            selected.preNotify();
             consumer.accept(c);
-            selected.postNotify();
         });
     }
 

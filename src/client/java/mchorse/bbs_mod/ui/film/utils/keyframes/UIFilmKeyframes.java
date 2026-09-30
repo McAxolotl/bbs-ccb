@@ -17,8 +17,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-import java.util.function.Consumer;
-
 public class UIFilmKeyframes extends UIKeyframes
 {
     public IUIClipsDelegate editor;
@@ -30,7 +28,7 @@ public class UIFilmKeyframes extends UIKeyframes
      */
     private final UIMarkersController markers = new UIMarkersController(this::getFilmMarkers);
 
-    public UIFilmKeyframes(IUIClipsDelegate delegate, Consumer<Keyframe> callback)
+    public UIFilmKeyframes(IUIClipsDelegate delegate, Runnable callback)
     {
         super(callback);
 

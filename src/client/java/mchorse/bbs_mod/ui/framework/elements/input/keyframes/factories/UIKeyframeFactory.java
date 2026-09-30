@@ -1,38 +1,30 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
-import mchorse.bbs_mod.BBSSettings;
-
-import mchorse.bbs_mod.camera.utils.TimeUtils;
-import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.ui.Keys;
-import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
-import mchorse.bbs_mod.ui.framework.elements.context.UIInterpolationContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragEndEvent;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragStartEvent;
-import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
+import mchorse.bbs_mod.ui.framework.elements.input.UINumericInput;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.IUIKeyframeGraph;
-import mchorse.bbs_mod.ui.framework.tooltips.InterpolationTooltip;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.ui.framework.elements.utils.ScrollMemory;
-import mchorse.bbs_mod.utils.interps.Interpolation;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+import mchorse.bbs_mod.utils.pose.Transform;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public abstract class UIKeyframeFactory <T> extends UIElement
 {
+    /** Resolve the primary gizmo transform in a caller-owned value copy. */
+    public Transform getGizmoTransform(T value) { return null; }
+
     private static final Map<IKeyframeFactory, IUIKeyframeFactoryFactory> FACTORIES = new HashMap<>();
 
     /**
@@ -46,15 +38,9 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     private static final ScrollMemory<IKeyframeFactory> SCROLLS = new ScrollMemory<>();
 
     public UIScrollView scroll;
-    public UIToggle enabled;
-    public UITrackpad tick;
-    public UITrackpad duration;
-    public UITrackpad motionShift;
-    private boolean draggingMotionShift;
-    public UIIcon interp;
-
-    protected Keyframe<T> keyframe;
+    protected final UITrackValue<T> track;
     protected UIKeyframes editor;
+    private float displayTick = Float.NaN;
 
     /**
      * Fills the registry. Called by BBS while it initialises, and followed by the event that
@@ -71,6 +57,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.FLOAT, UIFloatKeyframeFactory::new);
         register(KeyframeFactories.DOUBLE, UIDoubleKeyframeFactory::new);
         register(KeyframeFactories.INTEGER, UIIntegerKeyframeFactory::new);
+        register(KeyframeFactories.LONG, UILongKeyframeFactory::new);
         register(KeyframeFactories.LINK, UILinkKeyframeFactory::new);
         register(KeyframeFactories.POSE, UIPoseKeyframeFactory::new);
         register(KeyframeFactories.IK, UIIKKeyframeFactory::new);
@@ -106,35 +93,49 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     {
         if (editor != null)
         {
-            SCROLLS.save(editor.keyframe.getFactory(), editor.scroll);
+            SCROLLS.save(editor.track.getFactory(), editor.scroll);
         }
     }
 
     public void restoreScroll()
     {
-        SCROLLS.restore(this.keyframe.getFactory(), this.scroll);
+        SCROLLS.restore(this.track.getFactory(), this.scroll);
     }
 
-    public static <T> UIKeyframeFactory createPanel(Keyframe<T> keyframe, UIKeyframes editor)
+    public static <T> UIKeyframeFactory createPanel(UITrackValue<T> track, UIKeyframes editor)
     {
-        IUIKeyframeFactoryFactory<T> factory = getPropertyFactory(keyframe, editor);
+        IUIKeyframeFactoryFactory<T> factory = getPropertyFactory(track);
 
         if (factory == null)
         {
-            factory = FACTORIES.get(keyframe.getFactory());
+            factory = FACTORIES.get(track.getFactory());
         }
 
-        return factory == null ? null : factory.create(keyframe, editor);
+        UIKeyframeFactory<T> panel = factory == null ? null : factory.create(track, editor);
+
+        if (panel != null)
+        {
+            for (UINumericInput<?> input : panel.getChildren(UINumericInput.class))
+            {
+                input.getEvents().register(UITrackpadDragStartEvent.class, event -> editor.beginValueGesture());
+                input.getEvents().register(UITrackpadDragEndEvent.class, event ->
+                {
+                    if (event.cancelled) editor.cancelValueGesture();
+                    else editor.endValueGesture();
+                });
+            }
+        }
+
+        return panel;
     }
 
     /**
      * The editor registered for the track's property, if there is one. Bone tracks are left out: their
      * channels end in a bone's name, which is model data and could land on a property's id by accident.
      */
-    private static <T> IUIKeyframeFactoryFactory<T> getPropertyFactory(Keyframe<T> keyframe, UIKeyframes editor)
+    private static <T> IUIKeyframeFactoryFactory<T> getPropertyFactory(UITrackValue<T> track)
     {
-        IUIKeyframeGraph graph = editor == null ? null : editor.getGraph();
-        UIKeyframeSheet sheet = graph == null ? null : graph.getSheet(keyframe);
+        UIKeyframeSheet sheet = track.sheet;
 
         if (sheet == null || sheet.property == null || sheet.isBoneTrack)
         {
@@ -144,135 +145,48 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         return PROPERTIES.get(StringUtils.fileName(sheet.channel.getId()));
     }
 
-    public UIKeyframeFactory(Keyframe<T> keyframe, UIKeyframes editor)
+    public UIKeyframeFactory(UITrackValue<T> track, UIKeyframes editor)
     {
-        this.keyframe = keyframe;
+        this.track = track;
         this.editor = editor;
-
         this.scroll = UI.scrollView(UIConstants.MARGIN, Math.max(UIConstants.SCROLL_PADDING, 4));
         this.scroll.scroll.cancelScrolling();
         this.scroll.full(this);
-
-        this.enabled = new UIToggle(IKey.EMPTY, b -> this.editor.setSelectedEnabled(b.getValue()));
-        this.enabled.setValue(keyframe.isEnabled());
-        this.enabled.wh(26, UIConstants.CONTROL_HEIGHT).tooltip(UIKeys.KEYFRAMES_ENABLED);
-
-        this.tick = new UITrackpad(this::setTick);
-        this.tick.tooltip(UIKeys.KEYFRAMES_TICK);
-        this.tick.getEvents().register(UITrackpadDragStartEvent.class, (e) -> this.editor.cacheKeyframes());
-        this.tick.getEvents().register(UITrackpadDragEndEvent.class, (e) -> this.editor.submitKeyframes());
-        this.duration = new UITrackpad((v) -> this.setDuration(v.floatValue()));
-        this.duration.limit(0, Float.MAX_VALUE).tooltip(UIKeys.KEYFRAMES_FORCED_DURATION);
-        this.interp = new UIIcon(Icons.GRAPH, (b) ->
-        {
-            Interpolation interp = this.keyframe.getInterpolation();
-            UIInterpolationContextMenu menu = new UIInterpolationContextMenu(interp);
-
-            this.getContext().replaceContextMenu(menu.callback(() -> this.editor.getGraph().setInterpolation(interp)));
-        });
-        this.interp.wh(UIConstants.CONTROL_HEIGHT, UIConstants.CONTROL_HEIGHT);
-        this.interp.tooltip(new InterpolationTooltip(0F, 0.5F, () -> this.keyframe.getInterpolation()));
-        this.interp.keys().register(Keys.KEYFRAMES_INTERP, this.interp::clickItself).category(UIKeys.KEYFRAMES_KEYS_CATEGORY);
-
-        this.motionShift = new UITrackpad(v -> this.editor.getGraph().setMotionShift(v.floatValue() / 100F, !this.draggingMotionShift));
-        this.motionShift.limit(-49, 49).tooltip(UIKeys.KEYFRAMES_MOTION_SHIFT);
-        this.motionShift.getEvents().register(UITrackpadDragStartEvent.class, e ->
-        {
-            this.draggingMotionShift = true;
-            this.editor.cacheKeyframes();
-        });
-        this.motionShift.getEvents().register(UITrackpadDragEndEvent.class, e ->
-        {
-            this.draggingMotionShift = false;
-            this.editor.submitKeyframes();
-            this.editor.getGraph().pickSelected();
-        });
-        this.motionShift.setValue(keyframe.getMotionShift() * 100F);
-        this.motionShift.setEnabled(keyframe.supportsMotionShift());
-        this.scroll.add(UI.row(UIConstants.MARGIN, 0, 0, this.interp, this.enabled, this.tick));
-        this.scroll.add(UI.row(UIConstants.MARGIN, 0, 0, this.duration, this.motionShift));
-
         this.add(this.scroll);
-
-        /* Fill data */
-        this.tick.setValue(TimeUtils.toTime(keyframe.getTick()));
-        this.duration.setValue(TimeUtils.toTime(keyframe.getDuration()));
     }
 
-    public Keyframe<T> getKeyframe()
+    public UIKeyframeSheet getSheet() { return this.track.sheet; }
+
+    protected T getDisplayValue() { return this.track.getValue(); }
+
+    public void setValue(Object value) { this.track.setValue((T) value); }
+
+    public void update() {}
+
+    public void requestUpdate()
     {
-        return this.keyframe;
+        this.displayTick = Float.NaN;
     }
 
-    /**
-     * The keyframe an edit made in this panel should land on: the one the panel was opened for,
-     * or &mdash; with auto-keyframing on &mdash; the keyframe of the same track at the playhead,
-     * made from the track's interpolated value if there is none there yet.
-     */
-    public Keyframe<T> getEditTarget()
+    @Override
+    public void render(UIContext context)
     {
-        return this.editor.getGraph().getEditTarget(this.keyframe);
-    }
-
-    /**
-     * Whether this panel's fields should follow the playhead rather than the keyframe they were
-     * opened for. They have to when auto-keyframing, because that is where the next edit lands:
-     * a field showing a keyframe at another tick would start a drag from the wrong number.
-     */
-    protected boolean followsPlayhead()
-    {
-        return this.editor.getGraph().getAutoKeyframeTick() != null;
-    }
-
-    /**
-     * What the fields should show: the edited keyframe's value, or what the track reads at the
-     * playhead while {@link #followsPlayhead()}. Read-only &mdash; a keyframe is only brought into
-     * being once something is actually edited.
-     */
-    protected T getDisplayValue()
-    {
-        IUIKeyframeGraph graph = this.editor.getGraph();
-        Float tick = graph.getAutoKeyframeTick();
-        UIKeyframeSheet sheet = tick == null ? null : graph.getSheet(this.keyframe);
-
-        if (sheet == null || sheet.channel.isEmpty())
+        float tick = this.editor.getTick();
+        if (this.isUserEditing())
         {
-            return this.keyframe.getValue();
+            /* Re-read once the edit ends, even if the playhead did not move. */
+            this.displayTick = Float.NaN;
         }
-
-        T value = (T) sheet.sample(tick);
-
-        return value == null ? this.keyframe.getValue() : value;
+        else if (Float.compare(tick, this.displayTick) != 0)
+        {
+            this.displayTick = tick;
+            this.update();
+        }
+        super.render(context);
     }
 
-    public void setTick(double tick)
+    public interface IUIKeyframeFactoryFactory<T>
     {
-        double time = BBSSettings.editorSnapToTicks.get() ? TimeUtils.fromTime(tick)
-            : (BBSSettings.editorSeconds.get() ? tick * 20D : tick);
-
-        this.editor.getGraph().setTick((float) time, false);
-    }
-
-    public void setDuration(float value)
-    {
-        this.editor.getGraph().setDuration(value);
-    }
-
-    public void setValue(Object value)
-    {
-        this.editor.getGraph().setValue(value, true, true);
-    }
-
-    public void update()
-    {
-        this.enabled.setValue(this.keyframe.isEnabled());
-        this.tick.setValue(TimeUtils.toTime(this.keyframe.getTick()));
-        this.motionShift.setValue(this.keyframe.getMotionShift() * 100F);
-        this.motionShift.setEnabled(this.keyframe.supportsMotionShift());
-    }
-
-    public static interface IUIKeyframeFactoryFactory <T>
-    {
-        public UIKeyframeFactory<T> create(Keyframe<T> keyframe, UIKeyframes editor);
+        UIKeyframeFactory<T> create(UITrackValue<T> track, UIKeyframes editor);
     }
 }

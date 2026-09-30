@@ -2,59 +2,48 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
-import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.cubic.spline.*;
 import mchorse.bbs_mod.forms.forms.SplineForm;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.elements.input.drag.TransformOp;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.*;
 import mchorse.bbs_mod.ui.utils.*;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.utils.pose.Transform;
 import org.joml.Vector3f;
 import java.util.function.Consumer;
 
 public class UISplinePointsKeyframeFactory extends UIKeyframeFactory<SplinePositions> implements SplineKeyframeEditor
 {
+    @Override
+    public Transform getGizmoTransform(SplinePositions value)
+    {
+        if (this.points.point() == null) return null;
+        value.putAll(this.resolved(value));
+        return value.point(this.points.pointId());
+    }
+
     private final SplineForm form;
     private final UISplinePointsEditor points;
 
-    public UISplinePointsKeyframeFactory(Keyframe<SplinePositions> keyframe, UIKeyframes editor)
+    public UISplinePointsKeyframeFactory(UITrackValue<SplinePositions> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
-        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+        super(track, editor);
+        UIKeyframeSheet sheet = track.sheet;
         this.form = sheet != null && sheet.form instanceof SplineForm spline ? spline : null;
         UIKeyframePropTransform transform = new UIKeyframePropTransform()
         {
             @Override protected UIKeyframes getKeyframes() { return editor; }
-            @Override protected Transform getTargetTransform()
-            {
-                Float tick = this.getKeyframes().getAutoKeyframeTick();
-                if (tick != null) return this.getAutoKeyTransform(tick);
-                return UISplinePointsKeyframeFactory.this.points.point() == null ? null
-                    : UISplinePointsKeyframeFactory.this.resolved(UISplinePointsKeyframeFactory.this.getDisplayValue()).point(UISplinePointsKeyframeFactory.this.points.pointId());
-            }
             @Override protected void applyToSelection(Consumer<Transform> edit)
             {
-                UIReplaysEditorUtils.forEachSelectedKeyframe(editor, keyframe, selected ->
+                track.edit(selected ->
                 {
-                    SplinePositions value = UISplinePointsKeyframeFactory.this.resolved((SplinePositions) selected.getValue());
-                    selected.preNotify();
+                    SplinePositions value = UISplinePointsKeyframeFactory.this.resolved((SplinePositions) selected);
                     for (String id : UISplinePointsKeyframeFactory.this.points.selected()) edit.accept(value.point(id));
-                    ((SplinePositions) selected.getValue()).putAll(value);
-                    selected.postNotify();
+                    ((SplinePositions) selected).putAll(value);
                 });
             }
-            @Override protected Transform getAutoKeyTransform(float tick)
-            {
-                if (sheet == null || UISplinePointsKeyframeFactory.this.points.point() == null) return null;
-                Keyframe<SplinePositions> target = sheet.ensureKeyframe(tick);
-                if (target == null) return null;
-                SplinePositions value = target.getValue();
-                value.putAll(UISplinePointsKeyframeFactory.this.resolved(value));
-                return value.point(UISplinePointsKeyframeFactory.this.points.pointId());
-            }
+
         };
         this.points = new UISplinePointsEditor(() -> this.form, id -> this.resolved(this.getDisplayValue()).point(id), transform, Vector3f::new)
         {
@@ -64,13 +53,11 @@ public class UISplinePointsKeyframeFactory extends UIKeyframeFactory<SplinePosit
             }
             @Override protected void editPositions(Consumer<SplinePositions> edit)
             {
-                UIReplaysEditorUtils.forEachSelectedKeyframe(editor, keyframe, selected ->
+                track.edit(selected ->
                 {
-                    SplinePositions value = UISplinePointsKeyframeFactory.this.resolved((SplinePositions) selected.getValue());
-                    selected.preNotify(IValueListener.FLAG_UNMERGEABLE);
+                    SplinePositions value = UISplinePointsKeyframeFactory.this.resolved((SplinePositions) selected);
                     edit.accept(value);
-                    ((SplinePositions) selected.getValue()).putAll(value);
-                    selected.postNotify();
+                    ((SplinePositions) selected).putAll(value);
                 });
             }
         };

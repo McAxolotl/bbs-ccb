@@ -399,6 +399,11 @@ public abstract class UINumericInput <T extends UINumericInput<T>> extends UIBas
         this.getEvents().emit(new UITrackpadDragEndEvent(this));
     }
 
+    protected void emitDragCancel()
+    {
+        this.getEvents().emit(new UITrackpadDragEndEvent(this, true));
+    }
+
     /* Text input */
 
     @Override

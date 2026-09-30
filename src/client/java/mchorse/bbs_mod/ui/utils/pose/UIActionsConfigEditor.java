@@ -132,6 +132,13 @@ public class UIActionsConfigEditor extends UIElement
         }
     }
 
+    public void refreshConfigs(ActionsConfig configs)
+    {
+        this.configs = configs;
+        String action = this.actions.getCurrentFirst();
+        if (action != null) this.pickAction(action, false);
+    }
+
     private void pickAction(String key, boolean select)
     {
         ActionsConfig config = this.configs;

@@ -83,7 +83,7 @@ public class SplineEditorUtils
         if (editor == null || editor.editor == null) return null;
         if (editor.editor instanceof SplineKeyframeEditor spline)
             return spline.pointPath();
-        var sheet = editor.getSheet(editor.editor.getKeyframe());
+        var sheet = editor.editor.getSheet();
         if (sheet == null) return null;
         TrackId id = TrackId.parse(sheet.id);
         return isPoint(id) ? sheet.id : null;

@@ -3,21 +3,27 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 import mchorse.bbs_mod.forms.forms.utils.ParticleSettings;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIParticleSettings;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import net.minecraft.util.Identifier;
 
 public class UIParticleSettingsKeyframeFactory extends UIKeyframeFactory<ParticleSettings>
 {
     private UIParticleSettings settings;
 
-    public UIParticleSettingsKeyframeFactory(Keyframe<ParticleSettings> keyframe, UIKeyframes editor)
+    public UIParticleSettingsKeyframeFactory(UITrackValue<ParticleSettings> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
-        this.settings = new UIParticleSettings();
-        this.settings.setSettings(keyframe.getValue());
+        this.settings = new UIParticleSettingsEditor(this);
+        this.settings.setSettings(track.getValue());
 
         this.scroll.add(this.settings);
+    }
+
+    @Override
+    public void update()
+    {
+        if (!this.settings.arguments.isFocused()) this.settings.setSettings(this.getDisplayValue());
     }
 
     public static class UIParticleSettingsEditor extends UIParticleSettings
@@ -34,17 +40,13 @@ public class UIParticleSettingsKeyframeFactory extends UIKeyframeFactory<Particl
         @Override
         protected void setParticle(Identifier id)
         {
-            this.editor.keyframe.preNotify();
-            super.setParticle(id);
-            this.editor.keyframe.postNotify();
+            this.editor.track.edit(value -> value.particle = id);
         }
 
         @Override
         protected void setArguments(String args)
         {
-            this.editor.keyframe.preNotify();
-            super.setArguments(args);
-            this.editor.keyframe.postNotify();
+            this.editor.track.edit(value -> value.arguments = args);
         }
     }
 }

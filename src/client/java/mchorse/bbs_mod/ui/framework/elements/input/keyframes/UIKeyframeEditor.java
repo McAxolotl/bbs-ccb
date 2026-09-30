@@ -26,7 +26,6 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class UIKeyframeEditor extends UITimelinePanel
@@ -35,15 +34,17 @@ public class UIKeyframeEditor extends UITimelinePanel
 
     public UIKeyframes view;
     public UIKeyframeFactory editor;
+    private UIKeyframeParameters parameters;
 
-    public UIKeyframeEditor(Function<Consumer<Keyframe>, UIKeyframes> factory)
+    public UIKeyframeEditor(Function<Runnable, UIKeyframes> factory)
     {
-        this.view = factory.apply(this::pickKeyframe);
+        this.view = factory.apply(this::refreshSelection);
         this.view.changed(() ->
         {
             if (this.editor != null)
             {
-                this.editor.update();
+                /* Trackpads write during render: refresh the panel before its next traversal. */
+                this.editor.requestUpdate();
             }
         });
 
@@ -72,25 +73,20 @@ public class UIKeyframeEditor extends UITimelinePanel
         return this;
     }
 
-    /**
-     * Tracks with nothing on them are told how to put a keyframe down; tracks that already have
-     * some are told how to pick one. Both name the gesture, since neither is a plain click.
-     */
     private IKey getEmptyLabel()
     {
-        for (UIKeyframeSheet sheet : this.view.getGraph().getSheets())
-        {
-            if (!sheet.channel.isEmpty())
-            {
-                return UIKeys.KEYFRAMES_EMPTY_PICK;
-            }
-        }
-
-        return UIKeys.KEYFRAMES_EMPTY_ADD;
+        return UIKeys.KEYFRAMES_EMPTY_PICK;
     }
 
-    private void pickKeyframe(Keyframe keyframe)
+    private void refreshSelection()
     {
+        UIKeyframeSheet sheet = this.view.getActiveSheet();
+        if (this.editor != null && this.editor.getSheet() == sheet)
+        {
+            this.updateParameters();
+            this.editor.requestUpdate();
+            return;
+        }
         UIKeyframeFactory.saveScroll(this.editor);
 
         if (this.editor != null)
@@ -99,15 +95,18 @@ public class UIKeyframeEditor extends UITimelinePanel
             this.editor = null;
         }
 
-        if (keyframe != null)
+        if (sheet != null)
         {
             /* Null when the keyframe's type has no editor registered: the track still works, it
              * just gets no properties panel. It used to be dereferenced straight away, so a type
              * whose registration went missing crashed on the click that selected a keyframe. */
-            this.editor = UIKeyframeFactory.createPanel(keyframe, this.view);
+            this.editor = UIKeyframeFactory.createPanel(new UITrackValue<>(sheet, this.view), this.view);
 
             if (this.editor != null)
             {
+                /* The binding runs before scroll children, never inside a field's write callback. */
+                this.editor.valueBinding(this::updateParameters);
+                this.updateParameters();
                 this.attachPropertiesPanel(this.editor, 140);
                 this.editor.setVisible(this.propertiesVisible);
                 this.resize();
@@ -128,12 +127,31 @@ public class UIKeyframeEditor extends UITimelinePanel
         }
     }
 
+    private void updateParameters()
+    {
+        Keyframe selected = this.view.getGraph().getSelected();
+        if (this.parameters != null && this.parameters.isFor(selected) && this.editor != null
+            && this.parameters.getParent() == this.editor.scroll)
+        {
+            this.parameters.update();
+            return;
+        }
+        if (this.parameters != null) this.parameters.removeFromParent();
+        this.parameters = null;
+        if (this.editor != null && selected != null)
+        {
+            this.parameters = new UIKeyframeParameters(selected, this.view);
+            this.editor.scroll.prepend(this.parameters);
+        }
+        if (this.editor != null) this.editor.scroll.invalidateLayout();
+    }
+
     public void setChannel(KeyframeChannel channel, int color)
     {
         this.view.removeAllSheets();
-        this.view.addSheet(new UIKeyframeSheet(color, channel, null));
-
-        this.pickKeyframe(null);
+        UIKeyframeSheet sheet = new UIKeyframeSheet(color, channel, null);
+        this.view.addSheet(sheet);
+        this.view.selectTrack(sheet);
     }
 
     public void setClip(KeyframeClip clip)
@@ -147,25 +165,7 @@ public class UIKeyframeEditor extends UITimelinePanel
             this.view.addSheet(new UIKeyframeSheet(COLORS[i], channel, null));
         }
 
-        this.pickKeyframe(null);
-    }
-
-    public UIKeyframeSheet getSheet(Keyframe keyframe)
-    {
-        if (keyframe == null)
-        {
-            return null;
-        }
-
-        for (UIKeyframeSheet sheet : this.view.getGraph().getSheets())
-        {
-            if (sheet.channel == keyframe.getParent())
-            {
-                return sheet;
-            }
-        }
-
-        return null;
+        this.refreshSelection();
     }
 
     /** The bone the film gizmo edits, paired with the frame it is edited in — one
@@ -178,8 +178,9 @@ public class UIKeyframeEditor extends UITimelinePanel
 
         if (editor instanceof UIPoseKeyframeFactory pose)
         {
-            UIKeyframeSheet sheet = this.getSheet(editor.getKeyframe());
+            UIKeyframeSheet sheet = editor.getSheet();
             String currentFirst = pose.poseEditor.groups.list.getCurrentFirst();
+            if (currentFirst == null) return null;
 
             if (sheet != null)
             {
@@ -201,7 +202,7 @@ public class UIKeyframeEditor extends UITimelinePanel
         }
         else if (editor instanceof UITransformKeyframeFactory transform)
         {
-            UIKeyframeSheet sheet = this.getSheet(editor.getKeyframe());
+            UIKeyframeSheet sheet = editor.getSheet();
 
             if (sheet != null)
             {
@@ -225,7 +226,7 @@ public class UIKeyframeEditor extends UITimelinePanel
         }
         else if (editor instanceof UIPoseTransformKeyframeFactory poseTransform)
         {
-            UIKeyframeSheet sheet = this.getSheet(editor.getKeyframe());
+            UIKeyframeSheet sheet = editor.getSheet();
 
             if (sheet != null)
             {
@@ -300,7 +301,7 @@ public class UIKeyframeEditor extends UITimelinePanel
             }
         }
 
-        UIKeyframeSheet sheet = this.editor == null ? null : this.getSheet(this.editor.getKeyframe());
+        UIKeyframeSheet sheet = this.editor == null ? null : this.editor.getSheet();
 
         return sheet == null || sheet.title == null ? null : sheet.title.get();
     }
@@ -319,7 +320,7 @@ public class UIKeyframeEditor extends UITimelinePanel
             return false;
         }
 
-        UIKeyframeSheet sheet = this.getSheet(this.editor.getKeyframe());
+        UIKeyframeSheet sheet = this.editor.getSheet();
 
         return sheet != null && sheet.property != null && "anchor".equals(sheet.id);
     }

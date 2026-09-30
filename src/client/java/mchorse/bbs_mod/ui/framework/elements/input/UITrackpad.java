@@ -220,6 +220,7 @@ public class UITrackpad extends UINumericInput<UITrackpad>
         if (this.allowCanceling && context.mouseButton == 1 && this.isDragging())
         {
             this.setValueAndNotify(this.lastValue);
+            this.emitDragCancel();
 
             this.wasInside = false;
             this.dragging = false;
@@ -280,6 +281,7 @@ public class UITrackpad extends UINumericInput<UITrackpad>
         if (context.mouseButton == 1 && this.isDragging())
         {
             this.setValueAndNotify(this.lastValue);
+            this.emitDragCancel();
 
             this.wasInside = false;
             this.dragging = false;

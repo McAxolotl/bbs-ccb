@@ -8,13 +8,11 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-import java.util.function.Consumer;
-
 public class UIAnimationStateKeyframes extends UIKeyframes
 {
     public UIFormEditor editor;
 
-    public UIAnimationStateKeyframes(UIFormEditor delegate, Consumer<Keyframe> callback)
+    public UIAnimationStateKeyframes(UIFormEditor delegate, Runnable callback)
     {
         super(callback);
 

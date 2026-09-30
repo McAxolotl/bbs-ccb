@@ -4,47 +4,36 @@ import mchorse.bbs_mod.ui.framework.elements.input.UIDeltaPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-/**
- * Delta transform editor whose selection spans keyframes, plus the auto-keyframing layer: while
- * auto-keyframing is on the fields mirror the keyframe at the playhead ({@link
- * #getAutoKeyTransform}) instead of the edited one, so a drag is measured against the pose that is
- * actually on screen at that tick.
- *
- * <p>The write itself needs nothing here — every {@link #applyToSelection} implementation goes
- * through {@code UIReplaysEditorUtils.forEachSelectedKeyframe}, which redirects to the playhead's
- * keyframe on its own.
- */
+import java.util.function.Consumer;
+
+/** Delta editing with one undo snapshot for the whole track-value gesture. */
 public abstract class UIKeyframePropTransform extends UIDeltaPropTransform
 {
-    /** The timeline the edited keyframe lives in, so this editor can ask about the playhead. */
+    private boolean applying;
     protected abstract UIKeyframes getKeyframes();
 
-    /**
-     * The transform of this track's keyframe at the given tick, created if the track has none
-     * there. Null when the editor cannot produce one, which leaves the fields on the edited
-     * keyframe.
-     */
-    protected Transform getAutoKeyTransform(float tick)
-    {
-        return null;
-    }
+    @Override public boolean isUserEditing() { return this.applying || super.isUserEditing(); }
 
     @Override
-    protected Transform getTargetTransform()
+    protected void applyToTarget(Consumer<Transform> edit)
     {
-        UIKeyframes keyframes = this.getKeyframes();
-        Float tick = keyframes == null ? null : keyframes.getAutoKeyframeTick();
-
-        if (tick != null)
+        this.applying = true;
+        try
         {
-            Transform transform = this.getAutoKeyTransform(tick);
-
-            if (transform != null)
-            {
-                return transform;
-            }
+            this.applyToSelection(edit);
+            /* Keep the displayed edit incremental even when selected keys elsewhere do not
+             * contribute to the cursor. The buffer is a value copy, never a stored key. */
+            if (this.getTransform() != null) edit.accept(this.getTransform());
         }
+        finally { this.applying = false; }
+    }
 
-        return this.getTransform();
+    @Override public void beginGesture() { this.getKeyframes().beginValueGesture(); }
+    @Override public void endGesture() { this.getKeyframes().endValueGesture(); }
+    @Override public boolean cancelGesture()
+    {
+        this.getKeyframes().cancelValueGesture();
+        this.syncTargetTransform();
+        return true;
     }
 }

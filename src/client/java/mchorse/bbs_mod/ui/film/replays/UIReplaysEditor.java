@@ -36,7 +36,6 @@ import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIClipsPanel;
@@ -775,6 +774,8 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             {
                 this.keyframeEditor.view.addSheet(sheet);
             }
+
+            if (lastEditor != null) this.keyframeEditor.view.copySelection(lastEditor);
 
             this.keyframeEditor.view.getDopeSheet().setExpanded(this.getExpandedTracks());
 

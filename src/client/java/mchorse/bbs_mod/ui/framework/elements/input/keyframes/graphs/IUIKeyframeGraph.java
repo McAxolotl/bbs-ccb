@@ -34,37 +34,6 @@ public interface IUIKeyframeGraph
     /** The timeline this graph draws, so a graph can ask the editor about the playhead. */
     public UIKeyframes getKeyframes();
 
-    /**
-     * The tick auto-keyframing writes at, or {@code null} when edits land on the keyframes they
-     * were made on. See {@link UIKeyframes#getAutoKeyframeTick()}.
-     */
-    public default Float getAutoKeyframeTick()
-    {
-        UIKeyframes keyframes = this.getKeyframes();
-
-        return keyframes == null ? null : keyframes.getAutoKeyframeTick();
-    }
-
-    /**
-     * The keyframe an edit made on {@code keyframe} should actually land on: itself normally, or
-     * the keyframe of its own track at the playhead when auto-keyframing &mdash; brought into
-     * being from the track's interpolated value if there is none there yet.
-     */
-    public default <T> Keyframe<T> getEditTarget(Keyframe<T> keyframe)
-    {
-        Float tick = this.getAutoKeyframeTick();
-        UIKeyframeSheet sheet = tick == null ? null : this.getSheet(keyframe);
-
-        if (sheet == null)
-        {
-            return keyframe;
-        }
-
-        Keyframe<T> target = sheet.ensureKeyframe(tick);
-
-        return target == null ? keyframe : target;
-    }
-
     public UIKeyframeSheet getLastSheet();
 
     public List<UIKeyframeSheet> getSheets();
@@ -333,74 +302,16 @@ public interface IUIKeyframeGraph
         }
     }
 
-    /**
-     * Both this and {@link #setTick(float, boolean)} are driven by the keyframe properties panel,
-     * which outlives the selection it was built for: an undo or a removed keyframe can empty the
-     * selection without rebuilding the panel. Without a selected keyframe there is nothing to edit
-     * relative to, so the edit is dropped rather than applied blindly to the whole channel.
-     */
+    /** Direct graph manipulation always edits selected keys, independently of autokey. */
     public default void setValue(Object value, boolean unmergeable)
     {
-        this.setValue(value, unmergeable, false);
-    }
-
-    /**
-     * @param fromEditor the edit came from the keyframe's editor panel rather than from dragging
-     *                   the keyframe itself, so auto-keyframing may move it onto the playhead.
-     *                   Dragging a keyframe in the graph is direct manipulation of that keyframe
-     *                   and must always land on it, wherever the playhead stands.
-     */
-    public default void setValue(Object value, boolean unmergeable, boolean fromEditor)
-    {
         Keyframe selected = this.getSelected();
-
-        if (selected == null)
-        {
-            return;
-        }
-
+        if (selected == null) return;
         IKeyframeFactory factory = selected.getFactory();
-
-        this.applyValue(factory, value, selected, unmergeable, fromEditor);
-    }
-
-    /**
-     * Fan a value edit out over every track taking part in it: the selected keyframes normally, or
-     * the keyframe at the playhead of every track with a selection when auto-keyframing an edit
-     * made in the editor panel.
-     *
-     * @param primary the keyframe the edit was made on, whose value before the edit the numeric
-     *                delta of the other keyframes is measured against
-     */
-    public default void applyValue(IKeyframeFactory factory, Object value, Keyframe primary, boolean unmergeable, boolean fromEditor)
-    {
-        Float tick = fromEditor ? this.getAutoKeyframeTick() : null;
-
-        /* The value the edit is measured against is the one on the keyframe it actually lands on,
-         * which auto-keyframing moves to the playhead. Reading it off the selected keyframe would
-         * measure the delta against a keyframe at another tick and land the change twice. */
-        Object before = factory.copy((tick == null ? primary : this.getEditTarget(primary)).getValue());
-
+        Object before = factory.copy(selected.getValue());
         for (UIKeyframeSheet sheet : this.getSheets())
         {
-            if (sheet.channel.getFactory() != factory)
-            {
-                continue;
-            }
-
-            if (tick == null)
-            {
-                sheet.setValue(value, before, unmergeable);
-            }
-            else if (!sheet.selection.getSelected().isEmpty())
-            {
-                Keyframe target = sheet.ensureKeyframe(tick);
-
-                if (target != null)
-                {
-                    sheet.setValueOn(target, value, before, unmergeable);
-                }
-            }
+            if (sheet.channel.getFactory() == factory) sheet.setValue(value, before, unmergeable);
         }
     }
 

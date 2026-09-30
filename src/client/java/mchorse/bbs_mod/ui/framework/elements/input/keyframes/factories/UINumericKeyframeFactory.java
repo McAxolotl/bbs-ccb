@@ -5,35 +5,34 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.utils.UIBezierHandles;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Base class for numeric keyframe factories (Double, Float, Integer).
+ * Base class for numeric track factories (Double, Float, Integer).
  */
 public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyframeFactory<T>
 {
     protected UITrackpad value;
-    protected UIBezierHandles handles;
 
     private int lastMouseX;
     private boolean editingMode;
     private double editingInitialValue;
+    private T displayedValue;
 
-    public UINumericKeyframeFactory(Keyframe<T> keyframe, UIKeyframes editor)
+    public UINumericKeyframeFactory(UITrackValue<T> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
         this.value = new UITrackpad((v) -> this.setValue(v));
-        this.value.setValue(this.getNumericValue(keyframe.getValue()));
-        this.handles = new UIBezierHandles(keyframe);
+        this.displayedValue = track.getValue();
+        this.value.setValue(this.getNumericValue(this.displayedValue));
 
         this.keys().register(Keys.TRANSFORMATIONS_TRANSLATE, this::startEditingMode).category(UIKeys.TRANSFORMS_KEYS_CATEGORY);
-        this.scroll.add(this.value, this.handles.createColumn());
+        this.scroll.add(this.value);
     }
 
     /**
@@ -42,20 +41,20 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
     protected abstract double getNumericValue(T value);
 
     /**
-     * Convert double value back to typed value and update the given keyframe.
+     * Convert double value back to typed value and update the given track.
      */
-    protected abstract void setKeyframeValue(Keyframe<T> keyframe, double value);
+    protected abstract T convertValue(double value);
 
     /**
      * Override parent's setValue to handle numeric conversion. With auto-keyframing on the edit
-     * lands on the keyframe at the playhead instead of the one this panel was opened for.
+     * lands on the track at the playhead instead of the one this panel was opened for.
      */
     private void setValue(double value)
     {
-        Keyframe<T> target = this.getEditTarget();
-
-        this.setKeyframeValue(target, value);
-        this.editor.getGraph().setValue(target.getValue(), true, true);
+        T converted = this.convertValue(value);
+        T before = this.displayedValue;
+        this.displayedValue = converted;
+        this.track.setValue(converted, before);
     }
 
     private void startEditingMode()
@@ -67,6 +66,7 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
             return;
         }
 
+        this.editor.beginValueGesture();
         this.editingInitialValue = this.value.getValue();
         this.lastMouseX = context.mouseX;
         this.editingMode = true;
@@ -81,10 +81,12 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
 
         this.editingMode = false;
 
+        if (accept) this.editor.endValueGesture();
+
         if (!accept)
         {
             this.value.setValue(this.editingInitialValue);
-            this.setValue(this.editingInitialValue);
+            this.editor.cancelValueGesture();
         }
     }
 
@@ -139,13 +141,14 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
     }
 
     @Override
+    public boolean isUserEditing()
+    {
+        return this.editingMode || super.isUserEditing();
+    }
+
+    @Override
     public void render(UIContext context)
     {
-        if (this.followsPlayhead() && !this.isBusy())
-        {
-            this.value.setValue(this.getNumericValue(this.getDisplayValue()));
-        }
-
         super.render(context);
 
         if (this.editingMode)
@@ -183,9 +186,9 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
 
         if (!this.isBusy())
         {
-            this.value.setValue(this.getNumericValue(this.getDisplayValue()));
+            this.displayedValue = this.getDisplayValue();
+            this.value.setValue(this.getNumericValue(this.displayedValue));
         }
 
-        this.handles.update();
     }
 }

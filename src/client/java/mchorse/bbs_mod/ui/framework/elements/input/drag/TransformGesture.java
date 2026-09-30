@@ -99,6 +99,10 @@ public class TransformGesture implements DragContext
         /** Close the current undo block (fired when a gesture is accepted). */
         void endGesture();
 
+        default void beginGesture() {}
+
+        default boolean cancelGesture() { return false; }
+
         /** The session was torn down (accepted, rejected or dismissed) — drop cached reads. */
         void gestureStopped();
 
@@ -347,6 +351,7 @@ public class TransformGesture implements DragContext
             /* Arm the physics rewind for this gesture. Only on a fresh one: re-entering while editing
              * (switching the op mid-drag) rewinds the transform to the SAME start snapshot, so the sim
              * the gesture must be able to return to is still the one captured back then. */
+            this.host.beginGesture();
             ModelPhysicsRuntime.checkpoint();
         }
 
@@ -593,7 +598,7 @@ public class TransformGesture implements DragContext
          * session. Do it the other way round and the rewind falls back to the
          * per-channel path, which fans the primary's values onto the whole
          * selection — the bones come back crooked instead of where they were. */
-        this.restore();
+        if (!this.host.cancelGesture()) this.restore();
 
         /* The pose is back where it started, so the simulation it drove goes back too — otherwise the
          * chains stay where the drag flung them and lash home over a single tick. */

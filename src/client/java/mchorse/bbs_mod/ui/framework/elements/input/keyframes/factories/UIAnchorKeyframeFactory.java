@@ -8,22 +8,19 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.controller.ReplayContextAction;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.bones.UIBonePickerContextMenu;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import java.util.List;
@@ -33,6 +30,8 @@ import java.util.function.Consumer;
 
 public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
 {
+    @Override public Transform getGizmoTransform(Anchor value) { return value.transform; }
+
     private UIToggle keepTransform;
     public UIPropTransform transform;
 
@@ -99,19 +98,18 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
         panel.getContext().replaceContextMenu(picker);
     }
 
-    public UIAnchorKeyframeFactory(Keyframe<Anchor> keyframe, UIKeyframes editor)
+    public UIAnchorKeyframeFactory(UITrackValue<Anchor> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
         this.keepTransform = new UIToggle(UIKeys.GENERIC_KEYFRAMES_ANCHOR_KEEP_TRANSFORM, BBSSettings.anchorKeepTransform.get(), (b) -> BBSSettings.anchorKeepTransform.set(b.getValue()));
         this.keepTransform.tooltip(UIKeys.GENERIC_KEYFRAMES_ANCHOR_KEEP_TRANSFORM_TOOLTIP);
         this.transform = new UIAnchorTransforms(this);
         this.transform.enableHotkeys();
-        this.transform.setTransform(keyframe.getValue().transform);
+        this.transform.setTransform(track.getValue().transform);
 
         this.scroll.add(new UIAnchorBinding(
-            () -> this.keyframe.getValue(), this::retarget, change -> UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe,
-                selected -> BaseValue.edit(selected, value -> change.accept((Anchor) value.getValue()))), this.transform, this.keepTransform));
+            () -> this.track.getValue(), this::retarget, change -> this.track.edit(change), this.transform, this.keepTransform));
     }
 
     /**
@@ -126,16 +124,15 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
      */
     private void retarget(Consumer<Anchor> change)
     {
-        Anchor from = this.keyframe.getValue().copy();
+        Anchor from = this.track.getValue().copy();
         Anchor to = from.copy();
 
         change.accept(to);
 
         boolean rebased = BBSSettings.anchorKeepTransform.get() && this.rebase(from, to);
 
-        BaseValue.edit(this.keyframe, (keyframe) ->
+        this.track.edit(anchor ->
         {
-            Anchor anchor = keyframe.getValue();
 
             change.accept(anchor);
 
@@ -149,13 +146,13 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
         {
             /* The fields hold the same transform object the rebase wrote through, but they were
              * filled from its old numbers. */
-            this.transform.setTransform(this.keyframe.getValue().transform);
+            this.transform.setTransform(this.track.getValue().transform);
         }
     }
 
     /**
      * Rebase against the replay this anchor belongs to. Only a root form's anchor is animatable
-     * (see {@code TrackCatalog}), so the edited keyframe is always the selected replay's own —
+     * (see {@code TrackCatalog}), so the edited track is always the selected replay's own —
      * and the entity is what carries the live pose everything is measured from, which is why
      * there is nothing to compensate against when the replay isn't in the scene right now.
      */
@@ -179,6 +176,12 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
         return this.getParent(UIFilmPanel.class);
     }
 
+    @Override
+    public void update()
+    {
+        if (!this.transform.isUserEditing()) this.transform.setTransform(this.getDisplayValue().transform);
+    }
+
     public static class UIAnchorTransforms extends UIKeyframePropTransform
     {
         private final UIAnchorKeyframeFactory editor;
@@ -197,27 +200,15 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
         @Override
         protected void applyToSelection(Consumer<Transform> consumer)
         {
-            apply(this.editor.editor, this.editor.keyframe, consumer);
+            apply(this.editor.track, consumer);
         }
 
-        @Override
-        protected Transform getAutoKeyTransform(float tick)
+        public static void apply(UITrackValue<Anchor> track, Consumer<Transform> consumer)
         {
-            UIKeyframeSheet sheet = this.editor.editor.getGraph().getSheet(this.editor.keyframe);
-            Keyframe<?> target = sheet == null ? null : sheet.ensureKeyframe(tick);
-
-            return target == null ? null : ((Anchor) target.getValue()).transform;
-        }
-
-        public static void apply(UIKeyframes editor, Keyframe<?> keyframe, Consumer<Transform> consumer)
-        {
-            UIReplaysEditorUtils.forEachSelectedKeyframe(editor, keyframe, (selected) ->
+            track.edit((selected) ->
             {
-                Anchor anchor = (Anchor) selected.getValue();
-
-                selected.preNotify();
+                Anchor anchor = (Anchor) selected;
                 consumer.accept(anchor.transform);
-                selected.postNotify();
             });
         }
     }

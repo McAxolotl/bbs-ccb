@@ -66,6 +66,12 @@ public class UIShapeKeys extends UIElement
         }
     }
 
+    public void refreshValue(ShapeKeys value)
+    {
+        this.shapeKeys = value;
+        this.pick(this.list.getCurrentFirst(), false);
+    }
+
     protected void changedShapeKeys(Runnable runnable)
     {
         if (runnable != null)

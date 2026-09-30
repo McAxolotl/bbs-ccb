@@ -694,7 +694,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                     return true;
                 }
 
-                this.addKeyframeManually(sheet, this.keyframes.getTick(), null);
+                this.keyframes.pickTrack(sheet, Window.isCtrlPressed(), Window.isShiftPressed(), this.getInteractiveSheets());
 
                 return true;
             }
@@ -1163,7 +1163,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         int lx = area.x;
 
         this.renderRowBackground(context, lx, y, w, height);
-        RowStyle.row(context.batcher, lx, y, w, height, sheet.color, false, hover, false);
+        RowStyle.row(context.batcher, lx, y, w, height, sheet.color, false, hover, this.keyframes.isTrackSelected(sheet));
 
         if (sheet == this.revealedSheet && System.currentTimeMillis() < this.revealUntil)
         {
@@ -1269,9 +1269,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         this.renderRowBackground(context, area.x, y, area.w, bh);
 
-        if (hover)
+        boolean active = this.keyframes.isTrackSelected(sheet);
+
+        if (hover || active)
         {
-            context.batcher.box(area.x, y, area.ex(), y + bh, Colors.setA(sheet.color, 0.12F));
+            context.batcher.box(area.x, y, area.ex(), y + bh,
+                Colors.setA(active ? BBSSettings.primaryColor.get() : sheet.color, 0.12F));
         }
 
         builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);

@@ -2,20 +2,19 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
 import mchorse.bbs_mod.cubic.physics.WindControl;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UISliderTrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 
 import java.util.function.Consumer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
 /**
- * Editor for the {@code wind} keyframe track: keyframe the global wind (strength, direction, and the
+ * Editor for the {@code wind} track: edit the global wind (strength, direction, and the
  * turbulence trio), layered over the form's physics wind config at playback. Mirrors
  * {@link UIPhysicsKeyframeFactory} but the wind is a single global control, so there is no chain list.
  */
@@ -32,9 +31,9 @@ public class UIWindKeyframeFactory extends UIKeyframeFactory<WindControl>
 
     private boolean syncing;
 
-    public UIWindKeyframeFactory(Keyframe<WindControl> keyframe, UIKeyframes editor)
+    public UIWindKeyframeFactory(UITrackValue<WindControl> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
         this.strength = new UISliderTrackpad((v) -> this.edit((control) -> control.strength = v.floatValue()));
         this.strength.limit(0D, 10D).increment(0.25D).values(0.1D, 0.01D, 0.5D);
@@ -103,18 +102,15 @@ public class UIWindKeyframeFactory extends UIKeyframeFactory<WindControl>
             return;
         }
 
-        UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe, (selected) ->
+        this.track.edit((selected) ->
         {
-            WindControl control = (WindControl) selected.getValue();
+            WindControl control = (WindControl) selected;
 
             if (control == null)
             {
                 return;
             }
-
-            selected.preNotify();
             consumer.accept(control);
-            selected.postNotify();
         });
     }
 

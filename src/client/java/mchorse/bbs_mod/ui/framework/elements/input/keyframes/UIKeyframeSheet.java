@@ -233,25 +233,15 @@ public class UIKeyframeSheet
      * The keyframe of this track at the given tick, created if the track has none there.
      *
      * <p>A created keyframe starts from what the track already reads at that tick &mdash; the
-     * interpolated value between its neighbours, or, on an empty track, the property's current
-     * value (or the track's {@link #seed}) &mdash; so bringing a keyframe into being never moves
+     * interpolated value between its neighbours, or, on an empty track, its authored default
+     * &mdash; so bringing a keyframe into being never moves
      * anything by itself. When it lands between two keyframes it also inherits the left one's
-     * interpolation, the way a hand-placed keyframe does.
+     * interpolation, the way a hand-placed keyframe does. The caller owns the channel's
+     * notification transaction, including the insertion.
      */
     public <T> Keyframe<T> ensureKeyframe(float tick)
     {
         tick = this.channel.getSourceTick(tick);
-        /* Bringing a keyframe into being changes the track itself, not a value inside it: seal the
-         * channel's before-state so undo takes the keyframe away again instead of only putting back
-         * whatever the edit wrote into it.
-         *
-         * This is also auto-keyframing's only way into a track, so it is where the history is told
-         * that a recording is running (FLAG_BATCH) — without it a take over a playing film would
-         * seal an entry per tick and bury everything else in the history. Raised before the lookup,
-         * because a second take recorded over the first one writes into keyframes that are already
-         * there and would otherwise flood the history exactly the same way. */
-        this.channel.preNotify(IValueListener.FLAG_UNMERGEABLE | IValueListener.FLAG_BATCH);
-
         for (Keyframe<T> keyframe : (List<Keyframe<T>>) this.channel.getKeyframes())
         {
             if (keyframe.getTick() == tick)
@@ -269,29 +259,22 @@ public class UIKeyframeSheet
             value = segment.createInterpolated(this.property == null ? null : (T) this.property.getOriginalValue());
             template = segment.a;
         }
-        else if (this.property != null)
-        {
-            value = (T) this.channel.getFactory().copy(this.property.get());
-        }
-        else if (this.seed != null)
-        {
-            value = (T) this.seed.get();
-        }
         else
         {
-            value = (T) this.channel.getFactory().createEmpty();
+            value = (T) this.sample(tick);
         }
 
-        int index = this.channel.insert(tick, value);
-        Keyframe<T> keyframe = (Keyframe<T>) this.channel.get(index);
+        Keyframe<T> keyframe = new Keyframe<>("", this.channel.getFactory(), tick, value);
+
+        /* Extra fields notify too; initialize them before attaching to the live channel. */
+        if (template != null) keyframe.copyOverExtra(template);
+
+        this.channel.add(keyframe);
+        this.channel.sort();
+        int index = this.channel.getKeyframes().indexOf(keyframe);
 
         /* The selection is stored by index, so it has to be walked past the new keyframe. */
         this.selection.shiftAfterInsert(index);
-
-        if (template != null && template != keyframe)
-        {
-            keyframe.copyOverExtra(template);
-        }
 
         return keyframe;
     }
@@ -300,7 +283,10 @@ public class UIKeyframeSheet
     public Object sample(float tick)
     {
         KeyframeSegment segment = this.channel.find(tick);
-        return segment == null ? null : segment.createInterpolated(this.property == null ? null : this.property.getOriginalValue());
+        if (segment != null) return segment.createInterpolated(this.property == null ? null : this.property.getOriginalValue());
+        return this.channel.getFactory().copy(this.property != null ? this.property.getOriginalValue()
+            : this.isBoneTrack ? this.channel.getFactory().createEmpty()
+            : this.seed != null ? this.seed.get() : this.channel.getFactory().createEmpty());
     }
 
     public List<Integer> sort()

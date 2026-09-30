@@ -8,11 +8,11 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UISliderTrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.ui.utils.UIIKControlFields;
 
 /**
- * Editor for the {@code ik} keyframe track: chains are keyed by their tip bone.
+ * Editor for the {@code ik} track: chains are keyed by their tip bone.
  */
 public class UIIKKeyframeFactory extends UIChainKeyframeFactory<IKControl, IKControls>
 {
@@ -21,9 +21,9 @@ public class UIIKKeyframeFactory extends UIChainKeyframeFactory<IKControl, IKCon
     public UISliderTrackpad poleAngle;
     public UIToggle pole;
 
-    public UIIKKeyframeFactory(Keyframe<IKControls> keyframe, UIKeyframes editor)
+    public UIIKKeyframeFactory(UITrackValue<IKControls> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
         var fields = new UIIKControlFields(this::edit);
         this.weight = this.input(fields.weight);

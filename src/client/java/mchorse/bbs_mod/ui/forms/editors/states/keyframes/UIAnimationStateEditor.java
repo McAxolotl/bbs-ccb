@@ -468,6 +468,8 @@ public class UIAnimationStateEditor extends UIElement
                 this.keyframeEditor.view.addSheet(sheet);
             }
 
+            if (lastEditor != null) this.keyframeEditor.view.copySelection(lastEditor);
+
             /* The tracks that fold under another one fold here too: a model form contributes dozens of
              * bone and material rows, and unfolded they bury the form's own properties. */
             this.keyframeEditor.view.getDopeSheet().setExpanded(this.expandedTabs);
