@@ -13,8 +13,8 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
 
 /**
- * One document tab: icon, label and a close button. The active and hover fills behind it
- * are the strip's, so it only draws its content.
+ * One document tab: row-style selection and hover marks, icon, label and a close button.
+ * The strip supplies the neutral background behind the active tab.
  */
 public class UIDataTabElement extends UIClickable<UIDataTabElement>
 {
@@ -101,6 +101,8 @@ public class UIDataTabElement extends UIClickable<UIDataTabElement>
     {
         boolean active = this.index == this.host.getCurrentTab();
         boolean hover = this.hover;
+
+        RowStyle.row(context.batcher, this.area.x, this.area.y, this.area.w, this.area.h, 0, false, hover, active);
 
         boolean showClose = this.host.canCloseTab(this.index) && (active || hover);
         this.close.setVisible(showClose);
