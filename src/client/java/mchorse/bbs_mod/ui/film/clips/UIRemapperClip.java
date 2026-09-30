@@ -9,7 +9,8 @@ import mchorse.bbs_mod.ui.film.UIClipsPanel;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;import mchorse.bbs_mod.utils.clips.Clips;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
+import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 public class UIRemapperClip extends UIClip<RemapperClip>
@@ -32,14 +33,14 @@ public class UIRemapperClip extends UIClip<RemapperClip>
         {
             UIReplaysEditor.renderRuler(context, this.keyframes.view, (UIClipsPanel) this.editor, (Clips) this.clip.getParent(), this.clip.tick.get());
         });
-        this.keyframes.view.single().duration(() -> this.clip.duration.get());
+        this.keyframes.view.duration(() -> this.clip.duration.get());
         this.keyframes.setUndoId("remapper_keyframes");
 
         this.edit = new UIButton(UIKeys.CAMERA_PANELS_EDIT_KEYFRAMES, (b) ->
         {
             this.editor.embedView(this.keyframes);
             this.keyframes.view.resetView();
-            this.keyframes.view.editSheet(this.keyframes.view.getGraph().getSheets().get(0));
+            this.keyframes.view.setGraphMode(true);
             this.keyframes.view.getGraph().clearSelection();
         });
 
@@ -70,8 +71,6 @@ public class UIRemapperClip extends UIClip<RemapperClip>
         if (data.getString("embed").equals("remapper"))
         {
             this.editor.embedView(this.keyframes);
-            this.keyframes.view.editSheet(this.keyframes.view.getGraph().getSheets().get(0));
-            this.keyframes.view.resetView();
         }
     }
 

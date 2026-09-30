@@ -49,9 +49,9 @@ public class UIBezierHandles
 
     public void update()
     {
-        this.lx.setValue(TimeUtils.toTime(this.keyframe.lx));
-        this.ly.setValue(this.keyframe.ly);
-        this.rx.setValue(TimeUtils.toTime(this.keyframe.rx));
-        this.ry.setValue(this.keyframe.ry);
+        if (!this.lx.isUserEditing()) this.lx.setValue(TimeUtils.toTime(this.keyframe.lx));
+        if (!this.ly.isUserEditing()) this.ly.setValue(this.keyframe.ly);
+        if (!this.rx.isUserEditing()) this.rx.setValue(TimeUtils.toTime(this.keyframe.rx));
+        if (!this.ry.isUserEditing()) this.ry.setValue(this.keyframe.ry);
     }
 }

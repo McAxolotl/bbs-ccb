@@ -342,6 +342,7 @@ public class UISliderTrackpad extends UINumericInput<UISliderTrackpad>
         this.dragging = true;
         this.initialX = context.mouseX;
         this.startValue = this.value;
+        this.emitDragStart();
 
         /* Grabbing the handle takes the value as it stands, pressing anywhere
          * else on the track puts it under the cursor first */
@@ -352,7 +353,6 @@ public class UISliderTrackpad extends UINumericInput<UISliderTrackpad>
 
         this.anchorValue = this.value;
 
-        this.emitDragStart();
     }
 
     protected void stopDragging()
@@ -364,6 +364,7 @@ public class UISliderTrackpad extends UINumericInput<UISliderTrackpad>
     protected void cancelDragging()
     {
         this.setValueAndNotify(this.startValue);
+        this.emitDragCancel();
         this.stopDragging();
     }
 

@@ -967,6 +967,14 @@ public class UIKeys
     public static final IKey INTERPOLATIONS_KEY_CATEGORY = L10n.lang("interpolations.key_category");
     public static final IKey ITEM_STACK_CONTEXT_GIVE = L10n.lang("bbs.ui.item_stack.context.give");
     public static final IKey ITEM_STACK_CONTEXT_RESET = L10n.lang("bbs.ui.item_stack.context.reset");
+    public static final IKey KEYFRAMES_MODE_KEYS = L10n.lang("bbs.ui.keyframes.mode.keys");
+    public static final IKey KEYFRAMES_MODE_GRAPH = L10n.lang("bbs.ui.keyframes.mode.graph");
+    public static final IKey KEYFRAMES_GRAPH_EMPTY = L10n.lang("bbs.ui.keyframes.graph.empty");
+    public static final IKey KEYFRAMES_GRAPH_FIT_SELECTED = L10n.lang("bbs.ui.keyframes.graph.fit_selected");
+    public static final IKey KEYFRAMES_GRAPH_FIT_ALL = L10n.lang("bbs.ui.keyframes.graph.fit_all");
+    public static final IKey KEYFRAMES_GRAPH_SCALE_TIME = L10n.lang("bbs.ui.keyframes.graph.scale_time");
+    public static final IKey KEYFRAMES_GRAPH_SCALE_VALUE = L10n.lang("bbs.ui.keyframes.graph.scale_value");
+    public static final IKey KEYFRAMES_GRAPH_LOOP_HIDDEN = L10n.lang("bbs.ui.keyframes.graph.loop_hidden");
     public static final IKey KEYFRAMES_CHANGE_COLOR = L10n.lang("bbs.ui.keyframes.change_color");
     public static final IKey KEYFRAMES_CONTEXT_ADJUST_VALUES = L10n.lang("bbs.ui.keyframes.context.adjust_values");
     public static final IKey KEYFRAMES_CONTEXT_ADJUST_VALUES_LEFT = L10n.lang("bbs.ui.keyframes.context.adjust_values_left");
@@ -978,6 +986,9 @@ public class UIKeys
     public static final IKey KEYFRAMES_CONTEXT_MAXIMIZE = L10n.lang("bbs.ui.keyframes.context.maximize");
     public static final IKey KEYFRAMES_CONTEXT_PASTE = L10n.lang("bbs.ui.keyframes.context.paste");
     public static final IKey KEYFRAMES_CONTEXT_KEYFRAME_STYLE = L10n.lang("bbs.ui.keyframes.context.keyframe_style");
+    public static final IKey KEYFRAMES_ENABLED = L10n.lang("bbs.ui.keyframes.enabled");
+    public static final IKey KEYFRAMES_KEYS_ENABLED = L10n.lang("bbs.ui.keyframes.keys.enabled");
+    public static final IKey KEYFRAMES_KEYS_INSERT = L10n.lang("bbs.ui.keyframes.keys.insert");
     public static final IKey KEYFRAMES_CONTEXT_REMOVE = L10n.lang("bbs.ui.keyframes.context.remove");
     public static final IKey KEYFRAMES_CONTEXT_ROUND = L10n.lang("bbs.ui.keyframes.context.round");
     public static final IKey KEYFRAMES_CONTEXT_SELECT_ALL = L10n.lang("bbs.ui.keyframes.context.select_all");

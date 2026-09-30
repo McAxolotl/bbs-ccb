@@ -45,7 +45,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.items.FoldState;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIPoseKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIPoseTransformKeyframeFactory;
@@ -64,7 +63,6 @@ import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
-import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -132,6 +130,7 @@ public class UIReplaysEditorUtils
             if (sheet.id.equals(entry.key()) && entry.owned() == (UIReplaysEditor.getSheetForm(sheet) != null))
             {
                 editor.view.getDopeSheet().revealSheet(sheet);
+                editor.view.selectTrack(sheet);
                 if (createKeyframe)
                 {
                     var graph = editor.view.getDopeSheet();
@@ -308,48 +307,6 @@ public class UIReplaysEditorUtils
         }
     }
 
-    /**
-     * Run an edit over the keyframes it should land on: every selected keyframe of every track
-     * holding this kind of value, or — with auto-keyframing on — the keyframe each track has at
-     * the playhead, created from the interpolated value if it has none. The ONE place the film's
-     * value editors decide which keyframe they write into, so auto-keyframing reaches all of them
-     * without any of them knowing.
-     */
-    public static <T> void forEachSelectedKeyframe(UIKeyframes editor, Keyframe<?> keyframe, Consumer<Keyframe<T>> consumer)
-    {
-        if (editor == null || keyframe == null)
-        {
-            return;
-        }
-
-        Float tick = editor.getAutoKeyframeTick();
-
-        for (UIKeyframeSheet sheet : editor.getGraph().getSheets())
-        {
-            if (sheet.channel.getFactory() != keyframe.getFactory())
-            {
-                continue;
-            }
-
-            if (tick == null)
-            {
-                for (Keyframe selected : sheet.selection.getSelected())
-                {
-                    consumer.accept((Keyframe<T>) selected);
-                }
-            }
-            else if (!sheet.selection.getSelected().isEmpty())
-            {
-                Keyframe<T> target = sheet.ensureKeyframe(tick);
-
-                if (target != null)
-                {
-                    consumer.accept(target);
-                }
-            }
-        }
-    }
-
     private static void insertPoseTransformKeyframe(KeyframeChannel<PoseTransform> channel, float tick, PoseTransform value)
     {
         KeyframeSegment<PoseTransform> segment = channel.find(tick);
@@ -366,6 +323,8 @@ public class UIReplaysEditorUtils
         {
             return null;
         }
+
+        editor.editor.update();
 
         if (editor.editor instanceof SplineKeyframeEditor spline)
         {
@@ -517,7 +476,7 @@ public class UIReplaysEditorUtils
             return false;
         }
 
-        UIKeyframeSheet sheet = keyframeEditor.getSheet(keyframeEditor.editor.getKeyframe());
+        UIKeyframeSheet sheet = keyframeEditor.editor.getSheet();
         BaseValueBasic property = sheet == null ? null : FormUtils.getProperty(entity.getForm(), sheet.id);
         Form owner = property == null ? null : FormUtils.getForm(property);
 
@@ -685,7 +644,7 @@ public class UIReplaysEditorUtils
             return null;
         }
 
-        UIKeyframeSheet sheet = keyframeEditor.getSheet(keyframeEditor.editor.getKeyframe());
+        UIKeyframeSheet sheet = keyframeEditor.editor.getSheet();
 
         if (sheet == null)
         {
@@ -741,49 +700,40 @@ public class UIReplaysEditorUtils
     {
         if (editor == null || editor.editor == null) return sampler;
 
-        UIKeyframeSheet sheet = editor.getSheet(editor.editor.getKeyframe());
+        UIKeyframeSheet sheet = editor.editor.getSheet();
         if (sheet == null) return sampler;
 
-        String bone = editor.editor instanceof UIPoseKeyframeFactory pose ? pose.poseEditor.getGroup() : null;
         List<Transform> targets = new ArrayList<>();
-        Map<Pose, PoseTransform> missing = new java.util.IdentityHashMap<>();
-        List<Keyframe> keys = editor.view.getAutoKeyframeTick() == null
-            ? new ArrayList<>(sheet.selection.getSelected()) : List.of(editor.editor.getEditTarget());
+        boolean cursor = editor.view.getAutoKeyframeTick() != null || !sheet.selection.hasAny();
+        KeyframeChannel draft = new KeyframeChannel(sheet.id, sheet.channel.getFactory());
+        draft.fromData(sheet.channel.toData());
+        UIKeyframeSheet draftSheet = new UIKeyframeSheet(sheet.id, sheet.title, sheet.color, draft, sheet.property, sheet.isBoneTrack);
+        draftSheet.seed = sheet.seed;
+        draftSheet.selection.addAll(sheet.selection.getIndices());
+        List<Keyframe> keys = cursor ? List.of(draftSheet.ensureKeyframe(editor.view.getTick()))
+            : new ArrayList<>(draftSheet.selection.getSelected());
 
         for (Keyframe key : keys)
         {
-            Object value = key.getValue();
-            Transform target = null;
-
-            if (value instanceof Pose pose && bone != null)
-            {
-                target = pose.transforms.get(bone);
-
-                if (target == null)
-                {
-                    PoseTransform temporary = new PoseTransform();
-                    missing.put(pose, temporary);
-                    target = temporary;
-                }
-            }
-            else if (value instanceof Transform t) target = t;
-            else if (value instanceof Anchor anchor) target = anchor.transform;
-
+            Transform target = editor.editor.getGizmoTransform(key.getValue());
             if (target != null) targets.add(target);
         }
 
-        /* Missing bones are implicit rest transforms. Expose them only during the probe,
-         * without notifications or permanent changes to sparse poses. */
+        /* The probe installs only its private channel copy, then restores the original
+         * key objects and selection. It never notifies history or leaves a new key behind. */
         return GizmoDrag.withTransformSelection(transform.getTransform(), targets, () ->
         {
+            List<Keyframe> original = new ArrayList<>(sheet.channel.getKeyframes());
             try
             {
-                missing.forEach((pose, temporary) -> pose.transforms.put(bone, temporary));
+                sheet.channel.getAllTyped().clear();
+                sheet.channel.getAllTyped().addAll(draft.getKeyframes());
                 return sampler.get();
             }
             finally
             {
-                missing.forEach((pose, temporary) -> pose.transforms.remove(bone, temporary));
+                sheet.channel.getAllTyped().clear();
+                sheet.channel.getAllTyped().addAll(original);
             }
         });
     }
@@ -882,7 +832,7 @@ public class UIReplaysEditorUtils
         {
             IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
             Keyframe selected = graph.getSelected();
-            UIKeyframeSheet currentSheet = selected != null ? graph.getSheet(selected) : null;
+            UIKeyframeSheet currentSheet = keyframeEditor.view.getActiveSheet();
             TrackId currentPath = currentSheet == null ? null : TrackId.parse(currentSheet.id, TrackKind.BONE);
             if (currentPath != null && !path.equals(currentPath.formPath()))
             {
@@ -891,16 +841,6 @@ public class UIReplaysEditorUtils
             if (isPoseSheet(currentSheet, path))
             {
                 keyframeEditor.view.getDopeSheet().revealSheet(currentSheet);
-                float tick = keyframeEditor.view.getTick();
-                Keyframe closest = getClosestKeyframe(currentSheet, tick);
-                if (closest != null)
-                {
-                    if (currentSheet.selection.getSelected().size() <= 1)
-                    {
-                        forceSelectInSheet(graph, currentSheet, closest);
-                    }
-                    cursor.setCursor(closest.getTick());
-                }
                 updatePoseEditorBoneSelection(keyframeEditor, bone);
                 return;
             }
@@ -928,7 +868,7 @@ public class UIReplaysEditorUtils
              * keyframe of this form is the active selection. */
             IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
             Keyframe selected = graph.getSelected();
-            UIKeyframeSheet currentSheet = selected != null ? graph.getSheet(selected) : null;
+            UIKeyframeSheet currentSheet = keyframeEditor.view.getActiveSheet();
 
             if (isPoseSheet(currentSheet, path))
             {
@@ -950,12 +890,12 @@ public class UIReplaysEditorUtils
     private static UIKeyframeSheet resolveBoneSheet(UIKeyframeEditor keyframeEditor, String boneKey, String formPath)
     {
         IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
-        UIKeyframeSheet sheet = graph.getSheet(boneKey);
+        UIKeyframeSheet sheet = keyframeEditor.view.getDopeSheet().getSheet(boneKey);
 
         if (sheet == null)
         {
             /* Fallback: match by id ignoring case (stencil may return "head", sheet id may be "pose.bones.Head") */
-            for (UIKeyframeSheet s : graph.getSheets())
+            for (UIKeyframeSheet s : keyframeEditor.view.getSheets())
             {
                 if (s.id != null && s.id.equalsIgnoreCase(boneKey))
                 {
@@ -989,7 +929,7 @@ public class UIReplaysEditorUtils
 
     private static UIKeyframeSheet getPropertySheet(IUIKeyframeGraph graph, String formPath, String property)
     {
-        for (UIKeyframeSheet sheet : graph.getSheets())
+        for (UIKeyframeSheet sheet : graph.getKeyframes().getSheets())
         {
             if (isPropertySheet(sheet, formPath, property))
             {
@@ -1006,7 +946,7 @@ public class UIReplaysEditorUtils
          * the last selected sheet (remembered across clicks) - so picks and inserts stay on that track (e.g.
          * an overlay) instead of snapping back to the form's base track. */
         Keyframe selected = graph.getSelected();
-        UIKeyframeSheet current = selected != null ? graph.getSheet(selected) : null;
+        UIKeyframeSheet current = graph.getKeyframes().getActiveSheet();
 
         if (isPropertySheet(current, formPath, property))
         {
@@ -1027,7 +967,7 @@ public class UIReplaysEditorUtils
     public static void pickPropertyTrack(UIKeyframeEditor keyframeEditor, ICursor cursor, String key, boolean insert)
     {
         if (keyframeEditor == null) return;
-        UIKeyframeSheet sheet = keyframeEditor.view.getGraph().getSheet(key);
+        UIKeyframeSheet sheet = keyframeEditor.view.getDopeSheet().getSheet(key);
         if (sheet == null) return;
 
         if (insert) insertIntoPropertySheet(keyframeEditor, "", sheet);
@@ -1036,7 +976,7 @@ public class UIReplaysEditorUtils
 
     private static void pickProperty(UIKeyframeEditor keyframeEditor, ICursor cursor, String bone, String key, boolean insert)
     {
-        UIKeyframeSheet sheet = keyframeEditor.view.getGraph().getSheet(key);
+        UIKeyframeSheet sheet = keyframeEditor.view.getDopeSheet().getSheet(key);
 
         if (sheet != null)
         {
@@ -1057,31 +997,9 @@ public class UIReplaysEditorUtils
             return;
         }
 
-        Keyframe closest = getClosestKeyframe(sheet, tick);
-
+        keyframeEditor.view.selectTrack(sheet);
         TrackId path = TrackId.parse(sheet.id, TrackKind.BONE);
-        String boneForEditor = path != null ? path.subject() : bone;
-
-        if (closest != null)
-        {
-            if (sheet.selection.getSelected().size() <= 1)
-            {
-                forceSelectInSheet(graph, sheet, closest);
-            }
-            updatePoseEditorBoneSelection(keyframeEditor, boneForEditor);
-            filmPanel.setCursor(closest.getTick());
-        }
-        else
-        {
-            updatePoseEditorBoneSelection(keyframeEditor, boneForEditor);
-        }
-    }
-
-    private static Keyframe getClosestKeyframe(UIKeyframeSheet sheet, float tick)
-    {
-        KeyframeSegment segment = sheet.channel.find(tick);
-
-        return segment != null ? segment.getClosest() : null;
+        updatePoseEditorBoneSelection(keyframeEditor, path != null ? path.subject() : bone);
     }
 
     private static Keyframe getKeyframeAt(UIKeyframeSheet sheet, float tick)

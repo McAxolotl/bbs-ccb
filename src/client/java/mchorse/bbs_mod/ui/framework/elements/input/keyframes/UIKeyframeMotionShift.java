@@ -17,6 +17,8 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Midpoint controls shared by film, state and camera timelines; hidden when the keys are too close. */
 public class UIKeyframeMotionShift
@@ -54,7 +56,7 @@ public class UIKeyframeMotionShift
         if (this.view.getGraph() instanceof UIKeyframeGraph graph)
         {
             float tick = hit.start + hit.duration * (0.5F + hit.key.getMotionShift());
-            Object value = hit.sheet.channel.interpolate(tick);
+            Object value = hit.sheet.sample(tick);
             return graph.toGraphY(hit.sheet.channel.getFactory().getY(value));
         }
         return hit.y;
@@ -66,7 +68,24 @@ public class UIKeyframeMotionShift
             || !this.view.graphArea.isInside(context) || context.mouseY < this.view.area.y + IUIKeyframeGraph.TOP_MARGIN
             || Window.isCtrlPressed() || Window.isAltPressed() || Window.isShiftPressed()) return null;
 
-        UIKeyframeSheet sheet = this.view.getGraph().getSheet(context.mouseY);
+        UIKeyframeSheet sheet = this.view.getGraph().getSheet(context.mouseX, context.mouseY);
+        if (this.view.isEditing())
+        {
+            List<UIKeyframeSheet> candidates = new ArrayList<>(this.view.getOperationSheets());
+            UIKeyframeSheet active = this.view.getActiveSheet();
+            if (candidates.remove(active)) candidates.add(0, active);
+            double best = 51D;
+            for (UIKeyframeSheet candidate : candidates)
+            {
+                KeyframeSegment<?> segment = candidate.channel.find((float) this.view.fromGraphX(context.mouseX));
+                if (segment == null || segment.isSame() || segment.timeOffset != 0F) continue;
+                Hit handle = this.visibleHandle(candidate, segment.a, segment.b);
+                if (handle == null || !this.onHandle(context, handle)) continue;
+                double dx = context.mouseX - this.handleX(handle), dy = context.mouseY - this.handleY(handle);
+                double distance = dx * dx + dy * dy;
+                if (distance < best - 0.01D) { best = distance; sheet = candidate; }
+            }
+        }
         if (sheet == null) return null;
         float tick = (float) this.view.fromGraphX(context.mouseX);
         KeyframeSegment<?> segment = sheet.channel.find(tick);
@@ -85,7 +104,7 @@ public class UIKeyframeMotionShift
         {
             KeyframeLoop loop = (KeyframeLoop) entry;
             int loopStart = this.view.toGraphX(loop.start()), loopEnd = this.view.toGraphX(sheet.channel.getLoopEnd(loop));
-            if (context.mouseY >= rowY && context.mouseY < rowY + height
+            if ((dope || sheet == this.view.getActiveSheet()) && context.mouseY >= rowY && context.mouseY < rowY + height
                 && context.mouseX >= loopStart - 3 && context.mouseX <= loopEnd + 5
                 && (context.mouseY < rowY + 4 || context.mouseY >= rowY + height - 3 || Math.abs(context.mouseX - loopEnd) <= 5)) return null;
         }
@@ -97,7 +116,7 @@ public class UIKeyframeMotionShift
     /** Drawing and picking use exactly the same screen-space visibility rules. */
     private Hit visibleHandle(UIKeyframeSheet sheet, Keyframe<?> key, Keyframe<?> next)
     {
-        if (!key.supportsMotionShift() || next == null) return null;
+        if (!key.isEnabled() || !key.supportsMotionShift() || next == null) return null;
         float start = key.getTick();
         float duration = key.getDuration() > 0F ? key.getDuration() : next.getTick() - start;
         int left = this.view.toGraphX(start), right = this.view.toGraphX(Math.min(start + duration, next.getTick()));
@@ -193,7 +212,7 @@ public class UIKeyframeMotionShift
         Hit hovered = this.isDragging() ? this.dragging : this.hit(context);
         int top = this.view.area.y + IUIKeyframeGraph.TOP_MARGIN;
         context.batcher.clip(new Area(this.view.graphArea.x, top, this.view.graphArea.w, this.view.area.ey() - top), context);
-        for (UIKeyframeSheet sheet : this.view.getGraph().getSheets())
+        for (UIKeyframeSheet sheet : this.view.getOperationSheets())
         {
             if (this.view.getGraph() == this.view.getDopeSheet())
             {
@@ -204,7 +223,7 @@ public class UIKeyframeMotionShift
             {
                 Keyframe<?> key = sheet.channel.get(i);
                 if (this.isDragging() && key == this.dragging.key) continue;
-                Hit hit = this.visibleHandle(sheet, key, sheet.channel.get(i + 1));
+                Hit hit = this.visibleHandle(sheet, key, sheet.channel.get(sheet.channel.nextEnabledIndex(i + 1)));
                 if (hit != null) this.renderHandle(context, hit, hovered != null && hovered.key == hit.key);
             }
         }
@@ -218,7 +237,7 @@ public class UIKeyframeMotionShift
         int x = this.handleX(hit), y = this.handleY(hit);
         int left = Math.max(this.view.graphArea.x, this.view.toGraphX(hit.start));
         int right = Math.min(this.view.graphArea.ex(), this.view.toGraphX(Math.min(hit.start + hit.duration,
-            hit.sheet.channel.get(hit.sheet.channel.indexOf(hit.key) + 1).getTick())));
+            hit.sheet.channel.get(hit.sheet.channel.nextEnabledIndex(hit.sheet.channel.indexOf(hit.key) + 1)).getTick())));
         boolean dragging = this.dragging != null && this.dragging.key == hit.key;
         boolean active = dragging || (highlighted && this.onHandle(context, hit));
         int color = active ? Colors.WHITE : Colors.setA(hit.sheet.color, highlighted ? 1F : 0.5F);

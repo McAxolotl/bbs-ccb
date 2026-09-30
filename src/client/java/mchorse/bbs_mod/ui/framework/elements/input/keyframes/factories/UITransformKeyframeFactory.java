@@ -1,29 +1,36 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import java.util.function.Consumer;
 
 public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
 {
+    @Override public Transform getGizmoTransform(Transform value) { return value; }
+
     public UIPropTransform transform;
 
-    public UITransformKeyframeFactory(Keyframe<Transform> keyframe, UIKeyframes editor)
+    public UITransformKeyframeFactory(UITrackValue<Transform> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
-        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+        UIKeyframeSheet sheet = track.sheet;
         boolean point = sheet != null && mchorse.bbs_mod.ui.utils.SplineEditorUtils.isPoint(mchorse.bbs_mod.film.replays.tracks.TrackId.parse(sheet.id));
         this.transform = point ? new UIPointTransform(this) : new UIPoseTransforms(this);
         this.transform.enableHotkeys(() -> true, op -> !point || op == mchorse.bbs_mod.ui.framework.elements.input.drag.TransformOp.TRANSLATE);
-        this.transform.setTransform(keyframe.getValue());
+        this.transform.setTransform(track.getValue());
 
         this.scroll.add(this.transform);
+    }
+
+    @Override
+    public void update()
+    {
+        if (!this.transform.isUserEditing()) this.transform.setTransform(this.getDisplayValue());
     }
 
     /** A point has a position; hidden rotation/scale channels must not accept gestures. */
@@ -56,28 +63,12 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
         @Override
         protected void applyToSelection(Consumer<Transform> consumer)
         {
-            apply(this.editor.editor, this.editor.keyframe, consumer);
+            apply(this.editor.track, consumer);
         }
 
-        @Override
-        protected Transform getAutoKeyTransform(float tick)
+        public static void apply(UITrackValue<Transform> track, Consumer<Transform> consumer)
         {
-            UIKeyframeSheet sheet = this.editor.editor.getGraph().getSheet(this.editor.keyframe);
-            Keyframe<Transform> target = sheet == null ? null : sheet.ensureKeyframe(tick);
-
-            return target == null ? null : target.getValue();
-        }
-
-        public static void apply(UIKeyframes editor, Keyframe keyframe, Consumer<Transform> consumer)
-        {
-            UIReplaysEditorUtils.forEachSelectedKeyframe(editor, keyframe, (selected) ->
-            {
-                Transform transform = (Transform) selected.getValue();
-
-                selected.preNotify();
-                consumer.accept(transform);
-                selected.postNotify();
-            });
+            track.edit(consumer);
         }
     }
 }

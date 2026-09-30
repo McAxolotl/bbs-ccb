@@ -7,11 +7,11 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.input.UISliderTrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.ui.utils.UIPhysicsControlFields;
 
 /**
- * Editor for the {@code physics} keyframe track: chains are keyed by their root bone.
+ * Editor for the {@code physics} track: chains are keyed by their root bone.
  */
 public class UIPhysicsKeyframeFactory extends UIChainKeyframeFactory<PhysicsControl, PhysicsControls>
 {
@@ -20,16 +20,15 @@ public class UIPhysicsKeyframeFactory extends UIChainKeyframeFactory<PhysicsCont
     public UISliderTrackpad damping;
     public UISliderTrackpad stiffness;
 
-    public UIPhysicsKeyframeFactory(Keyframe<PhysicsControls> keyframe, UIKeyframes editor)
+    public UIPhysicsKeyframeFactory(UITrackValue<PhysicsControls> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
         var fields = new UIPhysicsControlFields(this::edit);
         this.weight = this.input(fields.weight);
         this.gravity = this.input(fields.gravity);
         this.damping = this.input(fields.damping);
         this.stiffness = this.input(fields.stiffness);
-
 
         this.setup(
             UI.labelRow(UIKeys.FORMS_EDITORS_MODEL_IK_WEIGHT, this.weight),

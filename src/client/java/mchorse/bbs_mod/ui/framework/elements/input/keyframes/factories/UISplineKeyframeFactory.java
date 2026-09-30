@@ -9,7 +9,6 @@ import org.joml.Vector3f;
 import mchorse.bbs_mod.cubic.spline.*;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelSplineFormPanel;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -19,7 +18,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.*;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIConstants;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import java.util.ArrayList;
@@ -31,6 +30,15 @@ import mchorse.bbs_mod.ui.utils.UISplinePointList;
 /** One shared key time; chain/point selection edits elements of the compound snapshot. */
 public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls> implements SplineKeyframeEditor
 {
+    @Override
+    public Transform getGizmoTransform(SplineControls value)
+    {
+        if (this.pointEditor.pointId().isEmpty()) return null;
+        SplineControl control = this.control(value);
+        value.controls.put(this.chainId, control);
+        return control.point(this.pointEditor.pointId());
+    }
+
     private final ModelForm form;
     public final UIStringList chains;
     public final UISplinePointList points;
@@ -41,10 +49,10 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls> i
     private String chainId = "";
     private final UISplinePointsEditor pointEditor;
 
-    public UISplineKeyframeFactory(Keyframe<SplineControls> keyframe, UIKeyframes editor)
+    public UISplineKeyframeFactory(UITrackValue<SplineControls> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
-        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+        super(track, editor);
+        UIKeyframeSheet sheet = track.sheet;
         this.form = sheet != null && sheet.form instanceof ModelForm model ? model : null;
         this.chains = new UIStringList(values -> this.select(values.isEmpty() ? "" : values.get(0), ""))
         {
@@ -62,13 +70,6 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls> i
         this.transform = new UIKeyframePropTransform()
         {
             @Override protected UIKeyframes getKeyframes() { return editor; }
-            @Override protected Transform getTargetTransform()
-            {
-                Float tick = this.getKeyframes().getAutoKeyframeTick();
-                if (tick != null) return this.getAutoKeyTransform(tick);
-                return UISplineKeyframeFactory.this.pointEditor.pointId().isEmpty() ? null
-                    : UISplineKeyframeFactory.this.control(UISplineKeyframeFactory.this.getDisplayValue()).point(UISplineKeyframeFactory.this.pointEditor.pointId());
-            }
             @Override protected void applyToSelection(Consumer<Transform> consumer)
             {
                 if (!UISplineKeyframeFactory.this.pointEditor.pointId().isEmpty())
@@ -77,15 +78,7 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls> i
                         for (String id : UISplineKeyframeFactory.this.pointEditor.selected()) consumer.accept(control.point(id));
                     });
             }
-            @Override protected Transform getAutoKeyTransform(float tick)
-            {
-                if (sheet == null || UISplineKeyframeFactory.this.pointEditor.pointId().isEmpty()) return null;
-                Keyframe<SplineControls> target = sheet.ensureKeyframe(tick);
-                if (target == null) return null;
-                SplineControl control = UISplineKeyframeFactory.this.control(target.getValue());
-                target.getValue().controls.put(UISplineKeyframeFactory.this.chainId, control);
-                return control.point(UISplineKeyframeFactory.this.pointEditor.pointId());
-            }
+
         };
         this.pointEditor = new UISplinePointsEditor(this::source,
             id -> this.control(this.getDisplayValue()).point(id), this.transform, Vector3f::new)
@@ -115,21 +108,20 @@ public class UISplineKeyframeFactory extends UIKeyframeFactory<SplineControls> i
     private SplineControl control(SplineControls value)
     {
         SplineControl stored = value.controls.get(this.chainId);
-        SplineControl defaults = this.form == null ? new SplineControl() : this.form.splineIK.getOriginalValue().get(this.chainId);
+        SplineControl defaults = this.form == null ? null : this.form.splineIK.getOriginalValue().controls.get(this.chainId);
+        if (defaults == null) defaults = new SplineControl();
         return stored == null ? defaults.copy() : stored.withDefaults(defaults);
     }
 
     private void edit(Consumer<SplineControl> edit)
     {
         if (this.chainId.isEmpty()) return;
-        UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe, selected ->
+        this.track.edit(selected ->
         {
-            SplineControls value = (SplineControls) selected.getValue();
+            SplineControls value = (SplineControls) selected;
             SplineControl control = this.control(value);
-            selected.preNotify();
             edit.accept(control);
             value.controls.put(this.chainId, control);
-            selected.postNotify();
         });
     }
 

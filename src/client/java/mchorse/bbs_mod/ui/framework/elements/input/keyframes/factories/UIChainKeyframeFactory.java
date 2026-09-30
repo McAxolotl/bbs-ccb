@@ -5,7 +5,6 @@ import mchorse.bbs_mod.cubic.chains.ChainControls;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.FormBone;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
@@ -13,7 +12,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIConstants;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,7 +24,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.UINumericInput;
 import mchorse.bbs_mod.ui.utils.UIAnchorBinding;
 
 /**
- * Editor for a solver keyframe track: pick a chain by the bone that names it and keyframe that
+ * Editor for a solver track: pick a chain by the bone that names it and edit that
  * chain's state. The owning form supplies topology and defaults; the key stores animated state.
  */
 public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S extends ChainControls<C, S>> extends UIKeyframeFactory<S>
@@ -40,11 +39,11 @@ public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S exten
 
     private boolean syncing;
 
-    public UIChainKeyframeFactory(Keyframe<S> keyframe, UIKeyframes editor)
+    public UIChainKeyframeFactory(UITrackValue<S> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
-        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+        UIKeyframeSheet sheet = track.sheet;
 
         if (sheet != null && sheet.form instanceof ModelForm modelForm)
         {
@@ -164,7 +163,7 @@ public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S exten
         }
     }
 
-    /** The values to show: the keyframe's own control if it already has one, otherwise the form's config (so fields don't jump to defaults before the first edit). */
+    /** The values to show: the track's own control if it already has one, otherwise the form's config (so fields don't jump to defaults before the first edit). */
     private C displayControl(String bone)
     {
         S controls = this.getDisplayValue();
@@ -184,11 +183,9 @@ public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S exten
             return;
         }
 
-        UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor, this.keyframe, (selected) ->
+        this.track.edit((selected) ->
         {
-            S controls = (S) selected.getValue();
-
-            selected.preNotify();
+            S controls = (S) selected;
 
             /* Seed a chain's control from the config the first time it is touched,
              * so an edit to one field doesn't snap the others to defaults (the
@@ -202,8 +199,6 @@ public abstract class UIChainKeyframeFactory <C extends ChainControl<C>, S exten
             }
 
             consumer.accept(control);
-
-            selected.postNotify();
         });
     }
 

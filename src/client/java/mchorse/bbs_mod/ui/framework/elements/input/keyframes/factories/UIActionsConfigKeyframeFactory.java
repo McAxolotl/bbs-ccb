@@ -10,34 +10,44 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.pose.UIActionsConfigEditor;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 
 public class UIActionsConfigKeyframeFactory extends UIKeyframeFactory<ActionsConfig>
 {
     public UIActionsConfigEditor actionsEditor;
+    private ActionsConfig displayed;
 
     /* Which arrangement the fields are in (null until the first layout), so a resize
      * that stays on the same side of the threshold doesn't rebuild the subtree */
     private Boolean wide;
 
-    public UIActionsConfigKeyframeFactory(Keyframe<ActionsConfig> keyframe, UIKeyframes editor)
+    public UIActionsConfigKeyframeFactory(UITrackValue<ActionsConfig> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
-        ModelForm form = (ModelForm) FormUtils.getForm(editor.getGraph().getSheet(keyframe).property);
+        ModelForm form = (ModelForm) FormUtils.getForm(track.sheet.property);
         ModelFormRenderer renderer = (ModelFormRenderer) FormUtilsClient.getRenderer(form);
 
         this.actionsEditor = new UIActionsConfigEditor(() ->
         {
-            this.keyframe.preNotify();
+
         }, () ->
         {
             renderer.resetAnimator();
-            this.keyframe.postNotify();
+            this.track.setValue(this.displayed);
         });
-        this.actionsEditor.setConfigs(keyframe.getValue(), form);
+        this.displayed = track.getValue();
+        this.actionsEditor.setConfigs(this.displayed, form);
 
         this.scroll.add(this.actionsEditor);
+    }
+
+    @Override
+    public void update()
+    {
+        if (this.actionsEditor.speed.isUserEditing() || this.actionsEditor.fade.isUserEditing() || this.actionsEditor.tick.isUserEditing()) return;
+        this.displayed = this.getDisplayValue();
+        this.actionsEditor.refreshConfigs(this.displayed);
     }
 
     @Override

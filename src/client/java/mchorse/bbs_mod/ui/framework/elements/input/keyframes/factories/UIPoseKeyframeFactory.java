@@ -9,8 +9,6 @@ import mchorse.bbs_mod.forms.renderers.mob.MobRig;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
-import mchorse.bbs_mod.settings.values.IValueListener;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
@@ -18,7 +16,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
 import mchorse.bbs_mod.utils.CollectionUtils;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
@@ -31,19 +29,26 @@ import java.util.function.Consumer;
 
 public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
 {
+    @Override
+    public Transform getGizmoTransform(Pose value)
+    {
+        String bone = this.poseEditor.getGroup();
+        return bone == null ? null : value.getOrCreate(bone);
+    }
+
     public UIPoseFactoryEditor poseEditor;
 
     /* Which arrangement the fields are in (null until the first layout), so a resize
      * that stays on the same side of the threshold doesn't rebuild the subtree */
     private Boolean wide;
 
-    public UIPoseKeyframeFactory(Keyframe<Pose> keyframe, UIKeyframes editor)
+    public UIPoseKeyframeFactory(UITrackValue<Pose> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
-        this.poseEditor = new UIPoseFactoryEditor(editor, keyframe);
+        this.poseEditor = new UIPoseFactoryEditor(editor, track);
 
-        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+        UIKeyframeSheet sheet = track.sheet;
 
         if (FormUtils.getForm(sheet.property) instanceof ModelForm modelForm)
         {
@@ -51,7 +56,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
 
             if (model != null)
             {
-                this.poseEditor.setPose(keyframe.getValue(), model.getPoseGroup());
+                this.poseEditor.setPose(track.getValue(), model.getPoseGroup());
                 this.poseEditor.fillGroups(model.model, model.getFlippedParts(), false, model.getDisabledBones());
             }
         }
@@ -59,7 +64,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         {
             MobRig rig = MobFormRenderer.getRig(mobForm);
 
-            this.poseEditor.setPose(keyframe.getValue(), mobForm.mobID.get());
+            this.poseEditor.setPose(track.getValue(), mobForm.mobID.get());
 
             if (rig == null)
             {
@@ -101,39 +106,35 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         super.resize();
     }
 
+    @Override
+    public void update() { this.poseEditor.refreshValue(); }
+
     public static class UIPoseFactoryEditor extends UIPoseEditor
     {
         private UIKeyframes editor;
-        private Keyframe<Pose> keyframe;
+        private UITrackValue<Pose> track;
 
-        public static void apply(UIKeyframes editor, Keyframe keyframe, Consumer<Pose> consumer)
+        public static void apply(UITrackValue<Pose> track, Consumer<Pose> consumer)
         {
-            UIReplaysEditorUtils.forEachSelectedKeyframe(editor, keyframe, (selected) ->
-            {
-                Pose pose = (Pose) selected.getValue();
-
-                selected.preNotify();
-                consumer.accept(pose);
-                selected.postNotify();
-            });
+            track.edit(consumer);
         }
 
-        public static void apply(UIKeyframes editor, Keyframe keyframe, String group, Consumer<PoseTransform> consumer)
+        public static void apply(UITrackValue<Pose> track, String group, Consumer<PoseTransform> consumer)
         {
-            apply(editor, keyframe, (pose) -> consumer.accept(pose.getOrCreate(group)));
+            apply(track, (pose) -> consumer.accept(pose.getOrCreate(group)));
         }
 
         /**
-         * Applies the consumer to each named bone on every selected keyframe pose (one keyframe notify round).
+         * Applies the consumer to each named bone on every selected track pose (one track notify round).
          */
-        public static void apply(UIKeyframes editor, Keyframe keyframe, List<String> boneNames, Consumer<PoseTransform> consumer)
+        public static void apply(UITrackValue<Pose> track, List<String> boneNames, Consumer<PoseTransform> consumer)
         {
             if (boneNames == null || boneNames.isEmpty())
             {
                 return;
             }
 
-            apply(editor, keyframe, (pose) ->
+            apply(track, (pose) ->
             {
                 for (String bone : boneNames)
                 {
@@ -143,18 +144,18 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         }
 
         /**
-         * Like {@link #apply(UIKeyframes, Keyframe, List, Consumer)} but hands the bone
+         * Like {@link #apply(UITrackValue, List, Consumer)} but hands the bone
          * name alongside its {@link PoseTransform}, so callers can decide per bone (e.g.
          * mirror editing via {@link UIPoseEditor#applyToBone}).
          */
-        public static void applyBones(UIKeyframes editor, Keyframe keyframe, List<String> boneNames, BiConsumer<String, PoseTransform> consumer)
+        public static void applyBones(UITrackValue<Pose> track, List<String> boneNames, BiConsumer<String, PoseTransform> consumer)
         {
             if (boneNames == null || boneNames.isEmpty())
             {
                 return;
             }
 
-            apply(editor, keyframe, (pose) ->
+            apply(track, (pose) ->
             {
                 for (String bone : boneNames)
                 {
@@ -163,19 +164,19 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             });
         }
 
-        public UIPoseFactoryEditor(UIKeyframes editor, Keyframe<Pose> keyframe)
+        public UIPoseFactoryEditor(UIKeyframes editor, UITrackValue<Pose> track)
         {
             super();
 
             this.editor = editor;
-            this.keyframe = keyframe;
+            this.track = track;
 
             /* This popup is short and the user resizes it, so the list asks for less than the form
              * editor's does — it expands into the leftover anyway, and this is the floor it hits
              * when the fields alone already fill the popup. */
             this.groups.list.h(UIStringList.DEFAULT_HEIGHT * 4);
 
-            ((UIPoseTransforms) this.transform).setKeyframe(this);
+            ((UIPoseTransforms) this.transform).setEditor(this);
         }
 
         /**
@@ -186,6 +187,12 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         protected UIElement selectionAnchor()
         {
             return this.editor;
+        }
+
+        public void refreshValue()
+        {
+            if (this.transform.isUserEditing() || this.fix.isUserEditing() || this.lighting.isUserEditing()) return;
+            this.refreshPose(this.track.getValue());
         }
 
         private String getGroup(PoseTransform transform)
@@ -204,7 +211,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         {
             List<String> current = new ArrayList<>(this.groups.list.getCurrent());
 
-            apply(this.editor, this.keyframe, (pose) -> pose.fromData(data));
+            apply(this.track, (pose) -> pose.fromData(data));
             this.groups.list.setCurrent(current);
             this.pickBones(this.groups.list.getCurrent());
         }
@@ -214,7 +221,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         {
             List<String> current = new ArrayList<>(this.groups.list.getCurrent());
 
-            apply(this.editor, this.keyframe, (pose) -> pose.flip(this.flippedParts));
+            apply(this.track, (pose) -> pose.flip(this.flippedParts));
             this.groups.list.setCurrent(current);
             this.pickBones(this.groups.list.getCurrent());
         }
@@ -222,31 +229,31 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         @Override
         protected void setFix(PoseTransform transform, float value)
         {
-            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) -> poseT.fix = value);
+            apply(this.track, this.getGroup(transform), (poseT) -> poseT.fix = value);
         }
 
         @Override
         protected void setBoneVisible(PoseTransform transform, boolean value)
         {
-            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) -> poseT.visible = value);
+            apply(this.track, this.getGroup(transform), (poseT) -> poseT.visible = value);
         }
 
         @Override
         protected void setColor(PoseTransform transform, int value)
         {
-            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) -> poseT.color.set(value));
+            apply(this.track, this.getGroup(transform), (poseT) -> poseT.color.set(value));
         }
 
         @Override
         protected void setLighting(PoseTransform poseTransform, float value)
         {
-            apply(this.editor, this.keyframe, this.getGroup(poseTransform), (poseT) -> poseT.lighting = value);
+            apply(this.track, this.getGroup(poseTransform), (poseT) -> poseT.lighting = value);
         }
 
         @Override
         protected void setOverlay(PoseTransform poseTransform, int value)
         {
-            apply(this.editor, this.keyframe, this.getGroup(poseTransform), (poseT) -> poseT.overlay.set(value));
+            apply(this.track, this.getGroup(poseTransform), (poseT) -> poseT.overlay.set(value));
         }
     }
 
@@ -254,7 +261,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
     {
         private UIPoseFactoryEditor editor;
 
-        public void setKeyframe(UIPoseFactoryEditor editor)
+        public void setEditor(UIPoseFactoryEditor editor)
         {
             this.editor = editor;
         }
@@ -270,7 +277,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         {
             Map<String, UIPoseEditor.BoneEdit> targets = this.editor.resolveBoneEdits(this.isMirrorEdit(), this.isAlternateInvert());
 
-            UIPoseFactoryEditor.applyBones(this.editor.editor, this.editor.keyframe, new ArrayList<>(targets.keySet()),
+            UIPoseFactoryEditor.applyBones(this.editor.track, new ArrayList<>(targets.keySet()),
                 (bone, poseT) -> this.editor.applyToBone(targets.get(bone), poseT, consumer));
         }
 
@@ -278,21 +285,6 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         protected UIKeyframes getKeyframes()
         {
             return this.editor.editor;
-        }
-
-        @Override
-        protected Transform getAutoKeyTransform(float tick)
-        {
-            UIKeyframeSheet sheet = this.editor.editor.getGraph().getSheet(this.editor.keyframe);
-            Keyframe<Pose> target = sheet == null ? null : sheet.ensureKeyframe(tick);
-            String bone = this.editor.getGroup();
-
-            if (target == null || bone == null)
-            {
-                return null;
-            }
-
-            return target.getValue().getOrCreate(bone);
         }
 
         @Override
@@ -307,13 +299,5 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             this.refillTransform();
         }
 
-        @Override
-        public void endGesture()
-        {
-            /* Film pose edits land on the selected keyframe(s) (not via a notifier callback),
-             * so seal those to close the undo block — consecutive drags stay distinct. */
-            UIReplaysEditorUtils.forEachSelectedKeyframe(this.editor.editor, this.editor.keyframe,
-                (selected) -> selected.preNotify(IValueListener.FLAG_UNMERGEABLE));
-        }
     }
 }

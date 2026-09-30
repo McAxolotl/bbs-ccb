@@ -268,6 +268,12 @@ public class UIPoseEditor extends UIElement
         this.pickBones(this.groups.list.getCurrent());
     }
 
+    public void refreshPose(Pose pose)
+    {
+        this.pose = pose;
+        this.pickBones(this.groups.list.getCurrent());
+    }
+
     public void setPose(Pose pose, String group)
     {
         this.pose = pose;

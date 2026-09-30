@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -15,6 +16,7 @@ import java.util.function.Supplier;
 import org.lwjgl.glfw.GLFW;
 
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
@@ -26,6 +28,8 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.framework.elements.input.items.Selection;
 import mchorse.bbs_mod.ui.framework.elements.utils.UITimelineCanvas;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.IUIKeyframeGraph;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.KeyframeType;
@@ -43,6 +47,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.presets.UICopyPasteController;
 import mchorse.bbs_mod.ui.utils.renderers.TimelineRulerRenderer;
 import mchorse.bbs_mod.utils.CollectionUtils;
+import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.profiler.BBSProfiler;
@@ -55,6 +60,19 @@ import mchorse.bbs_mod.utils.presets.PresetManager;
 
 public class UIKeyframes extends UITimelineCanvas
 {
+    /** One control shared by the existing timeline toolbars and embedded camera editors. */
+    public static UIIcon modeButton(Supplier<UIKeyframes> editor)
+    {
+        UIIcon button = new UIIcon(Icons.GRAPH, b ->
+        {
+            UIKeyframes view = editor.get();
+            if (view != null) view.setGraphMode(!view.isEditing());
+        });
+        button.tooltip(UIKeys.KEYFRAMES_MODE_GRAPH);
+        button.highlight(() -> editor.get() != null && editor.get().isEditing(), Direction.BOTTOM);
+        button.valueBinding(() -> button.setEnabled(editor.get() != null));
+        return button;
+    }
     /** Edit shared authored form data from a keyframe panel, through its owning editor. */
     public void editForm(Form form, Runnable edit)
     {
@@ -69,8 +87,11 @@ public class UIKeyframes extends UITimelineCanvas
     private Pair<Keyframe, KeyframeType> draggingData;
     private boolean scaling;
     private float scalingAnchor;
-    private Map<Keyframe, Float> scaleTicks = new HashMap<>();
-    private boolean single;
+    private final Map<Keyframe, Keyframe> transformKeys = new IdentityHashMap<>();
+    private int transformAxis;
+    private boolean scalingValues;
+    private double scalingValueAnchor;
+    private final UIElement scalingOverlay = new ScalingOverlay();
 
     private boolean stacking;
     private float stackOffset;
@@ -86,16 +107,196 @@ public class UIKeyframes extends UITimelineCanvas
 
     public final Area graphArea = new Area();
 
+    private final List<UIKeyframeSheet> sheets = new ArrayList<>();
     private final UIKeyframeDopeSheet dopeSheet = new UIKeyframeDopeSheet(this);
+    private final UIKeyframeGraph curveGraph = new UIKeyframeGraph(this);
     private IUIKeyframeGraph currentGraph = this.dopeSheet;
 
-
-    private final Consumer<Keyframe> callback;
+    private final Runnable callback;
     private Consumer<UIContext> backgroundRender;
     private Consumer<UIContext> rulerRender;
     private Supplier<Integer> duration;
 
     private SheetCache cache;
+    private UIKeyframeSheet activeSheet;
+    private Keyframe pickedKeyframe;
+    private final Selection<UIKeyframeSheet> selectedTracks = new Selection<>();
+    private SheetCache valueGesture;
+    private final Map<UIKeyframeSheet, List<Integer>> valueSelection = new HashMap<>();
+
+    public UIKeyframeSheet getActiveSheet() { return this.activeSheet; }
+
+    public List<UIKeyframeSheet> getSelectedTracks() { return this.selectedTracks.getItems(); }
+
+    public boolean isTrackSelected(UIKeyframeSheet sheet) { return this.selectedTracks.contains(sheet); }
+
+    /** All available tracks, independent of the current presentation and key operation scope. */
+    public List<UIKeyframeSheet> getSheets() { return this.sheets; }
+
+    /** Only these tracks may be changed by selection-based commands and value panels. */
+    public List<UIKeyframeSheet> getOperationSheets() { return this.currentGraph.getSheets(); }
+
+    public Keyframe getSelectedKeyframe()
+    {
+        List<UIKeyframeSheet> sheets = this.getOperationSheets();
+        for (UIKeyframeSheet sheet : sheets)
+        {
+            if (this.pickedKeyframe == null) continue;
+            int index = sheet.channel.indexOf(this.pickedKeyframe);
+            if (index >= 0 && sheet.selection.has(index))
+            {
+                this.pickedKeyframe = sheet.channel.get(index);
+                return this.pickedKeyframe;
+            }
+        }
+        if (sheets.contains(this.activeSheet) && this.activeSheet.selection.hasAny()) return this.activeSheet.selection.getFirst();
+        for (UIKeyframeSheet sheet : sheets)
+        {
+            Keyframe first = sheet.selection.getFirst();
+            if (first != null) return first;
+        }
+        return null;
+    }
+
+    public void selectTrack(UIKeyframeSheet sheet)
+    {
+        boolean changed = sheet != null && this.getSheets().contains(sheet) && !this.selectedTracks.contains(sheet);
+        if (changed)
+        {
+            this.endValueGesture();
+            this.selectedTracks.set(sheet, null);
+        }
+        this.setActiveTrack(sheet);
+        if (changed && this.isEditing() && !this.curveGraph.getSheets().isEmpty()) this.curveGraph.resetView();
+    }
+
+    /** Row selection uses the same Ctrl toggle and Shift range as the other BBS lists. */
+    public void pickTrack(UIKeyframeSheet sheet, boolean toggle, boolean range, List<UIKeyframeSheet> order)
+    {
+        List<UIKeyframeSheet> previous = this.curveGraph.getSheets();
+        this.endValueGesture();
+        if (range) this.selectedTracks.range(sheet, null, order);
+        else if (toggle) this.selectedTracks.toggle(sheet, null);
+        else this.selectedTracks.set(sheet, null);
+        this.setActiveTrack(this.selectedTracks.contains(sheet) ? sheet : this.selectedTracks.getAnchor());
+        List<UIKeyframeSheet> displayed = this.curveGraph.getSheets();
+        if (this.isEditing() && !displayed.isEmpty() && !displayed.equals(previous)) this.curveGraph.resetView();
+    }
+
+    public void setActiveTrack(UIKeyframeSheet sheet)
+    {
+        /* Every nonempty timeline has an active member of its track selection. */
+        List<UIKeyframeSheet> available = this.getSheets();
+        this.selectedTracks.retain(available::contains);
+
+        if (!available.contains(sheet)) sheet = this.selectedTracks.getAnchor();
+        if (sheet == null) sheet = this.selectedTracks.getFirst();
+        if (sheet == null && available.contains(this.activeSheet)) sheet = this.activeSheet;
+        if (sheet == null && !available.isEmpty()) sheet = available.get(0);
+
+        if (sheet != this.activeSheet) this.endValueGesture();
+        if (sheet != null && !this.selectedTracks.contains(sheet)) this.selectedTracks.add(sheet, null);
+        this.activeSheet = sheet;
+        if (this.callback != null) this.callback.run();
+    }
+
+    public boolean canInsertAtPlayhead()
+    {
+        return !this.selectedTracks.isEmpty() && !this.isInteracting() && this.valueGesture == null;
+    }
+
+    /** Key the tracks' own sampled values, at their local cursor, in one history step. */
+    public void insertAtPlayhead()
+    {
+        if (!this.canInsertAtPlayhead()) return;
+
+        float tick = this.getTick();
+        this.beginValueGesture();
+        for (UIKeyframeSheet sheet : this.getSheets()) sheet.selection.clear();
+
+        for (UIKeyframeSheet sheet : this.selectedTracks.getItems())
+        {
+            boolean empty = sheet.channel.isEmpty();
+            Keyframe keyframe = sheet.ensureKeyframe(tick);
+
+            if (empty) keyframe.getInterpolation().setInterp(BBSSettings.getDefaultKeyframeInterpolation());
+            sheet.selection.add(keyframe);
+        }
+
+        this.endValueGesture();
+    }
+
+    @Override
+    protected void onRemove(UIElement parent)
+    {
+        this.finishScaling(true);
+        if (this.dragging >= 0) this.cancelKeyframes();
+        this.endValueGesture();
+        super.onRemove(parent);
+    }
+
+    public void beginValueGesture()
+    {
+        if (this.valueGesture != null) return;
+        this.valueGesture = new SheetCache(this.getSheets(), true);
+        this.valueSelection.clear();
+        for (UIKeyframeSheet sheet : this.getSheets())
+            this.valueSelection.put(sheet, new ArrayList<>(sheet.selection.getIndices()));
+    }
+
+    public void applyValueChange(UIKeyframeSheet sheet, Runnable edit)
+    {
+        if (this.valueGesture == null) sheet.channel.preNotify(this.getAutoKeyframeTick() == null
+            ? IValueListener.FLAG_DEFAULT : IValueListener.FLAG_BATCH);
+        edit.run();
+        if (this.valueGesture == null) sheet.channel.postNotify();
+    }
+
+    public void endValueGesture()
+    {
+        if (this.valueGesture == null) return;
+        SheetCache beforeState = this.valueGesture;
+        this.valueGesture = null;
+        Map<UIKeyframeSheet, BaseType> after = new HashMap<>();
+        Map<UIKeyframeSheet, List<Integer>> selection = new HashMap<>();
+        for (Pair<BaseType, UIKeyframeSheet> before : beforeState.data)
+        {
+            selection.put(before.b, new ArrayList<>(before.b.selection.getIndices()));
+            before.b.selection.clear();
+            before.b.selection.addAll(this.valueSelection.get(before.b));
+            BaseType data = before.b.channel.toData();
+            if (before.a.equals(data)) continue;
+            after.put(before.b, data);
+            before.b.channel.fromData(before.a);
+        }
+        for (UIKeyframeSheet sheet : after.keySet()) sheet.channel.preNotify(IValueListener.FLAG_UNMERGEABLE);
+        for (UIKeyframeSheet sheet : selection.keySet())
+        {
+            sheet.selection.clear();
+            sheet.selection.addAll(selection.get(sheet));
+        }
+        for (UIKeyframeSheet sheet : after.keySet())
+        {
+            sheet.channel.fromData(after.get(sheet));
+            sheet.channel.postNotify(IValueListener.FLAG_UNMERGEABLE);
+        }
+        this.valueSelection.clear();
+        this.triggerChange();
+    }
+
+    public void cancelValueGesture()
+    {
+        if (this.valueGesture == null) return;
+        for (Pair<BaseType, UIKeyframeSheet> before : this.valueGesture.data)
+        {
+            before.b.channel.fromData(before.a);
+            before.b.selection.clear();
+            before.b.selection.addAll(this.valueSelection.get(before.b));
+        }
+        this.valueGesture = null;
+        this.valueSelection.clear();
+        this.triggerChange();
+    }
 
     private UICopyPasteController copyPasteController;
 
@@ -104,7 +305,7 @@ public class UIKeyframes extends UITimelineCanvas
     /** Default width of the names column when no layout setting is available. */
     public static final int LABEL_WIDTH_DEFAULT = 120;
 
-    public UIKeyframes(Consumer<Keyframe> callback)
+    public UIKeyframes(Runnable callback)
     {
         /* The time strip excludes the dope sheet's label column, so the axis maps pixels
          * over the graph area rather than the whole element. */
@@ -151,18 +352,15 @@ public class UIKeyframes extends UITimelineCanvas
 
             menu.icon(MenuVerb.REMOVE, () -> this.currentGraph.removeSelected()).label(UIKeys.KEYFRAMES_CONTEXT_REMOVE).enabled(hasSelected);
 
-            UIKeyframeSheet hovered = this.currentGraph.getSheet(mouseY);
+            UIKeyframeSheet hovered = this.currentGraph.getSheet(mouseX, mouseY);
 
-            if (!this.single)
+            if (this.isEditing())
             {
-                if (this.isEditing())
-                {
-                    menu.action(Icons.CLOSE, UIKeys.KEYFRAMES_CONTEXT_EXIT_TRACK, () -> this.editSheet(null));
-                }
-                else if (hovered != null && KeyframeFactories.isNumeric(hovered.channel.getFactory()))
-                {
-                    menu.action(Icons.EDIT, UIKeys.KEYFRAMES_CONTEXT_EDIT_TRACK.format(hovered.id), () -> this.editSheet(hovered));
-                }
+                menu.action(Icons.KEY, UIKeys.KEYFRAMES_MODE_KEYS, () -> this.setGraphMode(false));
+            }
+            else
+            {
+                menu.action(Icons.GRAPH, UIKeys.KEYFRAMES_MODE_GRAPH, () -> this.setGraphMode(true));
             }
 
             if (hovered != null)
@@ -183,7 +381,13 @@ public class UIKeyframes extends UITimelineCanvas
             menu.action(Icons.ARROW_LEFT, UIKeys.KEYFRAMES_KEYS_SELECT_LEFT, () -> this.selectAfter(mouseX, mouseY, -1));
             menu.action(Icons.ARROW_RIGHT, UIKeys.KEYFRAMES_KEYS_SELECT_RIGHT, () -> this.selectAfter(mouseX, mouseY, 1));
 
-            menu.action(Icons.MAXIMIZE, UIKeys.KEYFRAMES_CONTEXT_MAXIMIZE, this::resetView);
+            menu.action(Icons.MAXIMIZE, this.isEditing() ? UIKeys.KEYFRAMES_GRAPH_FIT_ALL : UIKeys.KEYFRAMES_CONTEXT_MAXIMIZE, this::resetView);
+            if (this.isEditing() && hasSelected)
+            {
+                menu.action(Icons.SEARCH, UIKeys.KEYFRAMES_GRAPH_FIT_SELECTED, this.curveGraph::fitSelection);
+                menu.action(Icons.SCALE, UIKeys.KEYFRAMES_GRAPH_SCALE_TIME, () -> this.startScaling(false));
+                menu.action(Icons.SCALE, UIKeys.KEYFRAMES_GRAPH_SCALE_VALUE, () -> this.startScaling(true));
+            }
             menu.action(Icons.FULLSCREEN, UIKeys.KEYFRAMES_CONTEXT_SELECT_ALL, () -> this.currentGraph.selectAll());
 
             if (hasSelected)
@@ -192,7 +396,7 @@ public class UIKeyframes extends UITimelineCanvas
                 menu.action(Icons.CONVERT, UIKeys.KEYFRAMES_CONTEXT_SPREAD, this::spreadKeyframes);
                 menu.action(Icons.OUTLINE_SPHERE, UIKeys.KEYFRAMES_CONTEXT_ROUND, () ->
                 {
-                    for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+                    for (UIKeyframeSheet sheet : this.getOperationSheets())
                     {
                         List<Keyframe> selected = sheet.selection.getSelected();
 
@@ -216,9 +420,12 @@ public class UIKeyframes extends UITimelineCanvas
 
         /* Keys */
         IKey category = UIKeys.KEYFRAMES_KEYS_CATEGORY;
-        Supplier<Boolean> canModify = () -> !this.scaling;
+        Supplier<Boolean> canModify = () -> !this.isInteracting() && this.valueGesture == null;
 
+        this.keys().register(Keys.KEYFRAMES_INSERT, this::insertAtPlayhead).strict().category(category).active(this::canInsertAtPlayhead);
+        this.keys().register(Keys.KEYFRAMES_ENABLE, this::toggleEnabled).inside().category(category).active(canModify);
         this.keys().register(Keys.KEYFRAMES_MAXIMIZE, this::resetView).inside().category(category);
+        this.keys().register(Keys.KEYFRAMES_FIT_SELECTED, this.curveGraph::fitSelection).inside().category(category).active(this::isEditing);
         this.keys().register(Keys.KEYFRAMES_SELECT_ALL, () -> this.currentGraph.selectAll()).inside().category(category).active(canModify);
         this.keys().register(Keys.KEYFRAMES_SELECT_TRACK, this::selectAllOnTrackUnderCursor).inside().category(category).active(canModify);
         this.keys().register(Keys.KEYFRAMES_SELECT_TRACK_LEFT, () -> this.selectTrackSideUnderCursor(-1)).inside().category(category).active(canModify);
@@ -262,6 +469,10 @@ public class UIKeyframes extends UITimelineCanvas
         }).category(category).active(canModify);
         this.keys().register(Keys.KEYFRAMES_SELECT_SAME, this::selectSame).category(category).active(canModify);
         this.keys().register(Keys.KEYFRAMES_SCALE_TIME, this::scaleTime).inside().category(category);
+        this.keys().register(Keys.TRANSFORMATIONS_X, () -> this.transformAxis = this.transformAxis == 1 ? 0 : 1)
+            .category(category).active(() -> this.isEditing() && this.dragging >= 0 && this.draggingData != null && this.draggingData.b == KeyframeType.REGULAR);
+        this.keys().register(Keys.TRANSFORMATIONS_Y, () -> this.transformAxis = this.transformAxis == 2 ? 0 : 2)
+            .category(category).active(() -> this.isEditing() && this.dragging >= 0 && this.draggingData != null && this.draggingData.b == KeyframeType.REGULAR);
         this.keys().register(Keys.KEYFRAMES_STACK_KEYFRAMES, () -> this.stackKeyframes(false)).inside().category(category);
         this.keys().register(Keys.KEYFRAMES_SELECT_PREV, () -> this.selectNextKeyframe(-1)).category(category);
         this.keys().register(Keys.KEYFRAMES_SELECT_NEXT, () -> this.selectNextKeyframe(1)).category(category);
@@ -273,13 +484,6 @@ public class UIKeyframes extends UITimelineCanvas
     public int getLabelWidth()
     {
         return BBSSettings.editorLayoutSettings.getKeyframeLabelWidth();
-    }
-
-    public UIKeyframes single()
-    {
-        this.single = true;
-
-        return this;
     }
 
     /**
@@ -298,7 +502,7 @@ public class UIKeyframes extends UITimelineCanvas
 
         UIOverlay.addOverlay(this.getContext(), new UIKeyframeStyleOverlayPanel(selected.getStyle(), (style) ->
         {
-            for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+            for (UIKeyframeSheet sheet : this.getOperationSheets())
             {
                 for (Keyframe keyframe : sheet.selection.getSelected())
                 {
@@ -306,6 +510,30 @@ public class UIKeyframes extends UITimelineCanvas
                 }
             }
         }), 220, 200);
+    }
+
+    private void toggleEnabled()
+    {
+        this.setSelectedEnabled(null);
+    }
+
+    /** Null inverts each key independently, just like the clip shortcut. */
+    public void setSelectedEnabled(Boolean enabled)
+    {
+        List<UIKeyframeSheet> selectedSheets = new ArrayList<>();
+        for (UIKeyframeSheet sheet : this.getOperationSheets())
+        {
+            if (sheet.selection.hasAny()) selectedSheets.add(sheet);
+        }
+        if (selectedSheets.isEmpty()) return;
+
+        for (UIKeyframeSheet sheet : selectedSheets) sheet.channel.preNotify(IValueListener.FLAG_UNMERGEABLE);
+        for (UIKeyframeSheet sheet : selectedSheets)
+        {
+            for (Keyframe keyframe : sheet.selection.getSelected()) keyframe.setEnabled(enabled == null ? !keyframe.isEnabled() : enabled);
+        }
+        for (UIKeyframeSheet sheet : selectedSheets) sheet.channel.postNotify(IValueListener.FLAG_UNMERGEABLE);
+        this.triggerChange();
     }
 
     private void adjustValues()
@@ -320,7 +548,7 @@ public class UIKeyframes extends UITimelineCanvas
 
     private void adjustValues(boolean last)
     {
-        for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+        for (UIKeyframeSheet sheet : this.getOperationSheets())
         {
             List<Keyframe> selected = sheet.selection.getSelected();
             IKeyframeFactory factory = sheet.channel.getFactory();
@@ -375,7 +603,7 @@ public class UIKeyframes extends UITimelineCanvas
     private void selectAllOnTrackUnderCursor()
     {
         UIContext context = this.getContext();
-        UIKeyframeSheet sheet = this.currentGraph.getSheet(context.mouseY);
+        UIKeyframeSheet sheet = this.currentGraph.getSheet(context.mouseX, context.mouseY);
 
         if (sheet != null)
         {
@@ -392,7 +620,7 @@ public class UIKeyframes extends UITimelineCanvas
     private void selectTrackSideUnderCursor(int direction)
     {
         UIContext context = this.getContext();
-        UIKeyframeSheet sheet = this.currentGraph.getSheet(context.mouseY);
+        UIKeyframeSheet sheet = this.currentGraph.getSheet(context.mouseX, context.mouseY);
 
         if (sheet != null)
         {
@@ -412,7 +640,7 @@ public class UIKeyframes extends UITimelineCanvas
         if (keyframe == null)
         {
             UIContext context = this.getContext();
-            UIKeyframeSheet sheet = this.getGraph().getSheet(context.mouseY);
+            UIKeyframeSheet sheet = this.getGraph().getSheet(context.mouseX, context.mouseY);
 
             if (sheet == null)
             {
@@ -454,7 +682,7 @@ public class UIKeyframes extends UITimelineCanvas
         }
         else
         {
-            UIKeyframeSheet sheet = this.currentGraph.getSheet(mouseY);
+            UIKeyframeSheet sheet = this.currentGraph.getSheet(mouseX, mouseY);
 
             /* There is no track under the cursor when it sits below the last one, and asking that
              * empty strip to select something used to throw. */
@@ -480,7 +708,7 @@ public class UIKeyframes extends UITimelineCanvas
                 this.currentGraph.clearSelection();
             }
 
-            for (UIKeyframeSheet sheet : this.currentGraph.getSheets())
+            for (UIKeyframeSheet sheet : this.getOperationSheets())
             {
                 List<Keyframe> list = sheet.channel.getList();
 
@@ -488,7 +716,7 @@ public class UIKeyframes extends UITimelineCanvas
                 {
                     Keyframe kf = list.get(i);
 
-                    if (kf.getFactory().compare(keyframe.a.getValue(), kf.getValue()))
+                    if (kf.getFactory() == keyframe.a.getFactory() && kf.getFactory().compare(keyframe.a.getValue(), kf.getValue()))
                     {
                         sheet.selection.add(i);
                     }
@@ -501,29 +729,94 @@ public class UIKeyframes extends UITimelineCanvas
 
     private void scaleTime()
     {
-        if (this.scaling)
-        {
-            this.scaling = false;
+        if (this.scaling) this.finishScaling(false);
+        else this.startScaling(false);
+    }
 
-            return;
-        }
-
-        UIContext context = this.getContext();
-
+    private void startScaling(boolean values)
+    {
+        if (this.isInteracting() || this.getSelectedKeyframe() == null) return;
+        this.cacheKeyframes();
         this.scaling = true;
-        this.scaleTicks.clear();
-        this.scalingAnchor = Integer.MAX_VALUE;
-        this.initialX = context.mouseX;
-        this.initialY = context.mouseY;
-
-        for (UIKeyframeSheet sheet : this.currentGraph.getSheets())
+        this.scalingValues = values;
+        this.scalingAnchor = this.isEditing() ? this.getTick() : Float.MAX_VALUE;
+        this.scalingValueAnchor = 0D;
+        this.initialX = this.getContext().mouseX;
+        this.initialY = this.getContext().mouseY;
+        for (Keyframe key : this.transformKeys.keySet())
         {
-            for (Keyframe keyframe : sheet.selection.getSelected())
-            {
-                this.scaleTicks.put(keyframe, keyframe.getTick());
-                this.scalingAnchor = Math.min(this.scalingAnchor, keyframe.getTick());
-            }
+            if (!this.isEditing()) this.scalingAnchor = Math.min(this.scalingAnchor, key.getTick());
         }
+        this.getContext().menu.overlay.add(this.scalingOverlay);
+    }
+
+    private void finishScaling(boolean cancel)
+    {
+        if (!this.scaling) return;
+        this.scaling = false;
+        this.scalingOverlay.removeFromParent();
+        if (cancel) this.cancelKeyframes();
+        else this.submitKeyframes(true);
+        this.triggerChange();
+        this.currentGraph.pickSelected();
+    }
+
+    private class ScalingOverlay extends UIElement
+    {
+        public ScalingOverlay()
+        {
+            this.keys().register(Keys.TRANSFORMATIONS_X, () -> UIKeyframes.this.scalingValues = false);
+            this.keys().register(Keys.TRANSFORMATIONS_Y, () -> UIKeyframes.this.scalingValues = true)
+                .active(UIKeyframes.this::isEditing);
+        }
+
+        @Override
+        protected boolean subMouseClicked(UIContext context)
+        {
+            if (context.mouseButton == 0 || context.mouseButton == 1)
+            {
+                UIKeyframes.this.handleMouse(context);
+                UIKeyframes.this.finishScaling(context.mouseButton == 1);
+            }
+            return true;
+        }
+
+        @Override
+        protected boolean subKeyPressed(UIContext context)
+        {
+            if (context.isPressed(GLFW.GLFW_KEY_ESCAPE)) UIKeyframes.this.finishScaling(true);
+            else if (context.isPressed(GLFW.GLFW_KEY_ENTER) || context.isPressed(GLFW.GLFW_KEY_KP_ENTER)) UIKeyframes.this.finishScaling(false);
+            else this.keybindsKeyPressed(context);
+            return true;
+        }
+
+        @Override
+        protected boolean subMouseScrolled(UIContext context) { return true; }
+    }
+
+    /** Transform from the press snapshot, so mixed numeric factories never accumulate rounding. */
+    public void moveSelectedKeys(float time, double value)
+    {
+        for (Map.Entry<Keyframe, Keyframe> entry : this.transformKeys.entrySet())
+        {
+            Keyframe key = entry.getKey(), original = entry.getValue();
+            KeyframeChannel channel = (KeyframeChannel) key.getParent();
+            key.setTick(channel.constrainKeyframeTick(key, original.getTick() + (this.transformAxis == 2 ? 0 : time)), false);
+            if (KeyframeFactories.isNumeric(key.getFactory()))
+                key.setValue(key.getFactory().yToValue(original.getY() + (this.transformAxis == 1 ? 0 : value)), false);
+        }
+    }
+
+    public void cancelKeyframes()
+    {
+        if (this.cache == null) return;
+        UIKeyframeSheet focused = this.dopeSheet.getSheet(this.pickedKeyframe);
+        int index = focused == null ? -1 : focused.channel.indexOf(this.pickedKeyframe);
+        for (Pair<BaseType, UIKeyframeSheet> entry : this.cache.data) entry.b.channel.fromData(entry.a);
+        if (focused != null) this.pickedKeyframe = focused.channel.get(index);
+        this.cache = null;
+        this.transformKeys.clear();
+        this.triggerChange();
     }
 
     private void stackKeyframes(boolean cancel)
@@ -538,7 +831,7 @@ public class UIKeyframes extends UITimelineCanvas
                 List<UIKeyframeSheet> sheets = new ArrayList<>();
                 float currentTick = (float) this.fromGraphX(context.mouseX);
 
-                for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+                for (UIKeyframeSheet sheet : this.getOperationSheets())
                 {
                     if (sheet.selection.hasAny())
                     {
@@ -611,7 +904,7 @@ public class UIKeyframes extends UITimelineCanvas
         float min = Float.MAX_VALUE;
         float max = -Float.MAX_VALUE;
 
-        for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+        for (UIKeyframeSheet sheet : this.getOperationSheets())
         {
             for (Keyframe keyframe : sheet.selection.getSelected())
             {
@@ -627,7 +920,7 @@ public class UIKeyframes extends UITimelineCanvas
 
         float pivot = min + max;
 
-        for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+        for (UIKeyframeSheet sheet : this.getOperationSheets())
         {
             if (!sheet.selection.hasAny())
             {
@@ -652,7 +945,7 @@ public class UIKeyframes extends UITimelineCanvas
 
     private void spreadKeyframes()
     {
-        for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+        for (UIKeyframeSheet sheet : this.getOperationSheets())
         {
             List<Keyframe> selected = sheet.selection.getSelected();
 
@@ -707,31 +1000,35 @@ public class UIKeyframes extends UITimelineCanvas
         return this.currentGraph != this.dopeSheet;
     }
 
-    public void editSheet(UIKeyframeSheet sheet)
+    public void setGraphMode(boolean graph)
     {
+        if (this.isInteracting() || graph == this.isEditing()) return;
+        this.endValueGesture();
         this.motionShift.release(false);
-        if (sheet == null)
-        {
-            this.currentGraph = this.dopeSheet;
-        }
-        else
-        {
-            this.dopeSheet.clearSelection();
-            this.dopeSheet.pickSelected();
-
-            this.currentGraph = new UIKeyframeGraph(this, sheet);
-
-            this.resetView();
-        }
-
+        this.loops.reset();
+        this.xAxis.stopZoom();
+        this.currentGraph.stopZoom();
+        this.currentGraph = graph ? this.curveGraph : this.dopeSheet;
         this.resize();
+        if (graph && !this.curveGraph.getSheets().isEmpty()) this.curveGraph.resetView();
+        if (this.callback != null) this.callback.run();
     }
 
     /* Caching keyframes */
 
     public void cacheKeyframes()
     {
-        this.cache = new SheetCache(this.currentGraph.getSheets());
+        this.cache = new SheetCache(this.getOperationSheets());
+        this.transformKeys.clear();
+        for (UIKeyframeSheet sheet : this.getOperationSheets())
+        {
+            for (Keyframe key : sheet.selection.getSelected())
+            {
+                Keyframe original = new Keyframe("", key.getFactory(), key.getTick(), key.getValue());
+                original.copy(key);
+                this.transformKeys.put(key, original);
+            }
+        }
     }
 
     public void submitKeyframes()
@@ -741,36 +1038,42 @@ public class UIKeyframes extends UITimelineCanvas
 
     private void submitKeyframes(boolean overwrite)
     {
-        /* Cache selection indices */
+        if (this.cache == null) return;
+        UIKeyframeSheet focused = this.dopeSheet.getSheet(this.pickedKeyframe);
+        int focusedBefore = focused == null ? -1 : focused.channel.indexOf(this.pickedKeyframe);
         Map<UIKeyframeSheet, Pair<List<Integer>, List<Integer>>> selection = new HashMap<>();
-
-        for (UIKeyframeSheet sheet : this.currentGraph.getSheets())
+        Map<UIKeyframeSheet, BaseType> changed = new java.util.LinkedHashMap<>();
+        for (Pair<BaseType, UIKeyframeSheet> before : this.cache.data)
         {
+            UIKeyframeSheet sheet = before.b;
             List<Integer> last = sheet.sort(overwrite);
-
             selection.put(sheet, new Pair<>(last, new ArrayList<>(sheet.selection.getIndices())));
+            BaseType after = sheet.channel.toData();
+            if (!before.a.equals(after)) changed.put(sheet, after);
         }
+        int focusedAfter = focused == null ? -1 : focused.channel.indexOf(this.pickedKeyframe);
 
-        /* Apply the data in order and submit to pre-/post-handlers */
-        SheetCache cache = new SheetCache(this.currentGraph.getSheets());
-
-        for (Pair<BaseType, UIKeyframeSheet> pair : this.cache.data)
+        /* Restore the entire before state before any listener captures the UI history. */
+        for (Pair<BaseType, UIKeyframeSheet> before : this.cache.data)
         {
-            pair.b.channel.fromData(pair.a);
-            pair.b.selection.clear();
-            pair.b.selection.addAll(selection.get(pair.b).a);
-            pair.b.channel.preNotify(IValueListener.FLAG_UNMERGEABLE);
+            if (!changed.containsKey(before.b)) continue;
+            before.b.channel.fromData(before.a);
+            before.b.selection.clear();
+            before.b.selection.addAll(selection.get(before.b).a);
         }
-
-        for (Pair<BaseType, UIKeyframeSheet> pair : cache.data)
+        if (focused != null) this.pickedKeyframe = focused.channel.get(focusedBefore);
+        for (UIKeyframeSheet sheet : changed.keySet()) sheet.channel.preNotify(IValueListener.FLAG_UNMERGEABLE);
+        for (Map.Entry<UIKeyframeSheet, BaseType> after : changed.entrySet())
         {
-            pair.b.channel.fromData(pair.a);
-            pair.b.selection.clear();
-            pair.b.selection.addAll(selection.get(pair.b).b);
-            pair.b.channel.postNotify(IValueListener.FLAG_UNMERGEABLE);
+            after.getKey().channel.fromData(after.getValue());
+            after.getKey().selection.clear();
+            after.getKey().selection.addAll(selection.get(after.getKey()).b);
         }
-
+        if (focused != null) this.pickedKeyframe = focused.channel.get(focusedAfter);
+        for (UIKeyframeSheet sheet : changed.keySet()) sheet.channel.postNotify(IValueListener.FLAG_UNMERGEABLE);
         this.cache = null;
+        this.transformKeys.clear();
+        this.triggerChange();
     }
 
     /* Copy-pasting */
@@ -816,7 +1119,7 @@ public class UIKeyframes extends UITimelineCanvas
     {
         MapType keyframes = new MapType();
 
-        for (UIKeyframeSheet property : this.currentGraph.getSheets())
+        for (UIKeyframeSheet property : this.getOperationSheets())
         {
             List<Keyframe> selected = property.selection.getSelected();
 
@@ -855,13 +1158,14 @@ public class UIKeyframes extends UITimelineCanvas
 
     private void pasteKeyframes(Map<String, PastedKeyframes> keyframes, float offset, int mouseY, boolean keepTracks)
     {
-        List<UIKeyframeSheet> sheets = this.currentGraph.getSheets();
+        List<UIKeyframeSheet> sheets = this.getOperationSheets();
 
         this.currentGraph.clearSelection();
 
         if (keyframes.size() == 1 && !keepTracks)
         {
-            UIKeyframeSheet current = this.currentGraph.getSheet(mouseY);
+            UIKeyframeSheet current = this.isEditing() ? this.activeSheet : this.currentGraph.getSheet(this.getContext().mouseX, mouseY);
+            if (current != null && !sheets.contains(current)) return;
 
             if (current == null)
             {
@@ -1005,14 +1309,20 @@ public class UIKeyframes extends UITimelineCanvas
 
     public void removeAllSheets()
     {
+        this.endValueGesture();
+        this.activeSheet = null;
+        this.selectedTracks.clear();
+        this.pickedKeyframe = null;
         this.motionShift.release(false);
         this.loops.reset();
         this.dopeSheet.removeAllSheets();
+        this.setActiveTrack(null);
     }
 
     public void addSheet(UIKeyframeSheet sheet)
     {
         this.dopeSheet.addSheet(sheet);
+        if (this.activeSheet == null) this.setActiveTrack(sheet);
     }
 
     /**
@@ -1028,15 +1338,11 @@ public class UIKeyframes extends UITimelineCanvas
         }
     }
 
-
     public void pickKeyframe(Keyframe keyframe)
     {
+        this.pickedKeyframe = keyframe;
         this.getGraph().onCallback(keyframe);
-
-        if (this.callback != null)
-        {
-            this.callback.accept(keyframe);
-        }
+        this.selectTrack(keyframe == null ? this.activeSheet : this.dopeSheet.getSheet(keyframe));
     }
 
     /* Graphing */
@@ -1053,7 +1359,7 @@ public class UIKeyframes extends UITimelineCanvas
         int max = Integer.MIN_VALUE;
 
         /* Find minimum and maximum */
-        for (UIKeyframeSheet property : this.currentGraph.getSheets())
+        for (UIKeyframeSheet property : this.getOperationSheets())
         {
             List keyframes = property.channel.getKeyframes();
 
@@ -1081,7 +1387,7 @@ public class UIKeyframes extends UITimelineCanvas
 
         if (Math.abs(max - min) > 0.01F)
         {
-            this.xAxis.viewOffset(min, max, this.area.w, 30);
+            this.xAxis.viewOffset(min, max, this.graphArea.w, 30);
         }
         else
         {
@@ -1110,25 +1416,13 @@ public class UIKeyframes extends UITimelineCanvas
         double maxValue = this.xAxis.getMaxValue();
 
         int labelWidth = this.getLabelWidth();
-        boolean showLabelResizer = this.currentGraph == this.dopeSheet;
-        this.labelResizer.setVisible(showLabelResizer);
-        if (showLabelResizer)
-        {
-            this.labelResizer.relative(this).x(labelWidth - 3).y(0.35F).w(6).h(0.3F);
-        }
+        this.labelResizer.relative(this).x(labelWidth - 3).y(0.35F).w(6).h(0.3F);
 
         super.resize();
 
-        if (showLabelResizer)
-        {
-            this.graphArea.copy(this.area);
-            this.graphArea.x += labelWidth;
-            this.graphArea.w -= labelWidth;
-        }
-        else
-        {
-            this.graphArea.copy(this.area);
-        }
+        this.graphArea.copy(this.area);
+        this.graphArea.x += labelWidth;
+        this.graphArea.w -= labelWidth;
 
         this.currentGraph.resize();
 
@@ -1174,15 +1468,13 @@ public class UIKeyframes extends UITimelineCanvas
         }
         if (!this.scaling && !this.stacking && this.motionShift.mouseClicked(context)) return true;
         if (!this.scaling && !this.stacking && this.loops.mouseClicked(context)) return true;
-        if (this.currentGraph.mouseClicked(context))
-        {
-            return true;
-        }
-
         if (this.scaling)
         {
-            this.scaling = false;
-
+            this.finishScaling(context.mouseButton == 1);
+            return true;
+        }
+        if (this.currentGraph.mouseClicked(context))
+        {
             return true;
         }
 
@@ -1243,17 +1535,23 @@ public class UIKeyframes extends UITimelineCanvas
 
     private void duplicateOrSelectColumn(UIContext context)
     {
-        if (this.currentGraph.getSelected() != null && !Window.isShiftPressed())
+        if (this.isDuplicatingKeyframes(context))
         {
             /* Duplicate */
             this.pasteKeyframes(this.parseKeyframes(this.serializeKeyframes()), this.getDuplicationTick(context),
-                context.mouseY, this.isDuplicatingAtPlayhead());
+                context.mouseY, this.isEditing() || this.isDuplicatingAtPlayhead());
 
             return;
         }
 
         /* Select a column */
         this.currentGraph.selectByX(context.mouseX);
+    }
+
+    public boolean isDuplicatingKeyframes(UIContext context)
+    {
+        return this.currentGraph.getSelected() != null && !Window.isShiftPressed()
+            && (this.isDuplicatingAtPlayhead() || this.currentGraph.findKeyframe(context.mouseX, context.mouseY) == null);
     }
 
     public boolean isDuplicatingAtPlayhead()
@@ -1317,19 +1615,25 @@ public class UIKeyframes extends UITimelineCanvas
 
             sheet.selection.add(found);
 
-            found = this.currentGraph.getSelected();
-
             this.pickKeyframe(found);
         }
         else if (!this.marquee.isPressed())
         {
+            UIKeyframeSheet clicked = this.currentGraph.getSheet(context.mouseX, context.mouseY);
+            if (this.isEditing() && this.curveGraph.findCurve(context.mouseX, context.mouseY) != null)
+            {
+                this.setActiveTrack(clicked);
+                return;
+            }
             this.currentGraph.clearSelection();
-            this.pickKeyframe(null);
+            if (clicked != null) this.selectTrack(clicked);
+            else this.pickKeyframe(null);
         }
 
         if (!this.marquee.isPressed())
         {
             this.dragging = 0;
+            this.transformAxis = 0;
             this.draggingData = pair;
 
             if (pair != null && pair.b != KeyframeType.REGULAR)
@@ -1424,29 +1728,20 @@ public class UIKeyframes extends UITimelineCanvas
         this.xAxis.stopZoom();
         this.currentGraph.stopZoom();
         if (this.loops.keyPressed(context)) return true;
-        if (this.currentGraph != this.dopeSheet && context.isPressed(GLFW.GLFW_KEY_ESCAPE) && !this.single)
+        if (context.isPressed(GLFW.GLFW_KEY_ESCAPE))
         {
-            this.editSheet(null);
-
-            return true;
-        }
-
-        if ((this.scaling || this.stacking) && context.isPressed(GLFW.GLFW_KEY_ESCAPE))
-        {
-            /* Reset scaling */
-            this.scaling = false;
-
+            if (this.dragging >= 0)
+            {
+                this.cancelKeyframes();
+                this.dragging = -1;
+                this.currentGraph.pickSelected();
+                return true;
+            }
             if (this.stacking)
             {
                 this.stackKeyframes(true);
+                return true;
             }
-
-            for (Map.Entry<Keyframe, Float> entry : this.scaleTicks.entrySet())
-            {
-                entry.getKey().setTick(entry.getValue(), true);
-            }
-
-            return true;
         }
 
         return super.subKeyPressed(context);
@@ -1543,23 +1838,32 @@ public class UIKeyframes extends UITimelineCanvas
 
         if (this.scaling)
         {
-            float tick = (float) this.fromGraphX(context.mouseX);
-            float originalTick = (float) this.fromGraphX(this.initialX);
-            float ratio = (tick - this.scalingAnchor) / (originalTick - this.scalingAnchor);
-
-            for (Map.Entry<Keyframe, Float> entry : this.scaleTicks.entrySet())
+            /* A 100 px displacement doubles the spread around the gesture's fixed pivot. */
+            double ratio = Math.pow(2D, (this.scalingValues ? this.initialY - mouseY : mouseX - this.initialX) / 100D);
+            if (!this.isEditing())
             {
-                Keyframe keyframe = entry.getKey();
-                float oldTick = entry.getValue();
-                float newTick = this.scalingAnchor + (oldTick - this.scalingAnchor) * ratio;
-
-                if (Window.isCtrlPressed())
-                {
-                    newTick = Math.round(newTick);
-                }
-
-                keyframe.setTick(((KeyframeChannel) keyframe.getParent()).constrainKeyframeTick(keyframe, newTick), true);
+                double origin = this.fromGraphX(this.initialX) - this.scalingAnchor;
+                ratio = Math.abs(origin) < 1E-6D ? 1D : (this.fromGraphX(mouseX) - this.scalingAnchor) / origin;
             }
+            for (Map.Entry<Keyframe, Keyframe> entry : this.transformKeys.entrySet())
+            {
+                Keyframe key = entry.getKey(), original = entry.getValue();
+                float time = this.scalingValues ? original.getTick()
+                    : (float) (this.scalingAnchor + (original.getTick() - this.scalingAnchor) * ratio);
+                if (!this.scalingValues && (this.isEditing() ? this.isSnappingToTicks() : Window.isCtrlPressed())) time = Math.round(time);
+                key.setTick(((KeyframeChannel) key.getParent()).constrainKeyframeTick(key, time), false);
+                if (KeyframeFactories.isNumeric(key.getFactory()))
+                {
+                    key.setValue(key.getFactory().yToValue(this.scalingValues
+                        ? this.scalingValueAnchor + (original.getY() - this.scalingValueAnchor) * ratio : original.getY()), false);
+                    if (!this.isEditing()) continue;
+                    key.lx = original.lx * (this.scalingValues ? 1F : (float) ratio);
+                    key.rx = original.rx * (this.scalingValues ? 1F : (float) ratio);
+                    key.ly = original.ly * (this.scalingValues ? (float) ratio : 1F);
+                    key.ry = original.ry * (this.scalingValues ? (float) ratio : 1F);
+                }
+            }
+            this.triggerChange();
         }
         else if (this.dragging == 0 && mouseHasMoved)
         {
@@ -1613,16 +1917,9 @@ public class UIKeyframes extends UITimelineCanvas
 
         if (this.backgroundRender != null)
         {
-            if (this.currentGraph == this.dopeSheet)
-            {
-                context.batcher.clip(this.graphArea, context);
-                this.backgroundRender.accept(context);
-                context.batcher.unclip(context);
-            }
-            else
-            {
-                this.backgroundRender.accept(context);
-            }
+            context.batcher.clip(this.graphArea, context);
+            this.backgroundRender.accept(context);
+            context.batcher.unclip(context);
         }
     }
 
@@ -1632,13 +1929,26 @@ public class UIKeyframes extends UITimelineCanvas
     {
         KeyframeState state = new KeyframeState();
 
+        if (this.activeSheet != null) state.extra.putString("active_track", this.activeSheet.id);
+        ListType tracks = new ListType();
+        for (UIKeyframeSheet sheet : this.selectedTracks.getItems()) tracks.addString(sheet.id);
+        state.extra.put("selected_tracks", tracks);
+        if (this.selectedTracks.getAnchor() != null) state.extra.putString("track_anchor", this.selectedTracks.getAnchor().id);
         state.extra.putDouble("x_min", this.xAxis.getMinValue());
         state.extra.putDouble("x_max", this.xAxis.getMaxValue());
-        this.currentGraph.saveState(state.extra);
+        state.extra.putBool("graph", this.isEditing());
+        this.dopeSheet.saveState(state.extra);
+        this.curveGraph.saveState(state.extra);
+        MapType selection = new MapType();
+        for (UIKeyframeSheet sheet : this.getSheets())
+            selection.put(sheet.id, DataStorageUtils.intListToData(sheet.selection.getIndices()));
+        state.extra.put("key_selection", selection);
 
-        for (UIKeyframeSheet property : this.currentGraph.getSheets())
+        UIKeyframeSheet pickedSheet = this.dopeSheet.getSheet(this.pickedKeyframe);
+        if (pickedSheet != null)
         {
-            state.selected.add(new ArrayList<>(property.selection.getIndices()));
+            state.extra.putString("picked_track", pickedSheet.id);
+            state.extra.putInt("picked_key", pickedSheet.channel.indexOf(this.pickedKeyframe));
         }
 
         return state;
@@ -1647,27 +1957,70 @@ public class UIKeyframes extends UITimelineCanvas
     public void applyState(KeyframeState state)
     {
         this.xAxis.view(state.extra.getDouble("x_min"), state.extra.getDouble("x_max"));
-        this.currentGraph.restoreState(state.extra);
+        this.currentGraph = state.extra.getBool("graph") ? this.curveGraph : this.dopeSheet;
+        this.dopeSheet.restoreState(state.extra);
+        this.curveGraph.restoreState(state.extra);
+        this.pickedKeyframe = null;
+        List<UIKeyframeSheet> properties = this.getSheets();
 
-        List<UIKeyframeSheet> properties = this.currentGraph.getSheets();
-
-        for (int i = 0; i < properties.size(); i++)
+        MapType selections = state.extra.getMap("key_selection");
+        for (UIKeyframeSheet sheet : properties)
         {
-            if (CollectionUtils.inRange(state.selected, i))
+            sheet.selection.clear();
+            if (selections.has(sheet.id)) sheet.selection.addAll(DataStorageUtils.intListFromData(selections.get(sheet.id)));
+        }
+
+        List<UIKeyframeSheet> tracks = new ArrayList<>();
+        for (BaseType id : state.extra.getList("selected_tracks"))
+        {
+            UIKeyframeSheet sheet = this.dopeSheet.getSheet(id.asString());
+            if (sheet != null) tracks.add(sheet);
+        }
+        this.selectedTracks.setAll(tracks);
+        UIKeyframeSheet anchor = this.dopeSheet.getSheet(state.extra.getString("track_anchor"));
+        if (this.selectedTracks.contains(anchor)) this.selectedTracks.add(anchor, null);
+        UIKeyframeSheet picked = this.dopeSheet.getSheet(state.extra.getString("picked_track"));
+        this.pickedKeyframe = picked == null ? null : picked.channel.get(state.extra.getInt("picked_key"));
+        UIKeyframeSheet active = this.dopeSheet.getSheet(state.extra.getString("active_track"));
+        this.selectTrack(active == null ? this.selectedTracks.getFirst() : active);
+        if (this.activeSheet == null) this.currentGraph.pickSelected();
+        this.resize();
+    }
+
+    /** Restore picks only for channels retained by the same editor/actor. */
+    public void copySelection(UIKeyframes previous)
+    {
+        List<UIKeyframeSheet> tracks = new ArrayList<>();
+        UIKeyframeSheet active = null;
+        UIKeyframeSheet anchor = null;
+
+        for (UIKeyframeSheet sheet : this.dopeSheet.getSheets())
+        {
+            for (UIKeyframeSheet old : previous.dopeSheet.getSheets())
             {
-                properties.get(i).selection.clear();
-                properties.get(i).selection.addAll(state.selected.get(i));
+                if (old.channel != sheet.channel) continue;
+                sheet.selection.addAll(old.selection.getIndices());
+                if (previous.isTrackSelected(old)) tracks.add(sheet);
+                if (previous.activeSheet == old) active = sheet;
+                if (previous.pickedKeyframe != null && old.selection.has(previous.pickedKeyframe)) this.pickedKeyframe = previous.pickedKeyframe;
+                if (previous.selectedTracks.getAnchor() == old) anchor = sheet;
+                break;
             }
         }
 
-        this.currentGraph.pickSelected();
+        this.selectedTracks.setAll(tracks);
+        if (anchor != null) this.selectedTracks.add(anchor, null);
+        this.setActiveTrack(active == null ? this.selectedTracks.getFirst() : active);
     }
 
     public void copyViewport(UIKeyframes lastEditor)
     {
+        this.graphArea.copy(lastEditor.graphArea);
+        this.currentGraph = lastEditor.isEditing() ? this.curveGraph : this.dopeSheet;
+        this.curveGraph.copyViewport(lastEditor.curveGraph);
         this.getDopeSheet().setTrackHeight(lastEditor.getDopeSheet().getTrackHeight());
         this.getXAxis().copy(lastEditor.getXAxis());
-        this.getDopeSheet().getYAxis().copy(lastEditor.getDopeSheet().getYAxis());
+        this.getDopeSheet().getYAxis().setScroll(lastEditor.getDopeSheet().getYAxis().getScroll());
     }
 
     public static class PastedKeyframes
@@ -1687,9 +2040,14 @@ public class UIKeyframes extends UITimelineCanvas
 
         public SheetCache(Collection<UIKeyframeSheet> sheets)
         {
+            this(sheets, false);
+        }
+
+        public SheetCache(Collection<UIKeyframeSheet> sheets, boolean all)
+        {
             for (UIKeyframeSheet sheet : sheets)
             {
-                if (sheet.selection.hasAny())
+                if (all || sheet.selection.hasAny())
                 {
                     this.data.add(new Pair<>(sheet.channel.toData(), sheet));
                 }

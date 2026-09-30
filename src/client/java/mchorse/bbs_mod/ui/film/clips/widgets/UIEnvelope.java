@@ -88,15 +88,16 @@ public class UIEnvelope extends UIElement
         {
             this.panel.editor.embedView(this.channel);
             this.channel.view.resetView();
-            this.channel.view.editSheet(this.channel.view.getGraph().getSheets().get(0));
+            this.channel.view.setGraphMode(true);
             this.channel.view.getGraph().clearSelection();
         });
         this.channel = new UIKeyframeEditor((consumer) -> new UIFilmKeyframes(this.panel.editor, consumer));
+        this.channel.setUndoId("envelope_keyframes");
         this.channel.view.rulerRenderer((context) ->
         {
             UIReplaysEditor.renderRuler(context, this.channel.view, (UIClipsPanel) this.panel.editor, (Clips) this.panel.clip.getParent(), this.panel.clip.tick.get());
         });
-        this.channel.view.single().duration(() -> this.panel.clip.duration.get());
+        this.channel.view.duration(() -> this.panel.clip.duration.get());
 
         this.column().vertical().stretch();
     }

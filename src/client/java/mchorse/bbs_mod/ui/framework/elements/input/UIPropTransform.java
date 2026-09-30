@@ -9,6 +9,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragEndEvent;
+import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragStartEvent;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIChoiceButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.drag.TransformGesture;
@@ -139,7 +140,11 @@ public class UIPropTransform extends UITransform implements TransformGesture.Hos
          * field several times in a row undoes one drag at a time (see endGesture). */
         for (UITrackpad field : new UITrackpad[]{this.tx, this.ty, this.tz, this.sx, this.sy, this.sz, this.rx, this.ry, this.rz, this.qw, this.qx, this.qy, this.qz})
         {
-            field.getEvents().register(UITrackpadDragEndEvent.class, (e) -> this.endGesture());
+            field.getEvents().register(UITrackpadDragStartEvent.class, e -> this.beginGesture());
+            field.getEvents().register(UITrackpadDragEndEvent.class, (e) ->
+            {
+                if (!e.cancelled || !this.cancelGesture()) this.endGesture();
+            });
         }
 
         /* The deferred uniform-scale row sync (see setTransform). Mouse events traverse

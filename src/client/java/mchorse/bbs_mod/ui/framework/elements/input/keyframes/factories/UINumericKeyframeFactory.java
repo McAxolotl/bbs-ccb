@@ -3,37 +3,37 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.utils.UIBezierHandles;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Base class for numeric keyframe factories (Double, Float, Integer).
+ * Base class for numeric track factories (Double, Float, Integer).
  */
 public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyframeFactory<T>
 {
     protected UITrackpad value;
-    protected UIBezierHandles handles;
 
     private int lastMouseX;
     private boolean editingMode;
-    private double editingInitialValue;
+    private T displayedValue;
+    private final UIElement editingOverlay = new AcceptRejectOverlay();
 
-    public UINumericKeyframeFactory(Keyframe<T> keyframe, UIKeyframes editor)
+    public UINumericKeyframeFactory(UITrackValue<T> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
-        this.value = new UITrackpad((v) -> this.setValue(v));
-        this.value.setValue(this.getNumericValue(keyframe.getValue()));
-        this.handles = new UIBezierHandles(keyframe);
+        this.value = new UITrackpad((v) -> this.setNumericValue(v));
+        this.displayedValue = track.getValue();
+        this.value.setValue(this.getNumericValue(this.displayedValue));
 
         this.keys().register(Keys.TRANSFORMATIONS_TRANSLATE, this::startEditingMode).category(UIKeys.TRANSFORMS_KEYS_CATEGORY);
-        this.scroll.add(this.value, this.handles.createColumn());
+        this.scroll.add(this.value);
     }
 
     /**
@@ -42,34 +42,36 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
     protected abstract double getNumericValue(T value);
 
     /**
-     * Convert double value back to typed value and update the given keyframe.
+     * Convert double value back to typed value and update the given track.
      */
-    protected abstract void setKeyframeValue(Keyframe<T> keyframe, double value);
+    protected abstract T convertValue(double value);
 
     /**
-     * Override parent's setValue to handle numeric conversion. With auto-keyframing on the edit
-     * lands on the keyframe at the playhead instead of the one this panel was opened for.
+     * Convert the trackpad's Double before writing to a typed numeric track. Keep the name
+     * distinct from setValue(Object), which would accept a boxed Double without conversion.
      */
-    private void setValue(double value)
+    private void setNumericValue(double value)
     {
-        Keyframe<T> target = this.getEditTarget();
-
-        this.setKeyframeValue(target, value);
-        this.editor.getGraph().setValue(target.getValue(), true, true);
+        T converted = this.convertValue(value);
+        T before = this.displayedValue;
+        this.displayedValue = converted;
+        this.track.setValue(converted, before);
     }
 
     private void startEditingMode()
     {
         UIContext context = this.getContext();
 
-        if (context == null)
+        if (context == null || this.editingMode)
         {
             return;
         }
 
-        this.editingInitialValue = this.value.getValue();
+        this.update();
+        this.editor.beginValueGesture();
         this.lastMouseX = context.mouseX;
         this.editingMode = true;
+        context.menu.overlay.add(this.editingOverlay);
     }
 
     private void stopEditingMode(boolean accept)
@@ -80,56 +82,53 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
         }
 
         this.editingMode = false;
+        this.editingOverlay.removeFromParent();
 
-        if (!accept)
-        {
-            this.value.setValue(this.editingInitialValue);
-            this.setValue(this.editingInitialValue);
-        }
+        if (accept) this.editor.endValueGesture();
+        else this.editor.cancelValueGesture();
+        this.update();
     }
 
     @Override
-    public boolean subMouseClicked(UIContext context)
+    protected void onRemove(UIElement parent)
     {
-        if (this.editingMode)
-        {
-            if (context.mouseButton == 0)
-            {
-                this.stopEditingMode(true);
-
-                return true;
-            }
-            else if (context.mouseButton == 1)
-            {
-                this.stopEditingMode(false);
-
-                return true;
-            }
-        }
-
-        return super.subMouseClicked(context);
+        this.stopEditingMode(false);
+        super.onRemove(parent);
     }
 
-    @Override
-    protected boolean subKeyPressed(UIContext context)
+    /** Handle the gesture before fields, timelines and their context menus. */
+    private class AcceptRejectOverlay extends UIElement
     {
-        if (this.editingMode)
+        @Override
+        protected boolean subMouseClicked(UIContext context)
         {
-            if (context.isPressed(GLFW.GLFW_KEY_ENTER))
+            if (context.mouseButton == 0 || context.mouseButton == 1)
             {
-                this.stopEditingMode(true);
+                UINumericKeyframeFactory.this.stopEditingMode(context.mouseButton == 0);
+            }
+            return true;
+        }
 
-                return true;
+        @Override
+        protected boolean subKeyPressed(UIContext context)
+        {
+            if (context.isPressed(GLFW.GLFW_KEY_ENTER) || context.isPressed(GLFW.GLFW_KEY_KP_ENTER))
+            {
+                UINumericKeyframeFactory.this.stopEditingMode(true);
             }
             else if (context.isPressed(GLFW.GLFW_KEY_ESCAPE))
             {
-                this.stopEditingMode(false);
-
-                return true;
+                UINumericKeyframeFactory.this.stopEditingMode(false);
             }
+            return true;
         }
 
-        return super.subKeyPressed(context);
+        @Override
+        protected boolean subMouseScrolled(UIContext context)
+        {
+            UITrackpad.updateAmplifier(context);
+            return true;
+        }
     }
 
     /** Nothing is refreshed under the user's hands: not while typing, dragging or grabbing. */
@@ -139,13 +138,14 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
     }
 
     @Override
+    public boolean isUserEditing()
+    {
+        return this.editingMode || super.isUserEditing();
+    }
+
+    @Override
     public void render(UIContext context)
     {
-        if (this.followsPlayhead() && !this.isBusy())
-        {
-            this.value.setValue(this.getNumericValue(this.getDisplayValue()));
-        }
-
         super.render(context);
 
         if (this.editingMode)
@@ -163,7 +163,7 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
                 }
 
                 this.value.setValue(newValue);
-                this.setValue(newValue);
+                this.setNumericValue(newValue);
                 this.lastMouseX = context.mouseX;
             }
 
@@ -183,9 +183,9 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
 
         if (!this.isBusy())
         {
-            this.value.setValue(this.getNumericValue(this.getDisplayValue()));
+            this.displayedValue = this.getDisplayValue();
+            this.value.setValue(this.getNumericValue(this.displayedValue));
         }
 
-        this.handles.update();
     }
 }

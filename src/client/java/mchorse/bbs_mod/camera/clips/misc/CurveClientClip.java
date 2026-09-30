@@ -68,7 +68,7 @@ public class CurveClientClip extends CurveClip
 
         for (KeyframeChannel<Double> channel : this.channels.getChannels())
         {
-            if (channel.isEmpty())
+            if (!channel.hasEnabledKeyframes())
             {
                 continue;
             }

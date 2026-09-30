@@ -15,6 +15,7 @@ import mchorse.bbs_mod.ui.film.utils.shader.ShaderCurvePicker;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.KeyframeState;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UILabelListOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
@@ -125,7 +126,7 @@ public class UICurveClip extends UIClip<CurveClip>
                 });
             }).label(UIKeys.CAMERA_PANELS_CURVE_ADD);
 
-            UIKeyframeSheet sheet = this.keyframes.view.getDopeSheet().getSheet(this.getContext().mouseY);
+            UIKeyframeSheet sheet = this.keyframes.view.getGraph().getSheet(this.getContext().mouseX, this.getContext().mouseY);
 
             menu.icon(MenuVerb.REMOVE, () ->
             {
@@ -163,12 +164,14 @@ public class UICurveClip extends UIClip<CurveClip>
     {
         super.fillData();
 
+        KeyframeState state = this.keyframes.view.getSheets().isEmpty() ? null : this.keyframes.view.cacheState();
         this.keyframes.view.removeAllSheets();
 
         for (KeyframeChannel<?> channel : this.clip.channels.getAllKeyframeChannels())
         {
             this.addKeyframeSheet(channel);
         }
+        if (state != null) this.keyframes.view.applyState(state);
     }
 
     @Override
@@ -177,7 +180,6 @@ public class UICurveClip extends UIClip<CurveClip>
         if (data.getString("embed").equals("curve"))
         {
             this.editor.embedView(this.keyframes);
-            this.keyframes.view.resetView();
         }
 
         super.applyUndoData(data);

@@ -390,8 +390,6 @@ public abstract class UIClip <T extends Clip> extends UIElement
         if (data.getString("embed").equals("envelope"))
         {
             this.editor.embedView(this.envelope.channel);
-            this.envelope.channel.view.editSheet(this.envelope.channel.view.getGraph().getSheets().get(0));
-            this.envelope.channel.view.resetView();
         }
     }
 

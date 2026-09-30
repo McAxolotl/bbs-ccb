@@ -1,13 +1,13 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 
 public class UIDoubleKeyframeFactory extends UINumericKeyframeFactory<Double>
 {
-    public UIDoubleKeyframeFactory(Keyframe<Double> keyframe, UIKeyframes editor)
+    public UIDoubleKeyframeFactory(UITrackValue<Double> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
     }
 
     @Override
@@ -17,8 +17,8 @@ public class UIDoubleKeyframeFactory extends UINumericKeyframeFactory<Double>
     }
 
     @Override
-    protected void setKeyframeValue(Keyframe<Double> keyframe, double value)
+    protected Double convertValue(double value)
     {
-        keyframe.setValue(value);
+        return value;
     }
 }

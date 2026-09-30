@@ -9,19 +9,20 @@ import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.shapes.UIShapeKeys;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 
 import java.util.Set;
 
 public class UIShapeKeysKeyframeFactory extends UIKeyframeFactory<ShapeKeys>
 {
     private UIShapeKeys shapeKeys;
+    private ShapeKeys displayed;
 
-    public UIShapeKeysKeyframeFactory(Keyframe<ShapeKeys> keyframe, UIKeyframes editor)
+    public UIShapeKeysKeyframeFactory(UITrackValue<ShapeKeys> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
 
-        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+        UIKeyframeSheet sheet = track.sheet;
         ModelForm form = (ModelForm) FormUtils.getForm(sheet.property);
         ModelInstance model = ((ModelFormRenderer) FormUtilsClient.getRenderer(form)).getModel();
         Set<String> shapeKeys = model.model.getShapeKeys();
@@ -30,8 +31,19 @@ public class UIShapeKeysKeyframeFactory extends UIKeyframeFactory<ShapeKeys>
 
         if (!shapeKeys.isEmpty())
         {
-            this.shapeKeys.setShapeKeys(model.getPoseGroup(), shapeKeys, keyframe.getValue());
+            this.displayed = track.getValue();
+            this.shapeKeys.setShapeKeys(model.getPoseGroup(), shapeKeys, this.displayed);
             this.scroll.add(this.shapeKeys);
+        }
+    }
+
+    @Override
+    public void update()
+    {
+        if (this.displayed != null && !this.shapeKeys.value.isUserEditing())
+        {
+            this.displayed = this.getDisplayValue();
+            this.shapeKeys.refreshValue(this.displayed);
         }
     }
 
@@ -48,14 +60,16 @@ public class UIShapeKeysKeyframeFactory extends UIKeyframeFactory<ShapeKeys>
         protected void changedShapeKeys(Runnable runnable)
         {
             super.changedShapeKeys(runnable);
+            this.editor.track.setValue(this.editor.displayed);
         }
 
         @Override
         protected void setValue(float v)
         {
-            this.editor.keyframe.preNotify();
-            super.setValue(v);
-            this.editor.keyframe.postNotify();
+            this.editor.track.edit(value ->
+            {
+                for (String key : this.list.getCurrent()) value.shapeKeys.put(key, v);
+            });
         }
     }
 }

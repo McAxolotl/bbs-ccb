@@ -246,7 +246,7 @@ public class ReplayKeyframes extends ValueGroup
         {
             KeyframeChannel<ItemStack> slot = this.hotbar.get(i);
 
-            if (!slot.isEmpty())
+            if (slot.hasEnabledKeyframes())
             {
                 entity.setHotbarStack(i, slot.interpolate(tick, ItemStack.EMPTY));
             }
@@ -261,7 +261,7 @@ public class ReplayKeyframes extends ValueGroup
         {
             KeyframeChannel<ItemStack> channel = this.getEquipmentChannel(slot);
 
-            if (!channel.isEmpty())
+            if (channel.hasEnabledKeyframes())
             {
                 entity.setEquipmentStack(slot, channel.interpolate(tick, ItemStack.EMPTY));
             }
@@ -271,7 +271,7 @@ public class ReplayKeyframes extends ValueGroup
     /** Whether the replay has anything to say about given hotbar cell. */
     public boolean drivesHotbarSlot(int slot)
     {
-        return !this.hotbar.get(slot).isEmpty();
+        return this.hotbar.get(slot).hasEnabledKeyframes();
     }
 
     /**

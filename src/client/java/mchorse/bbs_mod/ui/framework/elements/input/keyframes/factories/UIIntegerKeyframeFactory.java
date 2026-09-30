@@ -1,13 +1,13 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 
 public class UIIntegerKeyframeFactory extends UINumericKeyframeFactory<Integer>
 {
-    public UIIntegerKeyframeFactory(Keyframe<Integer> keyframe, UIKeyframes editor)
+    public UIIntegerKeyframeFactory(UITrackValue<Integer> track, UIKeyframes editor)
     {
-        super(keyframe, editor);
+        super(track, editor);
         this.value.integer();
     }
 
@@ -18,8 +18,8 @@ public class UIIntegerKeyframeFactory extends UINumericKeyframeFactory<Integer>
     }
 
     @Override
-    protected void setKeyframeValue(Keyframe<Integer> keyframe, double value)
+    protected Integer convertValue(double value)
     {
-        keyframe.setValue((int) value);
+        return (int) value;
     }
 }

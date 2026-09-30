@@ -168,7 +168,6 @@ public class UIKeyframeClip extends UIClip<KeyframeClip>
         if (data.getString("embed").equals("keyframe"))
         {
             this.editor.embedView(this.keyframes);
-            this.keyframes.view.resetView();
         }
     }
 

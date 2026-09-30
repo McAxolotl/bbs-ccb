@@ -68,8 +68,8 @@ public class KeyframeSegment <T>
 
         if (index >= 0)
         {
-            Keyframe<T> preA = channel.get(index - 1);
-            Keyframe<T> postB = channel.get(index + 2);
+            Keyframe<T> preA = channel.get(channel.previousEnabledIndex(index - 1));
+            Keyframe<T> postB = channel.get(channel.nextEnabledIndex(channel.nextEnabledIndex(index + 1) + 1));
 
             this.preA = preA == null ? a : preA;
             this.postB = postB == null ? b : postB;
