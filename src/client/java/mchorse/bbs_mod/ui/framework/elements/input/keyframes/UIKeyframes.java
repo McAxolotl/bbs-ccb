@@ -156,6 +156,7 @@ public class UIKeyframes extends UITimelineCanvas
 
         float tick = this.getTick();
         this.beginValueGesture();
+        for (UIKeyframeSheet sheet : this.currentGraph.getSheets()) sheet.selection.clear();
 
         for (UIKeyframeSheet sheet : this.selectedTracks.getItems())
         {
@@ -163,6 +164,7 @@ public class UIKeyframes extends UITimelineCanvas
             Keyframe keyframe = sheet.ensureKeyframe(tick);
 
             if (empty) keyframe.getInterpolation().setInterp(BBSSettings.getDefaultKeyframeInterpolation());
+            sheet.selection.add(keyframe);
         }
 
         this.endValueGesture();
@@ -201,20 +203,23 @@ public class UIKeyframes extends UITimelineCanvas
         Map<UIKeyframeSheet, List<Integer>> selection = new HashMap<>();
         for (Pair<BaseType, UIKeyframeSheet> before : beforeState.data)
         {
+            selection.put(before.b, new ArrayList<>(before.b.selection.getIndices()));
+            before.b.selection.clear();
+            before.b.selection.addAll(this.valueSelection.get(before.b));
             BaseType data = before.b.channel.toData();
             if (before.a.equals(data)) continue;
             after.put(before.b, data);
-            selection.put(before.b, new ArrayList<>(before.b.selection.getIndices()));
             before.b.channel.fromData(before.a);
-            before.b.selection.clear();
-            before.b.selection.addAll(this.valueSelection.get(before.b));
         }
         for (UIKeyframeSheet sheet : after.keySet()) sheet.channel.preNotify(IValueListener.FLAG_UNMERGEABLE);
+        for (UIKeyframeSheet sheet : selection.keySet())
+        {
+            sheet.selection.clear();
+            sheet.selection.addAll(selection.get(sheet));
+        }
         for (UIKeyframeSheet sheet : after.keySet())
         {
             sheet.channel.fromData(after.get(sheet));
-            sheet.selection.clear();
-            sheet.selection.addAll(selection.get(sheet));
             sheet.channel.postNotify(IValueListener.FLAG_UNMERGEABLE);
         }
         this.valueSelection.clear();

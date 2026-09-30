@@ -27,7 +27,7 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
     {
         super(track, editor);
 
-        this.value = new UITrackpad((v) -> this.setValue(v));
+        this.value = new UITrackpad((v) -> this.setNumericValue(v));
         this.displayedValue = track.getValue();
         this.value.setValue(this.getNumericValue(this.displayedValue));
 
@@ -46,10 +46,10 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
     protected abstract T convertValue(double value);
 
     /**
-     * Override parent's setValue to handle numeric conversion. With auto-keyframing on the edit
-     * lands on the track at the playhead instead of the one this panel was opened for.
+     * Convert the trackpad's Double before writing to a typed numeric track. Keep the name
+     * distinct from setValue(Object), which would accept a boxed Double without conversion.
      */
-    private void setValue(double value)
+    private void setNumericValue(double value)
     {
         T converted = this.convertValue(value);
         T before = this.displayedValue;
@@ -166,7 +166,7 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
                 }
 
                 this.value.setValue(newValue);
-                this.setValue(newValue);
+                this.setNumericValue(newValue);
                 this.lastMouseX = context.mouseX;
             }
 

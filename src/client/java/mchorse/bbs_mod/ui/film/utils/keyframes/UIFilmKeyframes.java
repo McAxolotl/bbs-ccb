@@ -100,6 +100,15 @@ public class UIFilmKeyframes extends UIKeyframes
     }
 
     @Override
+    public boolean canInsertAtPlayhead()
+    {
+        UIFilmPanel panel = this.getParent(UIFilmPanel.class);
+
+        /* Character control uses the controller's live actor recording shortcut. */
+        return super.canInsertAtPlayhead() && (panel == null || !panel.getController().isControlling());
+    }
+
+    @Override
     public float getPlayheadTick(UIContext context)
     {
         return this.editor == null ? 0F : this.editor.getTimelineCursor(context.getTransition()) - this.getClipOffset();
