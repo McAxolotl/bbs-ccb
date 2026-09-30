@@ -1111,7 +1111,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             }
 
             boolean hover = area.isInside(context) && (!this.keyframes.isEditing() || context.mouseX < this.keyframes.graphArea.x) && context.mouseY >= sy && context.mouseY < sy + height;
-            this.renderRowBackground(context, area.x, sy, w, height);
+            this.renderRowBackground(context, area.x, sy, w, height, true);
             RowStyle.row(context.batcher, area.x, sy, w, height, section.color(), true, hover, false);
             Icon icon = section.icon();
             boolean hasIcon = icon != null && height >= 12;
@@ -1161,7 +1161,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         int my = y + height / 2;
         int lx = area.x;
 
-        this.renderRowBackground(context, lx, y, w, height);
+        this.renderRowBackground(context, lx, y, w, height, true);
         RowStyle.row(context.batcher, lx, y, w, height, sheet.color, false, hover, this.keyframes.isTrackSelected(sheet));
 
         if (sheet == this.revealedSheet && System.currentTimeMillis() < this.revealUntil)
@@ -1207,10 +1207,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     }
 
     /** All visible rows have the same height, including section headers. */
-    private void renderRowBackground(UIContext context, int x, int y, int width, int height)
+    private void renderRowBackground(UIContext context, int x, int y, int width, int height, boolean label)
     {
         int row = (y - this.getDopeSheetY()) / (int) this.trackHeight;
-        int surface = BBSSettings.timelineRowSurface(row);
+        int surface = label
+            ? (row % 2 == 0 ? BBSSettings.baseSurface() : BBSSettings.raisedSurface())
+            : BBSSettings.timelineRowSurface(row);
 
         context.batcher.box(x, y, x + width, y + height, surface);
     }
@@ -1224,7 +1226,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             if (y + height < area.y || y > area.ey()) continue;
 
-            this.renderRowBackground(context, area.x, y, area.w, height);
+            this.renderRowBackground(context, area.x, y, area.w, height, false);
 
             if (area.isInside(context) && context.mouseY >= y && context.mouseY < y + height)
             {
@@ -1266,7 +1268,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         int trackWidth = BBSSettings.editorTrackWidth.get();
 
-        this.renderRowBackground(context, area.x, y, area.w, bh);
+        this.renderRowBackground(context, area.x, y, area.w, bh, false);
 
         boolean active = this.keyframes.isTrackSelected(sheet);
 
