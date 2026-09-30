@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UITrackValue;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UISplinePointsKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.UIDeltaPropTransform;
 import mchorse.bbs_mod.ui.utils.UISplinePointsEditor;
@@ -343,11 +344,12 @@ public final class SplineFormCheck
         UIKeyframes timeline = new UIKeyframes(null)
         {
             @Override public Float getAutoKeyframeTick() { return 5F; }
+            @Override public float getTick() { return 5F; }
         };
         UIKeyframeSheet sheet = new UIKeyframeSheet(0x5599FF, channel, form.curve).form(form);
         timeline.addSheet(sheet);
         sheet.selection.add(0);
-        UISplinePointsKeyframeFactory factory = new UISplinePointsKeyframeFactory(channel.get(0), timeline);
+        UISplinePointsKeyframeFactory factory = new UISplinePointsKeyframeFactory(new UITrackValue<>(sheet, timeline), timeline);
         factory.pointEditor().select(first);
         factory.pointEditor().selectInViewport(second, true);
         factory.pointEditor().position.setT(Axis.X, 13, 0, 2);
