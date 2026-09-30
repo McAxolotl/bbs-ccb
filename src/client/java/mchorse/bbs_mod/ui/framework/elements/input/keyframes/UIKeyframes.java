@@ -1415,7 +1415,7 @@ public class UIKeyframes extends UITimelineCanvas
 
     private void duplicateOrSelectColumn(UIContext context)
     {
-        if (this.currentGraph.getSelected() != null && !Window.isShiftPressed())
+        if (this.isDuplicatingKeyframes(context))
         {
             /* Duplicate */
             this.pasteKeyframes(this.parseKeyframes(this.serializeKeyframes()), this.getDuplicationTick(context),
@@ -1426,6 +1426,12 @@ public class UIKeyframes extends UITimelineCanvas
 
         /* Select a column */
         this.currentGraph.selectByX(context.mouseX);
+    }
+
+    public boolean isDuplicatingKeyframes(UIContext context)
+    {
+        return this.currentGraph.getSelected() != null && !Window.isShiftPressed()
+            && (this.isDuplicatingAtPlayhead() || this.currentGraph.findKeyframe(context.mouseX, context.mouseY) == null);
     }
 
     public boolean isDuplicatingAtPlayhead()

@@ -965,7 +965,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 this.renderPreviewKeyframe(context, sheet, tick, Colors.WHITE);
             }
         }
-        else if (Window.isAltPressed() && !Window.isShiftPressed())
+        else if (Window.isAltPressed() && this.keyframes.isDuplicatingKeyframes(context))
         {
             List<UIKeyframeSheet> sheets = new ArrayList<>();
             boolean atPlayhead = this.keyframes.isDuplicatingAtPlayhead();

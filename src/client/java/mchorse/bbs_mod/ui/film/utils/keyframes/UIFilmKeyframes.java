@@ -36,6 +36,60 @@ public class UIFilmKeyframes extends UIKeyframes
     }
 
     @Override
+    public void triggerChange()
+    {
+        super.triggerChange();
+
+        UIFilmPanel panel = this.getParent(UIFilmPanel.class);
+        if (panel == null || panel.getController().isControlling()) return;
+        var replay = panel.replayEditor.getReplay();
+        var entity = panel.getController().getCurrentEntity();
+        if (replay == null || entity == null) return;
+
+        var channels = replay.keyframes;
+        boolean position = false;
+        boolean rotation = false;
+        for (var sheet : this.getGraph().getSheets())
+        {
+            if (sheet != this.getActiveSheet() && !sheet.selection.hasAny()) continue;
+            position |= sheet.channel == channels.x || sheet.channel == channels.y || sheet.channel == channels.z;
+            rotation |= sheet.channel == channels.yaw || sheet.channel == channels.pitch
+                || sheet.channel == channels.headYaw || sheet.channel == channels.bodyYaw;
+        }
+        if (!position && !rotation) return;
+
+        float cursor = this.getTick();
+        float tick = replay.getTick((int) cursor) + (cursor - (int) cursor);
+        /* As with the replay gizmo, refresh the live placement now instead of waiting for
+         * the 20 Hz entity tick. Sample the edited channels, including after cancellation. */
+        if (position)
+        {
+            double x = channels.x.interpolate(tick);
+            double y = channels.y.interpolate(tick);
+            double z = channels.z.interpolate(tick);
+            entity.setPosition(x, y, z);
+            entity.setPrevX(x);
+            entity.setPrevY(y);
+            entity.setPrevZ(z);
+        }
+        if (rotation)
+        {
+            float yaw = channels.yaw.interpolate(tick).floatValue();
+            float pitch = channels.pitch.interpolate(tick).floatValue();
+            float headYaw = channels.headYaw.interpolate(tick).floatValue();
+            float bodyYaw = channels.bodyYaw.interpolate(tick).floatValue();
+            entity.setYaw(yaw);
+            entity.setPitch(pitch);
+            entity.setHeadYaw(headYaw);
+            entity.setBodyYaw(bodyYaw);
+            entity.setPrevYaw(yaw);
+            entity.setPrevPitch(pitch);
+            entity.setPrevHeadYaw(headYaw);
+            entity.setPrevBodyYaw(bodyYaw);
+        }
+    }
+
+    @Override
     public void editForm(Form form, Runnable edit)
     {
         Film film = this.editor == null ? null : this.editor.getFilm();
