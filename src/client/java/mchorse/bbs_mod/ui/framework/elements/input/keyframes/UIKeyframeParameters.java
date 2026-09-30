@@ -46,7 +46,8 @@ public class UIKeyframeParameters extends UIElement
         this.tick.getEvents().register(UITrackpadDragStartEvent.class, (e) -> this.editor.cacheKeyframes());
         this.tick.getEvents().register(UITrackpadDragEndEvent.class, (e) ->
         {
-            this.editor.submitKeyframes();
+            if (e.cancelled) this.editor.cancelKeyframes();
+            else this.editor.submitKeyframes();
             this.editor.selectTrack(this.editor.getActiveSheet());
         });
         this.duration = new UITrackpad((v) -> this.setDuration(v.floatValue()));
@@ -73,7 +74,8 @@ public class UIKeyframeParameters extends UIElement
         this.motionShift.getEvents().register(UITrackpadDragEndEvent.class, e ->
         {
             this.draggingMotionShift = false;
-            this.editor.submitKeyframes();
+            if (e.cancelled) this.editor.cancelKeyframes();
+            else this.editor.submitKeyframes();
             this.editor.getGraph().pickSelected();
         });
         this.motionShift.setValue(keyframe.getMotionShift() * 100F);
@@ -108,7 +110,12 @@ public class UIKeyframeParameters extends UIElement
         double time = BBSSettings.editorSnapToTicks.get() ? TimeUtils.fromTime(tick)
             : (BBSSettings.editorSeconds.get() ? tick * 20D : tick);
 
-        this.editor.getGraph().setTick((float) time, !this.tick.isDragging());
+        if (!Double.isFinite(time)) return;
+        boolean dragging = this.tick.isDragging();
+        if (!dragging) this.editor.cacheKeyframes();
+        this.editor.getGraph().moveSelectedBy((float) time - this.keyframe.getTick(), false);
+        if (!dragging) this.editor.submitKeyframes();
+        else this.editor.triggerChange();
     }
 
     public void setDuration(float value)

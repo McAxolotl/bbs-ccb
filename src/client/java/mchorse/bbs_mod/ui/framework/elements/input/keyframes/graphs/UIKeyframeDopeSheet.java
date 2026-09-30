@@ -65,7 +65,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private UIKeyframes keyframes;
 
     /** Every row, parents before their children — the order the catalog handed them over in. */
-    private List<UIKeyframeSheet> sheets = new ArrayList<>();
+    private final List<UIKeyframeSheet> sheets;
     private Map<UIKeyframeSheet, Integer> sheetYCache = new HashMap<>();
 
     private UIKeyframeSheet lastSheet;
@@ -102,6 +102,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private IKey emptyHint;
 
     private Scroll dopeSheet;
+    private final Area scrollArea = new Area();
     private double trackHeight;
 
     public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
@@ -145,7 +146,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     public UIKeyframeDopeSheet(UIKeyframes keyframes)
     {
         this.keyframes = keyframes;
-        this.dopeSheet = new Scroll(this.keyframes.area);
+        this.sheets = keyframes.getSheets();
+        this.dopeSheet = new Scroll(this.scrollArea);
         this.dopeSheet.smoothScrolling(() -> !BBSSettings.scrollingDisableSmoothnessInEditors.get());
         this.dopeSheet.wheelScrollStep(() -> (int) this.trackHeight);
 
@@ -433,17 +435,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @Override
     public Keyframe getSelected()
     {
-        for (UIKeyframeSheet sheet : this.sheets)
-        {
-            Keyframe first = sheet.selection.getFirst();
-
-            if (first != null)
-            {
-                return first;
-            }
-        }
-
-        return null;
+        return IUIKeyframeGraph.super.getSelected();
     }
 
     @Override
@@ -524,6 +516,11 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     }
 
     @Override
+    public UIKeyframeSheet getSheet(int mouseX, int mouseY)
+    {
+        return this.getSheet(mouseY);
+    }
+
     public UIKeyframeSheet getSheet(int mouseY)
     {
         int relY = mouseY - this.getDopeSheetY();
@@ -621,6 +618,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @Override
     public void resize()
     {
+        this.scrollArea.copy(this.keyframes.area);
+        if (this.keyframes.isEditing()) this.scrollArea.w = this.keyframes.getLabelWidth();
         this.dopeSheet.clamp();
     }
 
@@ -811,7 +810,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             tick = Math.round(this.keyframes.fromGraphX(context.mouseX) - offset);
         }
 
-        this.setTick(tick, false);
+        if (type != null) this.moveSelectedBy(tick - type.a.getTick(), false);
         this.keyframes.triggerChange();
     }
 
@@ -1093,7 +1092,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
     }
 
-    private void renderLabels(UIContext context)
+    public void renderLabels(UIContext context)
     {
         Area area = this.keyframes.area;
         int w = this.keyframes.getLabelWidth();
@@ -1111,7 +1110,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 continue;
             }
 
-            boolean hover = area.isInside(context) && context.mouseY >= sy && context.mouseY < sy + height;
+            boolean hover = area.isInside(context) && (!this.keyframes.isEditing() || context.mouseX < this.keyframes.graphArea.x) && context.mouseY >= sy && context.mouseY < sy + height;
             this.renderRowBackground(context, area.x, sy, w, height);
             RowStyle.row(context.batcher, area.x, sy, w, height, section.color(), true, hover, false);
             Icon icon = section.icon();
@@ -1158,7 +1157,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         /* Hover: whole row (label + track area) */
-        boolean hover = area.isInside(context) && context.mouseY >= y && context.mouseY < y + height;
+        boolean hover = area.isInside(context) && (!this.keyframes.isEditing() || context.mouseX < this.keyframes.graphArea.x) && context.mouseY >= y && context.mouseY < y + height;
         int my = y + height / 2;
         int lx = area.x;
 
@@ -1261,7 +1260,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         List keyframes = sheet.channel.getKeyframes();
 
-        boolean hover = area.isInside(context) && context.mouseY >= y && context.mouseY < y + height;
+        boolean hover = area.isInside(context) && (!this.keyframes.isEditing() || context.mouseX < this.keyframes.graphArea.x) && context.mouseY >= y && context.mouseY < y + height;
         int my = y + height / 2;
         int bh = Math.max(2, height);
 

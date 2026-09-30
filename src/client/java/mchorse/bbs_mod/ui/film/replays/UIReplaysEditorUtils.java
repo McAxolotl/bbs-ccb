@@ -890,12 +890,12 @@ public class UIReplaysEditorUtils
     private static UIKeyframeSheet resolveBoneSheet(UIKeyframeEditor keyframeEditor, String boneKey, String formPath)
     {
         IUIKeyframeGraph graph = keyframeEditor.view.getGraph();
-        UIKeyframeSheet sheet = graph.getSheet(boneKey);
+        UIKeyframeSheet sheet = keyframeEditor.view.getDopeSheet().getSheet(boneKey);
 
         if (sheet == null)
         {
             /* Fallback: match by id ignoring case (stencil may return "head", sheet id may be "pose.bones.Head") */
-            for (UIKeyframeSheet s : graph.getSheets())
+            for (UIKeyframeSheet s : keyframeEditor.view.getSheets())
             {
                 if (s.id != null && s.id.equalsIgnoreCase(boneKey))
                 {
@@ -929,7 +929,7 @@ public class UIReplaysEditorUtils
 
     private static UIKeyframeSheet getPropertySheet(IUIKeyframeGraph graph, String formPath, String property)
     {
-        for (UIKeyframeSheet sheet : graph.getSheets())
+        for (UIKeyframeSheet sheet : graph.getKeyframes().getSheets())
         {
             if (isPropertySheet(sheet, formPath, property))
             {
@@ -967,7 +967,7 @@ public class UIReplaysEditorUtils
     public static void pickPropertyTrack(UIKeyframeEditor keyframeEditor, ICursor cursor, String key, boolean insert)
     {
         if (keyframeEditor == null) return;
-        UIKeyframeSheet sheet = keyframeEditor.view.getGraph().getSheet(key);
+        UIKeyframeSheet sheet = keyframeEditor.view.getDopeSheet().getSheet(key);
         if (sheet == null) return;
 
         if (insert) insertIntoPropertySheet(keyframeEditor, "", sheet);
@@ -976,7 +976,7 @@ public class UIReplaysEditorUtils
 
     private static void pickProperty(UIKeyframeEditor keyframeEditor, ICursor cursor, String bone, String key, boolean insert)
     {
-        UIKeyframeSheet sheet = keyframeEditor.view.getGraph().getSheet(key);
+        UIKeyframeSheet sheet = keyframeEditor.view.getDopeSheet().getSheet(key);
 
         if (sheet != null)
         {

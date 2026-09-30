@@ -6,13 +6,11 @@ import mchorse.bbs_mod.ui.framework.elements.input.drag.TransformSpace;
 import mchorse.bbs_mod.camera.clips.overwrite.KeyframeClip;
 import mchorse.bbs_mod.film.replays.tracks.TrackId;
 import mchorse.bbs_mod.film.replays.tracks.TrackKind;
-import mchorse.bbs_mod.data.DataStorageUtils;
-import mchorse.bbs_mod.data.types.BaseType;
-import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.utils.UITimelinePanel;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
@@ -20,12 +18,12 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIPoseKey
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIPoseTransformKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UITransformKeyframeFactory;
 import mchorse.bbs_mod.utils.Pair;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import java.util.List;
 import java.util.function.Function;
 
 public class UIKeyframeEditor extends UITimelinePanel
@@ -35,6 +33,7 @@ public class UIKeyframeEditor extends UITimelinePanel
     public UIKeyframes view;
     public UIKeyframeFactory editor;
     private UIKeyframeParameters parameters;
+    private final UIIcon mode;
 
     public UIKeyframeEditor(Function<Runnable, UIKeyframes> factory)
     {
@@ -49,6 +48,9 @@ public class UIKeyframeEditor extends UITimelinePanel
         });
 
         this.add(this.view.full(this).w(1F, -140));
+        this.mode = UIKeyframes.modeButton(() -> this.view);
+        this.mode.relative(this.view.graphArea).x(-UIConstants.ICON_SIZE).y(0);
+        this.add(this.mode);
     }
 
     @Override
@@ -65,6 +67,7 @@ public class UIKeyframeEditor extends UITimelinePanel
 
     public UIKeyframeEditor target(UIElement target)
     {
+        this.mode.setVisible(false);
         this.setTarget(target);
         this.setEmptyState(this::getEmptyLabel);
 
@@ -148,6 +151,11 @@ public class UIKeyframeEditor extends UITimelinePanel
 
     public void setChannel(KeyframeChannel channel, int color)
     {
+        if (this.view.getSheets().size() == 1 && this.view.getSheets().get(0).channel == channel)
+        {
+            this.refreshSelection();
+            return;
+        }
         this.view.removeAllSheets();
         UIKeyframeSheet sheet = new UIKeyframeSheet(color, channel, null);
         this.view.addSheet(sheet);
@@ -156,6 +164,16 @@ public class UIKeyframeEditor extends UITimelinePanel
 
     public void setClip(KeyframeClip clip)
     {
+        boolean sameChannels = this.view.getSheets().size() == clip.channels.length;
+        for (int i = 0; sameChannels && i < clip.channels.length; i++)
+        {
+            sameChannels = this.view.getSheets().get(i).channel == clip.channels[i];
+        }
+        if (sameChannels)
+        {
+            this.refreshSelection();
+            return;
+        }
         this.view.removeAllSheets();
 
         for (int i = 0; i < clip.channels.length; i++)
@@ -342,11 +360,6 @@ public class UIKeyframeEditor extends UITimelinePanel
 
         state.extra = data.getMap("extra");
 
-        for (BaseType type : data.getList("selection"))
-        {
-            state.selected.add(DataStorageUtils.intListFromData(type));
-        }
-
         this.view.applyState(state);
     }
 
@@ -356,14 +369,6 @@ public class UIKeyframeEditor extends UITimelinePanel
         super.collectUndoData(data);
 
         KeyframeState keyframeState = this.view.cacheState();
-        ListType selection = new ListType();
-
-        for (List<Integer> integers : keyframeState.selected)
-        {
-            selection.add(DataStorageUtils.intListToData(integers));
-        }
-
         data.put("extra", keyframeState.extra);
-        data.put("selection", selection);
     }
 }

@@ -14,7 +14,6 @@ import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
-import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 
 import java.util.List;
 
@@ -36,6 +35,7 @@ public interface IUIKeyframeGraph
 
     public UIKeyframeSheet getLastSheet();
 
+    /** Visible operation scope; the complete catalog belongs to UIKeyframes.getSheets(). */
     public List<UIKeyframeSheet> getSheets();
 
     /* Selection */
@@ -76,17 +76,7 @@ public interface IUIKeyframeGraph
 
     public default Keyframe getSelected()
     {
-        for (UIKeyframeSheet sheet : this.getSheets())
-        {
-            Keyframe first = sheet.selection.getFirst();
-
-            if (first != null)
-            {
-                return first;
-            }
-        }
-
-        return null;
+        return this.getKeyframes().getSelectedKeyframe();
     }
 
     /* Keyframe management */
@@ -124,7 +114,7 @@ public interface IUIKeyframeGraph
         return null;
     }
 
-    public UIKeyframeSheet getSheet(int mouseY);
+    public UIKeyframeSheet getSheet(int mouseX, int mouseY);
 
     /** The first row that is a track, for operations that must land somewhere when the cursor is over nothing. */
     public default UIKeyframeSheet getFirstTrackSheet()
@@ -215,8 +205,10 @@ public interface IUIKeyframeGraph
     {
         UIKeyframeSheet sheet = this.getSheet(keyframe);
 
-        sheet.remove(keyframe);
+        if (sheet == null) return;
         sheet.channel.preNotify(IValueListener.FLAG_UNMERGEABLE);
+        sheet.remove(keyframe);
+        sheet.channel.postNotify(IValueListener.FLAG_UNMERGEABLE);
         this.clearSelection();
         this.pickKeyframe(null);
     }
@@ -299,19 +291,6 @@ public interface IUIKeyframeGraph
         for (UIKeyframeSheet sheet : this.getSheets())
         {
             sheet.setInterpolation(interpolation);
-        }
-    }
-
-    /** Direct graph manipulation always edits selected keys, independently of autokey. */
-    public default void setValue(Object value, boolean unmergeable)
-    {
-        Keyframe selected = this.getSelected();
-        if (selected == null) return;
-        IKeyframeFactory factory = selected.getFactory();
-        Object before = factory.copy(selected.getValue());
-        for (UIKeyframeSheet sheet : this.getSheets())
-        {
-            if (sheet.channel.getFactory() == factory) sheet.setValue(value, before, unmergeable);
         }
     }
 

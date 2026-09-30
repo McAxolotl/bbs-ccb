@@ -47,6 +47,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.framework.elements.utils.UITimelineCategoryBar;
 import mchorse.bbs_mod.ui.utils.Gizmo;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.GizmoDrag;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -210,9 +211,11 @@ public class UIAnimationStateEditor extends UIElement
         this.partHeader.relative(this.timelineArea).x(CATEGORY_BAR_WIDTH).w(120).h(TimelineRulerRenderer.RULER_BLOCK_HEIGHT);
         this.partHeader.add(new UIRenderable(context -> this.partHeader.area.render(context.batcher, BBSSettings.baseSurface())));
         UILabel partName = new UILabel(this::getSelectedPartName).color(0xffaaaaaa, false).labelAnchor(0F, 0.5F);
-        partName.relative(this.partHeader).x(5).w(1F, -10).h(1F);
+        partName.relative(this.partHeader).x(5).w(1F, -UIConstants.ICON_SIZE - 10).h(1F);
         partName.tooltip(() -> L10n.lang("bbs.ui.film.replays.selected_body_part").format(this.getSelectedPartName()).get());
-        this.partHeader.add(partName);
+        UIIcon graph = UIKeyframes.modeButton(() -> this.keyframeEditor == null ? null : this.keyframeEditor.view);
+        graph.relative(this.partHeader).x(1F, -UIConstants.ICON_SIZE).y(0.5F).anchorY(0.5F);
+        this.partHeader.add(partName, graph);
         this.timelineArea.add(this.categoryBar, this.partHeader);
 
         this.bodyPartsSection.relative(this.sidebar).x(3).y(1F, -3).w(1F, -6).anchorY(1F);
@@ -387,18 +390,12 @@ public class UIAnimationStateEditor extends UIElement
             this.keyframeEditor.setUndoId("form_animation_state_keyframe_editor");
             this.keyframeEditor.view.getDopeSheet().setEmptyState(UIKeys.KEYFRAMES_EMPTY_FILTERED, UIKeys.KEYFRAMES_EMPTY_FILTERED_HINT);
 
-            /* Reset */
-            if (lastEditor != null)
-            {
-                this.keyframeEditor.view.copyViewport(lastEditor);
-            }
-
             this.keyframeEditor.view.duration(() -> this.state.duration.get());
             this.keyframeEditor.view.context((menu) ->
             {
                 menu.action(Icons.SEARCH, Keys.FILM_TRACK_SEARCH.label, this::openTrackSearch);
                 int mouseY = this.getContext().mouseY;
-                UIKeyframeSheet sheet = this.keyframeEditor.view.getGraph().getSheet(mouseY);
+                UIKeyframeSheet sheet = this.keyframeEditor.view.getGraph().getSheet(this.getContext().mouseX, mouseY);
 
                 UIReplaysEditorUtils.addOverlayTrackAction(menu, sheet, parent ->
                 {
@@ -440,27 +437,25 @@ public class UIAnimationStateEditor extends UIElement
                     });
                 }
 
-                if (this.keyframeEditor.view.getGraph() instanceof UIKeyframeDopeSheet)
+                menu.action(Icons.FILTER, UIKeys.FILM_REPLAY_FILTER_SHEETS, () ->
                 {
-                    menu.action(Icons.FILTER, UIKeys.FILM_REPLAY_FILTER_SHEETS, () ->
+                    Map<String, Integer> keyToColor = new HashMap<>();
+                    for (UIKeyframeSheet listed : this.keyframeEditor.view.getSheets())
                     {
-                        Map<String, Integer> keyToColor = new HashMap<>();
-                        for (UIKeyframeSheet listed : this.keyframeEditor.view.getGraph().getSheets())
-                        {
-                            keyToColor.put(UIReplaysEditor.getSheetFilterKey(listed), listed.color);
-                        }
-                        UIKeyframeSheetFilterOverlayPanel panel = new UIKeyframeSheetFilterOverlayPanel(BBSSettings.disabledSheets.get(), this.keys, keyToColor);
+                        keyToColor.put(UIReplaysEditor.getSheetFilterKey(listed), listed.color);
+                    }
+                    UIKeyframeSheetFilterOverlayPanel panel = new UIKeyframeSheetFilterOverlayPanel(BBSSettings.disabledSheets.get(), this.keys, keyToColor);
 
-                        UIOverlay.addOverlay(this.getContext(), panel, 240, 0.9F);
+                    UIOverlay.addOverlay(this.getContext(), panel, 240, 0.9F);
 
-                        panel.onClose((e) ->
-                        {
-                            this.revealedSearchTrack = null;
-                            this.setState(this.state);
-                            BBSSettings.disabledSheets.set(BBSSettings.disabledSheets.get());
-                        });
+                    panel.onClose((e) ->
+                    {
+                        this.revealedSearchTrack = null;
+                        this.setState(this.state);
+                        BBSSettings.disabledSheets.set(BBSSettings.disabledSheets.get());
                     });
-                }
+                });
+
             });
 
             for (UIKeyframeSheet sheet : sheets)
@@ -468,11 +463,14 @@ public class UIAnimationStateEditor extends UIElement
                 this.keyframeEditor.view.addSheet(sheet);
             }
 
-            if (lastEditor != null) this.keyframeEditor.view.copySelection(lastEditor);
-
             /* The tracks that fold under another one fold here too: a model form contributes dozens of
              * bone and material rows, and unfolded they bury the form's own properties. */
             this.keyframeEditor.view.getDopeSheet().setExpanded(this.expandedTabs);
+            if (lastEditor != null)
+            {
+                this.keyframeEditor.view.copyViewport(lastEditor);
+                this.keyframeEditor.view.copySelection(lastEditor);
+            }
 
             this.timelineArea.add(this.keyframeEditor);
             this.categoryBar.removeFromParent();
@@ -821,10 +819,8 @@ public class UIAnimationStateEditor extends UIElement
             this.setState(this.state);
         }
 
-        boolean notEditing = this.keyframeEditor == null || !this.keyframeEditor.view.isEditing();
-        this.categoryBar.setVisible(this.state != null && notEditing);
-        this.partHeader.setVisible(this.state != null && notEditing && this.keyframeEditor != null
-            && this.keyframeEditor.view.getGraph() == this.keyframeEditor.view.getDopeSheet());
+        this.categoryBar.setVisible(this.state != null);
+        this.partHeader.setVisible(this.state != null && this.keyframeEditor != null);
         if (this.partHeader.isVisible())
         {
             int width = Math.min(this.keyframeEditor.view.getLabelWidth(), this.keyframeEditor.view.area.w);

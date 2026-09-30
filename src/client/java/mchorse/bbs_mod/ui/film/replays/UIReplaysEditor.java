@@ -60,6 +60,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.BoneSelection;
 import mchorse.bbs_mod.ui.utils.IBoneSelectionHost;
 import mchorse.bbs_mod.ui.utils.Area;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.Scale;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 import mchorse.bbs_mod.ui.utils.context.MenuVerb;
@@ -364,9 +365,11 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             area.render(context.batcher, BBSSettings.baseSurface());
         }));
         UILabel partName = new UILabel(this::getSelectedPartName).color(0xffaaaaaa, false).labelAnchor(0F, 0.5F);
-        partName.relative(this.partHeader).x(5).y(0).w(1F, -10).h(1F);
+        partName.relative(this.partHeader).x(5).y(0).w(1F, -UIConstants.ICON_SIZE - 10).h(1F);
         partName.tooltip(() -> L10n.lang("bbs.ui.film.replays.selected_body_part").format(this.getSelectedPartName()).get());
-        this.partHeader.add(partName);
+        UIIcon graph = UIKeyframes.modeButton(() -> this.keyframeEditor == null ? null : this.keyframeEditor.view);
+        graph.relative(this.partHeader).x(1F, -UIConstants.ICON_SIZE).y(0.5F).anchorY(0.5F);
+        this.partHeader.add(partName, graph);
         this.add(this.partHeader);
         this.markContainer();
     }
@@ -648,19 +651,13 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
             this.layoutActionsToggle();
 
-            /* Reset */
-            if (lastEditor != null)
-            {
-                this.keyframeEditor.view.copyViewport(lastEditor);
-            }
-
             this.keyframeEditor.view.rulerRenderer((context) -> renderRuler(context, this.keyframeEditor.view, this.filmPanel.cameraEditor, this.film.camera, 0));
             this.keyframeEditor.view.duration(() -> this.film.camera.calculateDuration());
             this.keyframeEditor.view.context(menu ->
             {
                 menu.action(Icons.SEARCH, Keys.FILM_TRACK_SEARCH.label, this::openTrackSearch);
                 int mouseY = this.getContext().mouseY;
-                UIKeyframeSheet sheet = this.keyframeEditor.view.getGraph().getSheet(mouseY);
+                UIKeyframeSheet sheet = this.keyframeEditor.view.getGraph().getSheet(this.getContext().mouseX, mouseY);
 
                 UIReplaysEditorUtils.addOverlayTrackAction(menu, sheet, parent ->
                 {
@@ -742,32 +739,30 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
                     }
                 }
 
-                if (this.keyframeEditor.view.getGraph() instanceof UIKeyframeDopeSheet)
+                menu.action(Icons.FILTER, UIKeys.FILM_REPLAY_FILTER_SHEETS, () ->
                 {
-                    menu.action(Icons.FILTER, UIKeys.FILM_REPLAY_FILTER_SHEETS, () ->
+                    Set<String> disabledSet = BBSSettings.disabledSheets.get();
+                    Map<String, Integer> keyToColor = new HashMap<>();
+                    for (UIKeyframeSheet listed : this.keyframeEditor.view.getSheets())
                     {
-                        Set<String> disabledSet = BBSSettings.disabledSheets.get();
-                        Map<String, Integer> keyToColor = new HashMap<>();
-                        for (UIKeyframeSheet listed : this.keyframeEditor.view.getGraph().getSheets())
-                        {
-                            keyToColor.put(getSheetFilterKey(listed), listed.color);
-                        }
-                        UIKeyframeSheetFilterOverlayPanel panel = new UIKeyframeSheetFilterOverlayPanel(
-                                disabledSet,
-                                this.keys,
-                                keyToColor
-                        );
+                        keyToColor.put(getSheetFilterKey(listed), listed.color);
+                    }
+                    UIKeyframeSheetFilterOverlayPanel panel = new UIKeyframeSheetFilterOverlayPanel(
+                            disabledSet,
+                            this.keys,
+                            keyToColor
+                    );
 
-                        UIOverlay.addOverlay(this.getContext(), panel, 240, 0.9F);
+                    UIOverlay.addOverlay(this.getContext(), panel, 240, 0.9F);
 
-                        panel.onClose(e ->
-                        {
-                            this.revealedSearchTrack = null;
-                            BBSSettings.disabledSheets.set(disabledSet);
-                            this.updateChannelsList();
-                        });
+                    panel.onClose(e ->
+                    {
+                        this.revealedSearchTrack = null;
+                        BBSSettings.disabledSheets.set(disabledSet);
+                        this.updateChannelsList();
                     });
-                }
+                });
+
             });
 
             for (UIKeyframeSheet sheet : sheets)
@@ -775,9 +770,12 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
                 this.keyframeEditor.view.addSheet(sheet);
             }
 
-            if (lastEditor != null) this.keyframeEditor.view.copySelection(lastEditor);
-
             this.keyframeEditor.view.getDopeSheet().setExpanded(this.getExpandedTracks());
+            if (lastEditor != null)
+            {
+                this.keyframeEditor.view.copyViewport(lastEditor);
+                this.keyframeEditor.view.copySelection(lastEditor);
+            }
 
             this.add(this.keyframeEditor);
             /* Category bar + actions toggle on top so they overlay the track names column. */
@@ -1280,13 +1278,10 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             this.updateChannelsList();
         }
 
-        /* Hide category bar + actions toggle while the "edit track" overlay is open */
-        boolean notEditing = this.keyframeEditor == null || !this.keyframeEditor.view.isEditing();
 
-        this.iconBar.setVisible(this.timelineVisible && notEditing);
-        this.actionsToggle.setVisible(this.timelineVisible && notEditing);
+        this.iconBar.setVisible(this.timelineVisible);
+        this.actionsToggle.setVisible(this.timelineVisible);
         boolean sectionsAvailable = !this.actionsMode && this.keyframeEditor != null
-            && this.keyframeEditor.view.getGraph() == this.keyframeEditor.view.getDopeSheet()
             && this.keyframeEditor.view.getDopeSheet().hasSections();
 
         boolean foldingButtonFits = true;
@@ -1300,15 +1295,15 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             }
         }
 
-        this.sectionsToggle.setVisible(this.timelineVisible && notEditing && foldingButtonFits);
+        this.sectionsToggle.setVisible(this.timelineVisible && foldingButtonFits);
         this.sectionsToggle.setEnabled(sectionsAvailable);
         boolean collapseSections = sectionsAvailable && this.keyframeEditor.view.getDopeSheet().hasExpandedSections();
 
         this.sectionsToggle.both(collapseSections ? Icons.COLLAPSE_ALL : Icons.EXPAND_ALL);
         this.sectionsToggle.tooltip(L10n.lang(collapseSections
             ? "bbs.ui.film.replays.collapse_all" : "bbs.ui.film.replays.expand_all"), Direction.RIGHT);
-        this.partHeader.setVisible(this.timelineVisible && notEditing && !this.actionsMode && this.replay != null
-            && this.keyframeEditor != null && this.keyframeEditor.view.getGraph() == this.keyframeEditor.view.getDopeSheet());
+        this.partHeader.setVisible(this.timelineVisible && !this.actionsMode && this.replay != null
+            && this.keyframeEditor != null);
 
         if (this.partHeader.isVisible())
         {

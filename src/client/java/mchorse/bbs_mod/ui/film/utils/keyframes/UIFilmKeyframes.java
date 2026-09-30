@@ -49,7 +49,7 @@ public class UIFilmKeyframes extends UIKeyframes
         var channels = replay.keyframes;
         boolean position = false;
         boolean rotation = false;
-        for (var sheet : this.getGraph().getSheets())
+        for (var sheet : this.getOperationSheets())
         {
             if (sheet != this.getActiveSheet() && !sheet.selection.hasAny()) continue;
             position |= sheet.channel == channels.x || sheet.channel == channels.y || sheet.channel == channels.z;

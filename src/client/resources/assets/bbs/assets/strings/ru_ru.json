@@ -1,4 +1,12 @@
 {
+	"bbs.ui.keyframes.mode.keys": "Ключи",
+	"bbs.ui.keyframes.mode.graph": "Граф",
+	"bbs.ui.keyframes.graph.empty": "Выберите числовые дорожки",
+	"bbs.ui.keyframes.graph.fit_selected": "Показать выделенные ключи",
+	"bbs.ui.keyframes.graph.fit_all": "Показать все кривые",
+	"bbs.ui.keyframes.graph.scale_time": "Масштаб времени от курсора",
+	"bbs.ui.keyframes.graph.scale_value": "Масштаб значения от нуля",
+	"bbs.ui.keyframes.graph.loop_hidden": "Покажите все дорожки этого цикла",
 	"bbs.ui.spline.title": "Сплайн",
 	"bbs.ui.camera.clips.bbs:spline": "Сплайн",
 	"bbs.ui.spline.start": "Начало",

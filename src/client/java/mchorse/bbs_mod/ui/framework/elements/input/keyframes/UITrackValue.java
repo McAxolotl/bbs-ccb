@@ -33,7 +33,7 @@ public class UITrackValue<T>
     {
         List<UIKeyframeSheet> targets = new ArrayList<>();
 
-        for (UIKeyframeSheet candidate : this.editor.getGraph().getSheets())
+        for (UIKeyframeSheet candidate : this.editor.getOperationSheets())
         {
             if (candidate.channel.getFactory() == this.getFactory() && candidate.selection.hasAny())
             {
