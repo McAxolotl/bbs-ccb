@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
@@ -20,8 +21,8 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
 
     private int lastMouseX;
     private boolean editingMode;
-    private double editingInitialValue;
     private T displayedValue;
+    private final UIElement editingOverlay = new AcceptRejectOverlay();
 
     public UINumericKeyframeFactory(UITrackValue<T> track, UIKeyframes editor)
     {
@@ -61,15 +62,16 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
     {
         UIContext context = this.getContext();
 
-        if (context == null)
+        if (context == null || this.editingMode)
         {
             return;
         }
 
+        this.update();
         this.editor.beginValueGesture();
-        this.editingInitialValue = this.value.getValue();
         this.lastMouseX = context.mouseX;
         this.editingMode = true;
+        context.menu.overlay.add(this.editingOverlay);
     }
 
     private void stopEditingMode(boolean accept)
@@ -80,58 +82,53 @@ public abstract class UINumericKeyframeFactory <T extends Number> extends UIKeyf
         }
 
         this.editingMode = false;
+        this.editingOverlay.removeFromParent();
 
         if (accept) this.editor.endValueGesture();
-
-        if (!accept)
-        {
-            this.value.setValue(this.editingInitialValue);
-            this.editor.cancelValueGesture();
-        }
+        else this.editor.cancelValueGesture();
+        this.update();
     }
 
     @Override
-    public boolean subMouseClicked(UIContext context)
+    protected void onRemove(UIElement parent)
     {
-        if (this.editingMode)
-        {
-            if (context.mouseButton == 0)
-            {
-                this.stopEditingMode(true);
-
-                return true;
-            }
-            else if (context.mouseButton == 1)
-            {
-                this.stopEditingMode(false);
-
-                return true;
-            }
-        }
-
-        return super.subMouseClicked(context);
+        this.stopEditingMode(false);
+        super.onRemove(parent);
     }
 
-    @Override
-    protected boolean subKeyPressed(UIContext context)
+    /** Handle the gesture before fields, timelines and their context menus. */
+    private class AcceptRejectOverlay extends UIElement
     {
-        if (this.editingMode)
+        @Override
+        protected boolean subMouseClicked(UIContext context)
         {
-            if (context.isPressed(GLFW.GLFW_KEY_ENTER))
+            if (context.mouseButton == 0 || context.mouseButton == 1)
             {
-                this.stopEditingMode(true);
+                UINumericKeyframeFactory.this.stopEditingMode(context.mouseButton == 0);
+            }
+            return true;
+        }
 
-                return true;
+        @Override
+        protected boolean subKeyPressed(UIContext context)
+        {
+            if (context.isPressed(GLFW.GLFW_KEY_ENTER) || context.isPressed(GLFW.GLFW_KEY_KP_ENTER))
+            {
+                UINumericKeyframeFactory.this.stopEditingMode(true);
             }
             else if (context.isPressed(GLFW.GLFW_KEY_ESCAPE))
             {
-                this.stopEditingMode(false);
-
-                return true;
+                UINumericKeyframeFactory.this.stopEditingMode(false);
             }
+            return true;
         }
 
-        return super.subKeyPressed(context);
+        @Override
+        protected boolean subMouseScrolled(UIContext context)
+        {
+            UITrackpad.updateAmplifier(context);
+            return true;
+        }
     }
 
     /** Nothing is refreshed under the user's hands: not while typing, dragging or grabbing. */
