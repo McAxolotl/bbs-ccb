@@ -633,7 +633,7 @@ public class UIVanillaSoundList extends UIStringList
      * Find the downloaded file for a list entry, or null when it hasn't been downloaded.
      * Downloads are named after the flattened display name, so that is what to look for.
      */
-    private String findDownloadedSound(String displayName)
+    public String findDownloadedSound(String displayName)
     {
         try
         {

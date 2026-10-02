@@ -512,39 +512,8 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
 
     private String findDownloadedSoundInAddMode(String displayName)
     {
-        File gameDir = BBSMod.getGameFolder();
-        File audioDir = new File(gameDir, "config/bbs/assets/audio");
-
-        if (!audioDir.exists() || !audioDir.isDirectory())
-        {
-            return null;
-        }
-
-        String originalName = displayName;
-
-        if (originalName.startsWith("Music: ") || originalName.startsWith("Sound: "))
-        {
-            originalName = originalName.substring(7);
-        }
-
-        File exactMatch = new File(audioDir, originalName + ".ogg");
-
-        if (exactMatch.exists())
-        {
-            return "assets:audio/" + originalName + ".ogg";
-        }
-
-        for (int suffix = 1; suffix < 100; suffix++)
-        {
-            File file = new File(audioDir, originalName + "_" + suffix + ".ogg");
-
-            if (file.exists())
-            {
-                return "assets:audio/" + originalName + "_" + suffix + ".ogg";
-            }
-        }
-
-        return null;
+        /* The list owns the naming scheme for downloads; ask it so the two can't drift. */
+        return this.vanillaSoundList == null ? null : this.vanillaSoundList.findDownloadedSound(displayName);
     }
 
     @Override
