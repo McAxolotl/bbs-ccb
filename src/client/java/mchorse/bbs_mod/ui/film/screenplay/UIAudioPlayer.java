@@ -67,6 +67,10 @@ public class UIAudioPlayer extends UIElement implements IUITreeEventListener
 
     public void loadAudio(Wave wave, List<ColorCode> colorCodes)
     {
+        /* Replacing the preview must release the previous OpenAL source and buffer,
+         * otherwise every pick leaks one of each. */
+        this.delete();
+
         this.wave = wave;
         this.waveform = new Waveform();
 
