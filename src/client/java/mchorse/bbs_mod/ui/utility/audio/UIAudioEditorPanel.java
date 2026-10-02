@@ -149,13 +149,13 @@ public class UIAudioEditorPanel extends UIEditorDashboardPanel
     @Override
     public void openDataManager()
     {
-        UIOverlay.addOverlay(this.getContext(), new UISoundOverlayPanel(this::openAudio));
+        UIOverlay.addOverlay(this.getContext(), new UISoundOverlayPanel(this::openAudio, this.getContext()));
     }
 
     @Override
     public void showInList(String id)
     {
-        UISoundOverlayPanel panel = new UISoundOverlayPanel(this::openAudio);
+        UISoundOverlayPanel panel = new UISoundOverlayPanel(this::openAudio, this.getContext());
 
         UIOverlay.addOverlay(this.getContext(), panel);
         panel.set(id);
