@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.ui.framework.elements.input.list;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import mchorse.bbs_mod.audio.AudioCacheManager;
@@ -24,6 +26,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +51,9 @@ public class UIVanillaSoundList extends UIStringList
     private SoundLikeManager likeManager;
     private boolean loaded = false;
     private JsonObject cachedSoundsJson = null;
+
+    /** Guards against cyclic "type": "event" references while resolving sound entries. */
+    private static final int MAX_EVENT_DEPTH = 16;
 
     public UIVanillaSoundList(Consumer<List<String>> callback, SoundLikeManager likeManager)
     {
@@ -173,12 +180,9 @@ public class UIVanillaSoundList extends UIStringList
                         for (int i = 0; i < actualSoundPaths.size(); i++)
                         {
                             String soundPathFull = actualSoundPaths.get(i);
-                            
-                            String pathWithoutExt = soundPathFull.endsWith(".ogg")
-                                ? soundPathFull.substring(0, soundPathFull.length() - 4)
-                                : soundPathFull;
-                            
-                            String flatDisplayName = pathWithoutExt.replace("/", "_");
+
+                            /* toResourcePath() always yields an .ogg path */
+                            String flatDisplayName = soundPathFull.substring(0, soundPathFull.length() - 4).replace("/", "_");
                             
                             String uniqueKey = flatDisplayName;
                             int uniqueSuffix = 1;
@@ -211,98 +215,225 @@ public class UIVanillaSoundList extends UIStringList
         }
     }
     /**
-     * Load and cache sounds.json
+     * Load and cache the merged sounds.json.
+     *
+     * <p>Vanilla merges {@code sounds.json} from every resource pack (lowest priority first,
+     * highest last). A mod like VanillaBackport ships a partial {@code minecraft:sounds.json}
+     * holding only the sounds it backports, so reading just {@link ResourceManager#getResource}
+     * would return that partial file and hide every vanilla sound it doesn't list.
+     *
+     * <p>Per entry this mirrors vanilla's {@code SoundList#register}: a later pack appends its
+     * sounds to the ones already defined for the same event, unless the entry carries
+     * {@code "replace": true}, which discards everything registered for that event before it.
      */
     private JsonObject loadSoundsJson(ResourceManager resourceManager)
     {
-        try
+        Identifier soundsJsonId = new Identifier("minecraft", "sounds.json");
+        JsonObject merged = new JsonObject();
+
+        /* getAllResources returns packs lowest priority first, top pack last - the same
+         * order vanilla's SoundManager registers them in. */
+        for (Resource resource : resourceManager.getAllResources(soundsJsonId))
         {
-            Identifier soundsJsonId = new Identifier("minecraft", "sounds.json");
-            Optional<Resource> resource = resourceManager.getResource(soundsJsonId);
-
-            if (resource.isPresent())
+            try (InputStream inputStream = resource.getInputStream())
             {
-                try (InputStream inputStream = resource.get().getInputStream())
-                {
-                    String jsonContent = IOUtils.readText(inputStream);
+                String jsonContent = IOUtils.readText(inputStream);
+                JsonObject parsed = JsonParser.parseString(jsonContent).getAsJsonObject();
 
-                    return JsonParser.parseString(jsonContent).getAsJsonObject();
+                for (String key : parsed.keySet())
+                {
+                    this.mergeSoundEntry(merged, key, parsed.get(key));
                 }
             }
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
+            catch (Exception e)
+            {
+                /* One broken pack (invalid JSON, unreadable entry) must not hide every other
+                 * pack's sounds; vanilla logs the bad file and keeps going. */
+                e.printStackTrace();
+            }
         }
 
-        return null;
+        return merged;
     }
 
     /**
-     * Find all actual sound file paths from cached sounds.json (skip event references)
+     * Merge one sound event entry into the accumulated map, following vanilla's
+     * replace-or-append rule for duplicate event names across resource packs.
      */
-    private List<String> findAllSoundFilesFromCache(Identifier soundId)
+    private void mergeSoundEntry(JsonObject merged, String key, JsonElement entry)
     {
-        if (this.cachedSoundsJson == null)
+        if (!merged.has(key) || !entry.isJsonObject() || this.isReplace(entry.getAsJsonObject()))
+        {
+            merged.add(key, entry);
+
+            return;
+        }
+
+        JsonElement existing = merged.get(key);
+
+        if (!existing.isJsonObject())
+        {
+            merged.add(key, entry);
+
+            return;
+        }
+
+        JsonObject existingObj = existing.getAsJsonObject();
+        JsonObject entryObj = entry.getAsJsonObject();
+
+        if (!entryObj.has("sounds") || !entryObj.get("sounds").isJsonArray())
+        {
+            /* Nothing to append; the entry that was registered first stays */
+            return;
+        }
+
+        if (!existingObj.has("sounds") || !existingObj.get("sounds").isJsonArray())
+        {
+            /* The event was first registered without a sounds array; vanilla keeps that
+             * registration (and its subtitle) and only adds the new sounds to it. */
+            JsonObject combined = existingObj.deepCopy();
+
+            combined.add("sounds", entryObj.getAsJsonArray("sounds"));
+            merged.add(key, combined);
+
+            return;
+        }
+
+        /* Appending keeps the first subtitle, exactly like vanilla's WeightedSoundSet. */
+        JsonArray sounds = existingObj.getAsJsonArray("sounds");
+
+        for (JsonElement sound : entryObj.getAsJsonArray("sounds"))
+        {
+            sounds.add(sound);
+        }
+    }
+
+    private boolean isReplace(JsonObject entry)
+    {
+        return entry.has("replace") && entry.get("replace").isJsonPrimitive() && entry.get("replace").getAsBoolean();
+    }
+
+    /**
+     * Strip a {@code minecraft:} namespace off a sound name. Names in other namespaces
+     * can't be resolved from the merged {@code minecraft} sounds.json, so they return null.
+     */
+    private static String stripMinecraftNamespace(String name)
+    {
+        int colon = name.indexOf(':');
+
+        if (colon < 0)
+        {
+            return name;
+        }
+
+        String namespace = name.substring(0, colon);
+
+        return namespace.equals("minecraft") ? name.substring(colon + 1) : null;
+    }
+
+    /**
+     * Resolve a concrete sound name from sounds.json into the resource path of its .ogg.
+     * Names may be namespaced ({@code minecraft:block/copper_bulb/toggle}); the namespace
+     * is stripped and the extension is filled in so the file can be looked up as
+     * {@code minecraft:sounds/<path>}. A name in another namespace can't be resolved by this
+     * minecraft-only browser, so it returns null.
+     */
+    private static String toResourcePath(String name)
+    {
+        String path = stripMinecraftNamespace(name);
+
+        if (path == null)
         {
             return null;
         }
 
-        try
+        return path.endsWith(".ogg") ? path : path + ".ogg";
+    }
+
+    /**
+     * Find all actual sound file paths for a sound event, following "type": "event"
+     * references (e.g. {@code entity.parrot.imitate.zombie_nautilus} pointing at
+     * {@code entity.zombie_nautilus.ambient}) the same way vanilla's SoundList does.
+     */
+    private List<String> findAllSoundFilesFromCache(Identifier soundId)
+    {
+        List<String> actualPaths = new ArrayList<>();
+
+        this.collectSoundFiles(soundId.getPath(), actualPaths, new ArrayDeque<>());
+
+        return actualPaths.isEmpty() ? null : actualPaths;
+    }
+
+    /**
+     * Walk a sound entry, appending concrete file paths and recursing into event
+     * references. A reference cycle (mods can be sloppy) is dropped instead of
+     * recursing forever.
+     */
+    private void collectSoundFiles(String soundPath, List<String> out, Deque<String> visiting)
+    {
+        if (visiting.size() >= MAX_EVENT_DEPTH || visiting.contains(soundPath))
         {
-            String soundPath = soundId.getPath();
-            JsonObject soundEntry = this.cachedSoundsJson.getAsJsonObject(soundPath);
-            
-            if (soundEntry == null)
-            {
-                return null;
-            }
-            
-            if (soundEntry.has("sounds") && soundEntry.get("sounds").isJsonArray())
-            {
-                var soundsArray = soundEntry.getAsJsonArray("sounds");
-                List<String> actualPaths = new ArrayList<>();
-                
-                for (int i = 0; i < soundsArray.size(); i++)
-                {
-                    var sound = soundsArray.get(i);
-                    
-                    if (sound.isJsonPrimitive())
-                    {
-                        String path = sound.getAsString();
-                        actualPaths.add(path);
-                    }
-                    else if (sound.isJsonObject())
-                    {
-                        var soundObj = sound.getAsJsonObject();
-                        
-                        if (soundObj.has("type") && soundObj.get("type").getAsString().equals("event"))
-                        {
-                            continue;
-                        }
-                        
-                        if (soundObj.has("name"))
-                        {
-                            String path = soundObj.get("name").getAsString();
-                            actualPaths.add(path);
-                        }
-                    }
-                }
-                
-                if (actualPaths.isEmpty())
-                {
-                    return null;
-                }
-                
-                return actualPaths;
-            }
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
+            return;
         }
 
-        return null;
+        JsonObject soundEntry = this.cachedSoundsJson.getAsJsonObject(soundPath);
+
+        if (soundEntry == null || !soundEntry.has("sounds") || !soundEntry.get("sounds").isJsonArray())
+        {
+            return;
+        }
+
+        visiting.push(soundPath);
+
+        try
+        {
+            for (var sound : soundEntry.getAsJsonArray("sounds"))
+            {
+                if (sound.isJsonPrimitive())
+                {
+                    String path = toResourcePath(sound.getAsString());
+
+                    if (path != null)
+                    {
+                        out.add(path);
+                    }
+                }
+                else if (sound.isJsonObject())
+                {
+                    JsonObject soundObj = sound.getAsJsonObject();
+
+                    if (!soundObj.has("name"))
+                    {
+                        continue;
+                    }
+
+                    String name = soundObj.get("name").getAsString();
+
+                    if (soundObj.has("type") && soundObj.get("type").getAsString().equals("event"))
+                    {
+                        String key = stripMinecraftNamespace(name);
+
+                        if (key != null)
+                        {
+                            this.collectSoundFiles(key, out, visiting);
+                        }
+                    }
+                    else
+                    {
+                        String path = toResourcePath(name);
+
+                        if (path != null)
+                        {
+                            out.add(path);
+                        }
+                    }
+                }
+            }
+        }
+        finally
+        {
+            visiting.pop();
+        }
     }
 
     /**
@@ -499,7 +630,8 @@ public class UIVanillaSoundList extends UIStringList
     }
 
     /**
-     * Find downloaded sound file path
+     * Find the downloaded file for a list entry, or null when it hasn't been downloaded.
+     * Downloads are named after the flattened display name, so that is what to look for.
      */
     private String findDownloadedSound(String displayName)
     {
@@ -514,7 +646,7 @@ public class UIVanillaSoundList extends UIStringList
             {
                 return null;
             }
-            
+
             String flatFileName = originalName;
 
             if (!flatFileName.endsWith(".ogg"))
@@ -523,7 +655,7 @@ public class UIVanillaSoundList extends UIStringList
             }
 
             File exactMatch = new File(audioDir, flatFileName);
-            
+
             if (exactMatch.exists())
             {
                 return "assets:audio/" + flatFileName;
@@ -539,7 +671,7 @@ public class UIVanillaSoundList extends UIStringList
     /**
      * Copy audio to temporary file for preview
      */
-    private String copyToTempFile(VanillaSoundAsset asset)
+    private File copyToTempFile(VanillaSoundAsset asset)
     {
         try
         {
@@ -548,17 +680,12 @@ public class UIVanillaSoundList extends UIStringList
             if (asset.actualSoundPaths != null && !asset.actualSoundPaths.isEmpty())
             {
                 String soundPath = asset.actualSoundPaths.get(0);
-                
-                if (!soundPath.endsWith(".ogg"))
-                {
-                    soundPath = soundPath + ".ogg";
-                }
-                
+
                 File cachedFile = cacheManager.getCachedFile(soundPath);
 
                 if (cachedFile != null && cachedFile.exists())
                 {
-                    return cachedFile.getName();
+                    return cachedFile;
                 }
                 
                 File cacheFile = cacheManager.createTempCacheFile(soundPath);
@@ -579,7 +706,7 @@ public class UIVanillaSoundList extends UIStringList
                         Files.copy(inputStream, cacheFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                     }
 
-                    return cacheFile.getName();
+                    return cacheFile;
                 }
             }
         }
@@ -651,12 +778,7 @@ public class UIVanillaSoundList extends UIStringList
             if (asset.actualSoundPaths != null && !asset.actualSoundPaths.isEmpty())
             {
                 String soundPath = asset.actualSoundPaths.get(0);
-                
-                if (!soundPath.endsWith(".ogg"))
-                {
-                    soundPath = soundPath + ".ogg";
-                }
-                
+
                 Identifier soundFileId = new Identifier("minecraft", "sounds/" + soundPath);
                 MinecraftClient client = MinecraftClient.getInstance();
                 Optional<Resource> resource = client.getResourceManager().getResource(soundFileId);
@@ -744,25 +866,7 @@ public class UIVanillaSoundList extends UIStringList
 
         try
         {
-            String tempFileName = this.copyToTempFile(asset);
-            
-            if (tempFileName != null)
-            {
-                AudioCacheManager cacheManager = AudioCacheManager.getInstance();
-                String soundPath = asset.actualSoundPaths.get(0);
-                
-                if (!soundPath.endsWith(".ogg"))
-                {
-                    soundPath = soundPath + ".ogg";
-                }
-                
-                File cacheFile = cacheManager.getCachedFile(soundPath);
-                
-                if (cacheFile != null && cacheFile.exists())
-                {
-                    return cacheFile;
-                }
-            }
+            return this.copyToTempFile(asset);
         }
         catch (Exception e)
         {
