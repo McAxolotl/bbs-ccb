@@ -321,7 +321,7 @@ public class SoundManager implements IWatchDogListener
         {
             Iterator<SoundPlayer> it = this.sounds.iterator();
 
-            if (it.hasNext())
+            while (it.hasNext())
             {
                 SoundPlayer player = it.next();
 
