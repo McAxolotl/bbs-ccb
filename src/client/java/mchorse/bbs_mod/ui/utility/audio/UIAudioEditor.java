@@ -191,6 +191,10 @@ public class UIAudioEditor extends UIElement
         }
         catch (Exception e)
         {
+            /* The old buffers are gone by now; keeping the stale link would leave the
+             * editor showing a file it can no longer play. */
+            this.audio = null;
+
             e.printStackTrace();
         }
     }
