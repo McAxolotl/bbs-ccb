@@ -128,12 +128,16 @@ public class UIAudioPlayer extends UIElement implements IUITreeEventListener
 
             this.waveform.render(context.batcher, Colors.WHITE, this.area.x + 20, this.area.y, w, this.area.h, offset, offset + w / PIXELS);
 
-            int x = this.area.x + 20 + (int) (playback * this.waveform.getPixelsPerSecond() - offset * PIXELS);
+            /* Once the window has scrolled (playback past 2s) the playhead is pinned to
+             * the right edge. Computing it from the clamped position keeps it exact:
+             * playback * pps - offset * PIXELS cancels two large floats and lands one
+             * pixel off on some frames, which shows up as a shimmering playhead. */
+            int x = this.area.x + 20 + (int) (Math.min(playback, 2F) * PIXELS);
 
             context.batcher.box(x, this.area.y, x + 1, this.area.ey(), Colors.CURSOR);
 
             int color = BBSSettings.primaryColor(Colors.A50);
-            String label = String.format("%.1f/%.1f", this.player.getPlaybackPosition(), this.player.getBuffer().getDuration());
+            String label = String.format("%.1f/%.1f", playback, this.player.getBuffer().getDuration());
             FontRenderer font = context.batcher.getFont();
 
             context.batcher.textCard(label, this.area.ex() - 5 - font.getWidth(label), this.area.y + (this.area.h - font.getHeight()) / 2, Colors.WHITE, color);
