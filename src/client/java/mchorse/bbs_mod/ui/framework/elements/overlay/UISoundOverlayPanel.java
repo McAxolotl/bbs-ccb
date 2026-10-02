@@ -41,6 +41,9 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
 {
     private static final int PLAYER_HEIGHT = 24;
 
+    /** Formats the picker offers; a user track keeps its own when renamed. */
+    private static final String[] AUDIO_EXTENSIONS = {".ogg", ".wav"};
+
     public UIAudioPlayer player;
 
     private final SoundLikeManager likeManager;
@@ -568,33 +571,42 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
             return;
         }
 
-        String oldFileName = oldName.replace("assets:audio/", "").replace(".ogg", "");
-        String newFileName = newName.replace("assets:audio/", "").replace(".ogg", "");
+        File oldFile = findAudioFile(oldName);
 
-        File oldFile = new File(BBSMod.getAssetsFolder(), "audio/" + oldFileName + ".ogg");
-        File newFile = new File(BBSMod.getAssetsFolder(), "audio/" + newFileName + ".ogg");
+        if (oldFile == null)
+        {
+            return;
+        }
+
+        /* Keep the format: renaming a .wav must not turn it into an .ogg */
+        String extension = oldFile.getName().toLowerCase().endsWith(".wav") ? ".wav" : ".ogg";
+        String newFileName = stripExtension(toRelativePath(newName));
+        File newFile = new File(getAudioDir(), newFileName + extension);
+        File newParent = newFile.getParentFile();
 
         if (newFile.exists())
         {
             return;
         }
 
-        if (!oldFile.exists())
+        if (newParent != null && !newParent.isDirectory())
         {
-            return;
+            newParent.mkdirs();
         }
 
         if (oldFile.renameTo(newFile))
         {
+            String newLink = "assets:audio/" + newFileName + extension;
+
             if (this.likeManager.isSoundLiked(oldName))
             {
                 this.likeManager.removeSound(oldName);
-                this.likeManager.setSoundLiked("assets:audio/" + newFileName + ".ogg", newFileName, true);
+                this.likeManager.setSoundLiked(newLink, newFileName, true);
             }
 
             if (this.renameCallback != null)
             {
-                this.renameCallback.accept(oldName, "assets:audio/" + newFileName + ".ogg");
+                this.renameCallback.accept(oldName, newLink);
             }
 
             this.refreshSoundList();
@@ -610,16 +622,15 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
             return;
         }
 
-        String fileName = soundName.replace("assets:audio/", "").replace(".ogg", "");
-        File audioFile = new File(BBSMod.getAssetsFolder(), "audio/" + fileName + ".ogg");
+        File audioFile = findAudioFile(soundName);
 
-        if (audioFile.exists() && audioFile.delete())
+        if (audioFile != null && audioFile.delete())
         {
             this.likeManager.removeSound(soundName);
 
             if (BBSModClient.getSounds() != null)
             {
-                BBSModClient.getSounds().stop(Link.assets("audio/" + fileName + ".ogg"));
+                BBSModClient.getSounds().stop(Link.assets("audio/" + toRelativePath(soundName)));
             }
 
             if (this.removeCallback != null)
@@ -631,6 +642,55 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
             this.refreshVanillaSoundList();
             this.refreshLikedList();
         }
+    }
+
+    private static File getAudioDir()
+    {
+        return new File(BBSMod.getAssetsFolder(), "audio");
+    }
+
+    /** Path of a list entry relative to the audio folder, e.g. {@code foo.wav}. */
+    private static String toRelativePath(String link)
+    {
+        return link.startsWith("assets:audio/") ? link.substring("assets:audio/".length()) : link;
+    }
+
+    /** The name without any supported audio extension. */
+    private static String stripExtension(String path)
+    {
+        String lower = path.toLowerCase();
+
+        for (String extension : AUDIO_EXTENSIONS)
+        {
+            if (lower.endsWith(extension))
+            {
+                return path.substring(0, path.length() - extension.length());
+            }
+        }
+
+        return path;
+    }
+
+    /**
+     * Resolve a list entry to the file on disk. User tracks can be .ogg or .wav, and the
+     * entry may or may not carry the extension, so both are tried.
+     */
+    private static File findAudioFile(String link)
+    {
+        String path = stripExtension(toRelativePath(link));
+        File audioDir = getAudioDir();
+
+        for (String extension : AUDIO_EXTENSIONS)
+        {
+            File file = new File(audioDir, path + extension);
+
+            if (file.exists())
+            {
+                return file;
+            }
+        }
+
+        return null;
     }
 
     private void stopCurrentPlayback()
