@@ -140,7 +140,9 @@ public abstract class FormRenderer <T extends Form>
 
         BBSProfiler.count(BBSProfiler.Section.FORM_RENDER);
 
-        this.form.applyStates(context.transition);
+        RepeatedFormRender repeated = RepeatedFormRender.current();
+        if (repeated == null) this.form.applyStates(context.transition);
+        else repeated.apply(this.form, context.transition);
 
         int light = context.light;
         boolean visible = this.form.visible.get();
@@ -148,7 +150,7 @@ public abstract class FormRenderer <T extends Form>
 
         if (!visible || (isPicking && !this.form.pickable.get()))
         {
-            this.form.unapplyStates();
+            if (repeated == null) this.form.unapplyStates();
 
             return;
         }
@@ -188,7 +190,7 @@ public abstract class FormRenderer <T extends Form>
 
         context.light = light;
 
-        this.form.unapplyStates();
+        if (repeated == null) this.form.unapplyStates();
     }
 
     protected void applyTransforms(MatrixStack stack, boolean origin, float transition)
