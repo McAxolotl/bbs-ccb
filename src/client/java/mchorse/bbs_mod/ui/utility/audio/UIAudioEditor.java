@@ -154,6 +154,10 @@ public class UIAudioEditor extends UIElement
             return;
         }
 
+        /* Switching files must release the previous OpenAL source and buffer first,
+         * otherwise every tab switch leaks one of each. */
+        this.delete();
+
         try
         {
             Wave wave = AudioReader.read(BBSMod.getProvider(), audio);
