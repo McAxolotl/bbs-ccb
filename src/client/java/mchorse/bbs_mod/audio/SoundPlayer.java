@@ -16,6 +16,23 @@ public class SoundPlayer
 
     private static float gainLimit = -1F;
 
+    /**
+     * How far the smoothed position may drift from OpenAL's reported offset before it
+     * snaps back. AL_SEC_OFFSET is only refreshed once per mixer period, so a playhead
+     * driven straight from it steps - and, because the refresh doesn't line up with the
+     * render frames, visibly wobbles. While the source keeps playing the position is
+     * extrapolated from the last reported value and corrected on real drift.
+     */
+    private static final float POSITION_SNAP_THRESHOLD = 0.05F;
+
+    /** Longest gap that still extrapolates; a bigger one (hidden UI, a stall) resyncs. */
+    private static final long POSITION_MAX_EXTRAPOLATION_NS = 250_000_000L;
+
+    /** Smoothed playback position (seconds) and when it was last updated. */
+    private float smoothedPosition;
+    private long smoothedPositionTime;
+    private boolean positionInitialized;
+
     private int source;
     private SoundBuffer buffer;
     private boolean unique;
@@ -201,7 +218,43 @@ public class SoundPlayer
 
     public float getPlaybackPosition()
     {
-        return AL10.alGetSourcef(this.source, AL11.AL_SEC_OFFSET);
+        float raw = AL10.alGetSourcef(this.source, AL11.AL_SEC_OFFSET);
+        long now = System.nanoTime();
+        boolean playing = this.isPlaying();
+
+        if (!this.positionInitialized)
+        {
+            this.smoothedPosition = raw;
+            this.positionInitialized = true;
+        }
+        else if (playing)
+        {
+            long elapsed = Math.min(now - this.smoothedPositionTime, POSITION_MAX_EXTRAPOLATION_NS);
+
+            this.smoothedPosition += elapsed / 1_000_000_000F;
+
+            /* OpenAL refreshes the offset once per mixer period; pull the smoothed value
+             * to it only when it has really drifted, so its jitter stays invisible. */
+            if (Math.abs(raw - this.smoothedPosition) > POSITION_SNAP_THRESHOLD)
+            {
+                this.smoothedPosition = raw;
+            }
+        }
+        else
+        {
+            this.smoothedPosition = raw;
+        }
+
+        this.smoothedPositionTime = now;
+
+        float duration = this.buffer == null ? 0F : this.buffer.getDuration();
+
+        if (duration > 0F)
+        {
+            this.smoothedPosition = MathUtils.clamp(this.smoothedPosition, 0F, duration);
+        }
+
+        return this.smoothedPosition;
     }
 
     public void setPlaybackPosition(float seconds)
@@ -209,6 +262,10 @@ public class SoundPlayer
         seconds = MathUtils.clamp(seconds, 0, this.buffer.getDuration());
 
         AL10.alSourcef(this.source, AL11.AL_SEC_OFFSET, seconds);
+
+        this.smoothedPosition = seconds;
+        this.smoothedPositionTime = System.nanoTime();
+        this.positionInitialized = true;
     }
 
     public void delete()
