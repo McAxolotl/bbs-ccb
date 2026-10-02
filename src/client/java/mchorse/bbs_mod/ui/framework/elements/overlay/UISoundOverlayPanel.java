@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -55,6 +56,8 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
     private ViewMode currentMode = null;
     private final UIContext context;
     private final Consumer<Link> originalCallback;
+    private BiConsumer<String, String> renameCallback;
+    private Consumer<String> removeCallback;
     private String selectedSound;
 
     public UISoundOverlayPanel(Consumer<Link> callback)
@@ -198,6 +201,18 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         this.refreshVanillaSoundList();
         this.refreshLikedList();
         this.switchToMode(ViewMode.FOLDER);
+    }
+
+    /** Called with the old and new link after a user track was renamed on disk. */
+    public void setRenameCallback(BiConsumer<String, String> callback)
+    {
+        this.renameCallback = callback;
+    }
+
+    /** Called with the link of a user track that was removed from disk. */
+    public void setRemoveCallback(Consumer<String> callback)
+    {
+        this.removeCallback = callback;
     }
 
     /** Every sound file the picker offers; the audio editor's landing screen goes by the same list. */
@@ -577,6 +592,11 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
                 this.likeManager.setSoundLiked("assets:audio/" + newFileName + ".ogg", newFileName, true);
             }
 
+            if (this.renameCallback != null)
+            {
+                this.renameCallback.accept(oldName, "assets:audio/" + newFileName + ".ogg");
+            }
+
             this.refreshSoundList();
             this.refreshVanillaSoundList();
             this.refreshLikedList();
@@ -600,6 +620,11 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
             if (BBSModClient.getSounds() != null)
             {
                 BBSModClient.getSounds().stop(Link.assets("audio/" + fileName + ".ogg"));
+            }
+
+            if (this.removeCallback != null)
+            {
+                this.removeCallback.accept(soundName);
             }
 
             this.refreshSoundList();

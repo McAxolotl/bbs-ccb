@@ -149,16 +149,49 @@ public class UIAudioEditorPanel extends UIEditorDashboardPanel
     @Override
     public void openDataManager()
     {
-        UIOverlay.addOverlay(this.getContext(), new UISoundOverlayPanel(this::openAudio, this.getContext()));
+        UIOverlay.addOverlay(this.getContext(), this.buildSoundPanel());
     }
 
     @Override
     public void showInList(String id)
     {
-        UISoundOverlayPanel panel = new UISoundOverlayPanel(this::openAudio, this.getContext());
+        UISoundOverlayPanel panel = this.buildSoundPanel();
 
         UIOverlay.addOverlay(this.getContext(), panel);
         panel.set(id);
+    }
+
+    /**
+     * The picker renames and deletes files behind the panel's back, so the open tabs and the
+     * recent list have to be told - otherwise a tab keeps pointing at a link that no longer
+     * resolves and fails to load.
+     */
+    private UISoundOverlayPanel buildSoundPanel()
+    {
+        UISoundOverlayPanel panel = new UISoundOverlayPanel(this::openAudio, this.getContext());
+
+        panel.setRenameCallback((from, to) ->
+        {
+            this.tabs.renameId(from, to);
+            BBSSettings.recentData.rename(RECENT, from, to);
+
+            if (from.equals(this.getOpenId()))
+            {
+                this.setAudio(Link.create(to));
+            }
+        });
+        panel.setRemoveCallback((id) ->
+        {
+            this.tabs.forgetId(id);
+            BBSSettings.recentData.forget(RECENT, id);
+
+            if (id.equals(this.getOpenId()))
+            {
+                this.setAudio(null);
+            }
+        });
+
+        return panel;
     }
 
     @Override
