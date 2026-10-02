@@ -597,7 +597,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
         for (TrackCategory category : TrackCategories.values())
         {
-            if (category != TrackCategory.REPLAY && category != TrackCategory.FORM && category != TrackCategory.POSE)
+            if (category != TrackCategory.REPLAY && category != TrackCategory.FORM)
                 this.updateTab(category, sheets);
         }
         /* Reattach in registry order, including tabs which became visible again. */
@@ -1096,8 +1096,8 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
     /**
      * Picking a model bone in the viewport is a pose edit, but the pose/bone tracks
-     * only exist in the {@link TrackCategory#POSE} category. So when another category
-     * is open, jump to Pose first (and out of actions mode) before delegating to the
+     * only exist in the {@link TrackCategory#FORM} category. So when another category
+     * is open, jump to Form first (and out of actions mode) before delegating to the
      * shared pick logic — otherwise the click finds no pose sheet in the current graph
      * and silently does nothing, forcing a manual tab switch.
      */
@@ -1123,9 +1123,9 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
             {
                 this.setActionsMode(false);
             }
-            else if (this.category != TrackCategory.POSE || this.actionsMode)
+            else if (this.category != TrackCategory.FORM || this.actionsMode)
             {
-                this.setCategory(TrackCategory.POSE);
+                this.setCategory(TrackCategory.FORM);
             }
         }
 
