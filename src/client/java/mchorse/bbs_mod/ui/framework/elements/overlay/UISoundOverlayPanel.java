@@ -598,6 +598,14 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         {
             String newLink = "assets:audio/" + newFileName + extension;
 
+            /* The waveform annotations live beside the audio as <name>.json */
+            File oldAnnotations = new File(oldFile.getPath() + ".json");
+
+            if (oldAnnotations.exists())
+            {
+                oldAnnotations.renameTo(new File(newFile.getPath() + ".json"));
+            }
+
             if (this.likeManager.isSoundLiked(oldName))
             {
                 this.likeManager.removeSound(oldName);
@@ -626,6 +634,8 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
 
         if (audioFile != null && audioFile.delete())
         {
+            new File(audioFile.getPath() + ".json").delete();
+
             this.likeManager.removeSound(soundName);
 
             if (BBSModClient.getSounds() != null)
