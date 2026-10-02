@@ -1712,6 +1712,15 @@ public class UIKeys
     public static final IKey TEXTURES_ALPHA_LOCK = L10n.lang("bbs.ui.textures.alpha_lock");
     public static final IKey TEXTURES_ERASER_OPACITY = L10n.lang("bbs.ui.textures.eraser_opacity");
     public static final IKey TEXTURES_COLOR_PRIMARY = L10n.lang("bbs.ui.textures.color.primary");
+    public static final IKey TEXTURES_MATERIAL = L10n.lang("bbs.ui.textures.material");
+    public static final IKey TEXTURES_MATERIAL_OVERLAY = L10n.lang("bbs.ui.textures.material.overlay");
+    public static final IKey TEXTURES_MATERIAL_NONE = L10n.lang("bbs.ui.textures.material.none");
+    public static final IKey TEXTURES_MATERIAL_EMISSION = L10n.lang("bbs.ui.textures.material.emission");
+    public static final IKey TEXTURES_MATERIAL_SMOOTHNESS = L10n.lang("bbs.ui.textures.material.smoothness");
+    public static final IKey TEXTURES_MATERIAL_METAL = L10n.lang("bbs.ui.textures.material.metal");
+    public static final IKey TEXTURES_MATERIAL_SMOOTH_METAL = L10n.lang("bbs.ui.textures.material.smooth_metal");
+    public static final IKey TEXTURES_MATERIAL_SMOOTH_EMISSION = L10n.lang("bbs.ui.textures.material.smooth_emission");
+    public static final IKey TEXTURES_MATERIAL_LOAD_ERROR = L10n.lang("bbs.ui.textures.material.load_error");
     public static final IKey TEXTURES_COLOR_SECONDARY = L10n.lang("bbs.ui.textures.color.secondary");
     public static final IKey TEXTURES_VIEWER_BRIGHTNESS = L10n.lang("bbs.ui.textures.viewer.brightness");
     public static final IKey TEXTURES_VIEWER_CONTEXT_COPY_HEX = L10n.lang("bbs.ui.textures.viewer.context.copy_hex");
