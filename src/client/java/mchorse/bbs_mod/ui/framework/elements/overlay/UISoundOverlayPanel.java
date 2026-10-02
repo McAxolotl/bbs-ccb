@@ -455,7 +455,9 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
 
                 if (newPlayer != null)
                 {
-                    BBSModClient.getSounds().deleteSounds();
+                    /* loadAudio() has already released the previous preview source. It used to
+                     * be deleteSounds() here, which also killed every other playing sound - an
+                     * audio clip in the film preview stopped the moment a sound was picked. */
                     newPlayer.play();
                 }
             }
