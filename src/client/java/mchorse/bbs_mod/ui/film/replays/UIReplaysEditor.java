@@ -38,6 +38,7 @@ import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.film.UIClipsPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIAnimationToPoseOverlayPanel;
@@ -195,7 +196,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
     /** Single home of the category rule: tabs only filter now, so collectors always gather and this decides where a sheet lands. */
     public static TrackCategory categoryOf(UIKeyframeSheet sheet)
     {
-        return categoryOf(sheet.id, sheet.property != null || sheet.form != null);
+        return categoryOf(sheet.id, getSheetForm(sheet) != null);
     }
 
     /**
@@ -847,7 +848,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
                 if (replaySection(key).equals(group))
                 {
                     KeyframeChannel channel = (KeyframeChannel) this.replay.keyframes.get(key);
-                    UIKeyframeSheet sheet = new UIKeyframeSheet(getColor(key), channel, null).icon(getIcon(key));
+                    UIKeyframeSheet sheet = new UIKeyframeSheet(key, IKey.constant(key), getColor(key), channel, key.equals("anchor") ? this.replay.anchor : null, false).icon(getIcon(key));
                     sheet.section = section;
                     sheets.add(sheet);
                 }
@@ -863,7 +864,7 @@ public class UIReplaysEditor extends UIElement implements IBoneSelectionHost
 
         return switch (key)
         {
-            case "x", "y", "z", "pitch", "yaw", "headYaw", "bodyYaw" -> "position_rotation";
+            case "x", "y", "z", "pitch", "yaw", "headYaw", "bodyYaw", "anchor" -> "position_rotation";
             case "vX", "vY", "vZ" -> "velocity";
             default -> "states";
         };

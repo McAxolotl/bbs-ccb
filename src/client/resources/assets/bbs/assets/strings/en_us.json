@@ -1388,6 +1388,8 @@
 	"bbs.ui.forms.list.expand_all": "Expand all categories",
 	"bbs.ui.forms.list.search": "Search...",
 	"bbs.ui.forms.list.status.selected": "%s forms selected",
+	"bbs.ui.generic_keyframes.anchor.detach": "Detach",
+	"bbs.ui.generic_keyframes.anchor.detach_tooltip": "Detach without moving",
 	"bbs.ui.generic_keyframes.anchor.keep_transform": "Keep transform",
 	"bbs.ui.generic_keyframes.anchor.keep_transform_tooltip": "Keep the form appearance when changing the target at the current frame.",
 	"bbs.ui.generic_keyframes.anchor.pick_actor": "Pick actor...",

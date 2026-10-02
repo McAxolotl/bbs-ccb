@@ -899,6 +899,8 @@ public class UIKeys
     public static final IKey GENERAL_Z = IKey.constant("Z");
     public static final IKey GENERIC_KEYFRAMES_ANCHOR_PICK_ACTOR = L10n.lang("bbs.ui.generic_keyframes.anchor.pick_actor");
     public static final IKey GENERIC_KEYFRAMES_ANCHOR_PICK_ATTACHMENT = L10n.lang("bbs.ui.generic_keyframes.anchor.pick_attachment");
+    public static final IKey GENERIC_KEYFRAMES_ANCHOR_DETACH = L10n.lang("bbs.ui.generic_keyframes.anchor.detach");
+    public static final IKey GENERIC_KEYFRAMES_ANCHOR_DETACH_TOOLTIP = L10n.lang("bbs.ui.generic_keyframes.anchor.detach_tooltip");
     public static final IKey GENERIC_KEYFRAMES_ANCHOR_KEEP_TRANSFORM = L10n.lang("bbs.ui.generic_keyframes.anchor.keep_transform");
     public static final IKey GENERIC_KEYFRAMES_ANCHOR_KEEP_TRANSFORM_TOOLTIP = L10n.lang("bbs.ui.generic_keyframes.anchor.keep_transform_tooltip");
     public static final IKey GENERIC_KEYFRAMES_BOOLEAN_TRUE = L10n.lang("bbs.ui.generic_keyframes.boolean.true");

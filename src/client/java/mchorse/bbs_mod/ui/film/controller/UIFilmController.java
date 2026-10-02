@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.film.controller;
 
+
 import mchorse.bbs_mod.forms.renderers.utils.RenderFrame;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.ui.utils.SplineKeyframeEditor;
@@ -489,6 +490,7 @@ public class UIFilmController extends UIElement implements GizmoViewport
         IEntity entity = this.getEntities().get(replay.getId());
         if (entity == null) return;
         entity.setForm(FormUtils.copy(replay.form.get()));
+        replay.anchor.setRuntimeValue(replay.evaluateAnchor(replay.getTick(this.panel.getCursor()) + this.panel.getRunner().getTransition(0F)));
         replay.properties.applyProperties(entity.getForm(), replay.getTick(this.panel.getCursor()) + this.panel.getRunner().getTransition(0F));
         RenderFrame.invalidate();
     }
@@ -1146,12 +1148,12 @@ public class UIFilmController extends UIElement implements GizmoViewport
         return keyframeEditor != null ? keyframeEditor.getBone() : null;
     }
 
-    /** Whether the selected keyframe is the form's anchor track, so its transform gets a gizmo. */
+    /** Whether the selected keyframe is the replay's anchor track, so its transform gets a gizmo. */
     public boolean isAnchorGizmo()
     {
         UIKeyframeEditor keyframeEditor = this.panel.replayEditor.keyframeEditor;
 
-        return keyframeEditor != null && keyframeEditor.isFormAnchorTrack();
+        return keyframeEditor != null && keyframeEditor.isReplayAnchorTrack();
     }
 
     /** The frame the anchor gizmo is placed, drawn and dragged in. */
