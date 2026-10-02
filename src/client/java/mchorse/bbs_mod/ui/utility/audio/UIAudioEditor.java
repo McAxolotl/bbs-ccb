@@ -24,12 +24,45 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class UIAudioEditor extends UIElement
 {
     private static final Area AREA = new Area();
+
+    /**
+     * Decoded audio per link, least recently used first.
+     *
+     * <p>Decoding a long .ogg is expensive - a 12 MB track measured ~530 ms to decode into
+     * 45 MB of PCM - and the editor redoes it on the render thread every time a tab is
+     * opened. Switching back and forth between tabs therefore froze the dashboard for as
+     * long as the user kept switching. Keeping recent files decoded makes returning to one
+     * instant.
+     *
+     * <p>PCM is large, so the cache is bounded by total bytes rather than by entry count;
+     * the entry in use is never evicted.
+     */
+    private static final long MAX_CACHED_WAVE_BYTES = 96L * 1024 * 1024;
+    private static final LinkedHashMap<Link, CachedWave> WAVE_CACHE = new LinkedHashMap<>(8, 0.75F, true);
+    private static long cachedWaveBytes;
+
+    /** A decoded wave together with the file timestamp it was decoded from. */
+    private static class CachedWave
+    {
+        final Wave wave;
+        final long modified;
+
+        CachedWave(Wave wave, long modified)
+        {
+            this.wave = wave;
+            this.modified = modified;
+        }
+    }
 
     public UIColor color;
 
@@ -158,15 +191,40 @@ public class UIAudioEditor extends UIElement
          * otherwise every tab switch leaks one of each. */
         this.delete();
 
-        try
+        /* Trust the cache only while the file on disk is unchanged; the picker renames and
+         * deletes files, and an outside edit must not leave a stale waveform on screen. */
+        File file = BBSMod.getProvider().getFile(audio);
+        long modified = file == null ? -1L : file.lastModified();
+        CachedWave cached = modified < 0L ? null : WAVE_CACHE.get(audio);
+        Wave wave = cached != null && cached.modified == modified ? cached.wave : null;
+
+        if (wave == null)
         {
-            Wave wave = AudioReader.read(BBSMod.getProvider(), audio);
+            try
+            {
+                wave = AudioReader.read(BBSMod.getProvider(), audio);
+            }
+            catch (Exception e)
+            {
+                /* Keeping the stale link would leave the editor showing a file it can no
+                 * longer play. */
+                this.audio = null;
+
+                e.printStackTrace();
+
+                return;
+            }
 
             if (wave.getBytesPerSample() > 2)
             {
                 wave = wave.convertTo16();
             }
 
+            cacheWave(audio, wave, modified);
+        }
+
+        try
+        {
             List<ColorCode> colorCodes = BBSModClient.getSounds().readColorCodes(audio);
 
             if (colorCodes == null)
@@ -196,6 +254,32 @@ public class UIAudioEditor extends UIElement
             this.audio = null;
 
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Remember a decoded wave, dropping the least recently used ones until the cache fits
+     * its byte budget. Never evicts {@code keep}, which the editor is about to use.
+     */
+    private static void cacheWave(Link link, Wave wave, long modified)
+    {
+        CachedWave previous = WAVE_CACHE.put(link, new CachedWave(wave, modified));
+
+        cachedWaveBytes += wave.data.length - (previous == null ? 0 : previous.wave.data.length);
+
+        Iterator<Map.Entry<Link, CachedWave>> it = WAVE_CACHE.entrySet().iterator();
+
+        while (cachedWaveBytes > MAX_CACHED_WAVE_BYTES && it.hasNext())
+        {
+            Map.Entry<Link, CachedWave> eldest = it.next();
+
+            if (eldest.getKey().equals(link))
+            {
+                continue;
+            }
+
+            cachedWaveBytes -= eldest.getValue().wave.data.length;
+            it.remove();
         }
     }
 
