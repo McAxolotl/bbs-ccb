@@ -827,7 +827,15 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor, IBo
 
     public void stopPlaybackOnScrub()
     {
-        if (this.playing && BBSSettings.editorStopPlaybackOnScrub.get())
+        if (BBSSettings.editorStopPlaybackOnScrub.get())
+        {
+            this.stopPlayback();
+        }
+    }
+
+    public void stopPlayback()
+    {
+        if (this.playing)
         {
             this.plause();
         }
